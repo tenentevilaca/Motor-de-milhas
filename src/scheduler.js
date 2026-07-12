@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const { parseExpression } = require('cron-parser');
 const db = require('./db');
 const { runSearch } = require('./search/runSearch');
 
@@ -18,10 +19,21 @@ const { runSearch } = require('./search/runSearch');
 const MAIN_CRON = process.env.SCHEDULE_CRON_MAIN || '0 6,13,21 * * *';
 const FLASHSALE_CRON = process.env.SCHEDULE_CRON_FLASHSALE || '0 */2 * * *';
 const TIMEZONE = process.env.SCHEDULE_TIMEZONE || 'America/Sao_Paulo';
+const enabled = process.env.DISABLE_SCHEDULER !== 'true';
+
+// Estado em memória só para mostrar na tela "quando rodou pela última vez" —
+// some a cada reinício do processo, o que é aceitável para essa finalidade.
+const state = {
+  lastMainRunAt: null,
+  lastFlashSaleRunAt: null,
+  lastMainSearchCount: null,
+  lastFlashSaleSearchCount: null,
+};
 
 async function runAllActiveSearches(label) {
   const searches = db.listSearches().filter((s) => s.active);
-  console.log(`[scheduler:${label}] rodando ${searches.length} busca(s) ativa(s) em ${new Date().toISOString()}`);
+  const now = new Date().toISOString();
+  console.log(`[scheduler:${label}] rodando ${searches.length} busca(s) ativa(s) em ${now}`);
   for (const search of searches) {
     try {
       const result = await runSearch(search);
@@ -32,6 +44,30 @@ async function runAllActiveSearches(label) {
       console.error(`[scheduler:${label}] erro na busca ${search.id} (${search.origin}->${search.destination}):`, err.message);
     }
   }
+  if (label === 'principal') {
+    state.lastMainRunAt = now;
+    state.lastMainSearchCount = searches.length;
+  } else {
+    state.lastFlashSaleRunAt = now;
+    state.lastFlashSaleSearchCount = searches.length;
+  }
+}
+
+function nextRun(cronExpr) {
+  try {
+    return parseExpression(cronExpr, { tz: TIMEZONE }).next().toDate().toISOString();
+  } catch {
+    return null;
+  }
+}
+
+function getStatus() {
+  return {
+    enabled,
+    timezone: TIMEZONE,
+    main: { cron: MAIN_CRON, lastRunAt: state.lastMainRunAt, lastSearchCount: state.lastMainSearchCount, nextRunAt: enabled ? nextRun(MAIN_CRON) : null },
+    flashSale: { cron: FLASHSALE_CRON, lastRunAt: state.lastFlashSaleRunAt, lastSearchCount: state.lastFlashSaleSearchCount, nextRunAt: enabled ? nextRun(FLASHSALE_CRON) : null },
+  };
 }
 
 function start() {
@@ -40,4 +76,4 @@ function start() {
   console.log(`Agendador iniciado (fuso ${TIMEZONE}): principal="${MAIN_CRON}" flash-sale="${FLASHSALE_CRON}"`);
 }
 
-module.exports = { start, runAllActiveSearches };
+module.exports = { start, runAllActiveSearches, getStatus };

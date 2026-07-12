@@ -99,4 +99,6 @@ public/               formulário + dashboard
 
 A busca de aeroporto por cidade/país usa a base [OpenFlights Airports Database](https://openflights.org/data.html)
 (`src/data/airports.json`, licença [ODbL](https://opendatacommons.org/licenses/odbl/)), com aliases de cidade/país
-em português em `src/data/cityAliases.js` e `src/data/countryAliases.js`.
+em português em `src/data/cityAliases.js` e `src/data/countryAliases.js`. Quando o local buscado não tem aeroporto
+próprio, a geocodificação para sugerir os aeroportos mais próximos usa o [Nominatim/OpenStreetMap](https://nominatim.org)
+(`src/geocode.js`) — © colaboradores do OpenStreetMap, uso gratuito respeitando o limite de ~1 requisição/segundo.

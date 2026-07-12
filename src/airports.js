@@ -67,4 +67,32 @@ function searchAirports(query, limit = 12) {
   }));
 }
 
-module.exports = { searchAirports };
+// Distância aproximada em km entre duas coordenadas (fórmula de haversine),
+// usada para sugerir os aeroportos mais próximos quando o local buscado não
+// tem aeroporto próprio (ex: uma cidade pequena).
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function nearestAirports(lat, lon, limit = 6) {
+  return normalizedAirports
+    .map((a) => ({ a, distanceKm: haversineKm(lat, lon, a.lat, a.lon) }))
+    .sort((x, y) => x.distanceKm - y.distanceKm)
+    .slice(0, limit)
+    .map(({ a, distanceKm }) => ({
+      iata: a.iata,
+      name: a.name,
+      city: a.city,
+      country: a.country,
+      distanceKm: Math.round(distanceKm),
+      label: `${a.iata} — ${a.name}, ${a.city} (${a.country}) · ~${Math.round(distanceKm)} km`,
+    }));
+}
+
+module.exports = { searchAirports, nearestAirports };

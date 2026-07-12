@@ -29,21 +29,26 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId }) {
     activeIndex = -1;
   }
 
-  function renderOptions(options) {
-    currentOptions = options;
-    if (options.length === 0) {
+  function renderOptions({ airports, nearby, place }) {
+    currentOptions = airports;
+    if (airports.length === 0) {
       list.innerHTML = '<div class="combobox-empty">Nenhum aeroporto encontrado</div>';
       list.classList.add('open');
       return;
     }
-    list.innerHTML = options
-      .map(
-        (o, i) =>
-          `<div class="combobox-option" data-index="${i}"><span class="iata">${o.iata}</span><span class="place">${o.name} — ${o.city}, ${o.country}</span></div>`
-      )
-      .join('');
+    const header = nearby
+      ? `<div class="combobox-empty">Sem aeroporto exato — mais próximos de ${place || 'onde você buscou'}:</div>`
+      : '';
+    list.innerHTML =
+      header +
+      airports
+        .map(
+          (o, i) =>
+            `<div class="combobox-option" data-index="${i}"><span class="iata">${o.iata}</span><span class="place">${o.name} — ${o.city}, ${o.country}${o.distanceKm != null ? ` · ~${o.distanceKm} km` : ''}</span></div>`
+        )
+        .join('');
     list.classList.add('open');
-    Array.from(list.children).forEach((el) => {
+    Array.from(list.querySelectorAll('.combobox-option')).forEach((el) => {
       el.addEventListener('click', () => selectOption(Number(el.dataset.index)));
     });
   }
@@ -98,18 +103,41 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId }) {
 setupAirportCombobox({ queryInputId: 'originQuery', hiddenInputId: 'origin', listId: 'originList' });
 setupAirportCombobox({ queryInputId: 'destinationQuery', hiddenInputId: 'destination', listId: 'destinationList' });
 
+function badgeRow(label, enabledFlag, note) {
+  return `<div>${label}: <span class="badge ${enabledFlag ? 'ok' : 'pending'}">${
+    enabledFlag ? 'ativo' : 'pendente de configuração'
+  }</span>${note ? `<div class="status-line">${note}</div>` : ''}</div>`;
+}
+
 async function loadProviderStatus() {
   const el = document.getElementById('providerStatus');
   try {
-    const providers = await api('/api/providers');
-    el.innerHTML = providers
-      .map(
-        (p) =>
-          `<div>${p.label}: <span class="badge ${p.enabled ? 'ok' : 'pending'}">${
-            p.enabled ? 'ativo' : 'pendente de configuração'
-          }</span></div>`
-      )
-      .join('');
+    const { priceProviders, notificationChannels } = await api('/api/providers');
+    el.innerHTML =
+      '<b class="section-label">Fontes de preço</b>' +
+      priceProviders.map((p) => badgeRow(p.label, p.enabled)).join('') +
+      '<b class="section-label">Notificações</b>' +
+      notificationChannels.map((n) => badgeRow(n.label, n.enabled, n.note)).join('');
+  } catch (err) {
+    el.textContent = 'Erro ao carregar: ' + err.message;
+  }
+}
+
+async function loadSchedulerStatus() {
+  const el = document.getElementById('schedulerStatus');
+  try {
+    const s = await api('/api/scheduler/status');
+    if (!s.enabled) {
+      el.innerHTML = '<div class="status-line">Agendador desabilitado neste ambiente (DISABLE_SCHEDULER=true).</div>';
+      return;
+    }
+    const fmt = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR') : 'ainda não rodou nesta sessão');
+    el.innerHTML = `
+      <div>Busca completa (3x/dia) · fuso ${s.timezone}</div>
+      <div class="status-line">Última execução: ${fmt(s.main.lastRunAt)}${s.main.lastSearchCount != null ? ` (${s.main.lastSearchCount} busca(s))` : ''} · Próxima: ${fmt(s.main.nextRunAt)}</div>
+      <div style="margin-top:10px;">Varredura de promoção relâmpago (a cada 2h)</div>
+      <div class="status-line">Última execução: ${fmt(s.flashSale.lastRunAt)}${s.flashSale.lastSearchCount != null ? ` (${s.flashSale.lastSearchCount} busca(s))` : ''} · Próxima: ${fmt(s.flashSale.nextRunAt)}</div>
+    `;
   } catch (err) {
     el.textContent = 'Erro ao carregar: ' + err.message;
   }
@@ -136,8 +164,9 @@ async function loadSearches() {
         ${s.departDate ? ' · ida ' + s.departDate : ''}${s.returnDate ? ' · volta ' + s.returnDate : ''}
         <div class="status-line">
           Programas: ${s.programs.join(', ') || '-'} · Stopover: ${s.allowStopover ? 'sim' : 'não'} ·
-          Hidden-city: ${s.allowHiddenCity ? 'sim' : 'não'} · Última checagem: ${s.lastRunAt ? new Date(s.lastRunAt).toLocaleString('pt-BR') : 'nunca'}
+          Hidden-city: ${s.allowHiddenCity ? 'sim' : 'não'}
         </div>
+        <div class="status-line" id="meta-${s.id}">Última checagem: ${s.lastRunAt ? new Date(s.lastRunAt).toLocaleString('pt-BR') : 'nunca'}</div>
         <div class="actions">
           <button onclick="runNow('${s.id}')">Rodar agora</button>
           <button class="secondary" onclick="viewHistory('${s.id}')">Ver histórico</button>
@@ -189,7 +218,8 @@ async function createSearch() {
 
 async function runNow(id) {
   const el = document.getElementById(`result-${id}`);
-  el.textContent = 'Buscando...';
+  const meta = document.getElementById(`meta-${id}`);
+  el.innerHTML = '<div class="status-line">Buscando nas fontes configuradas…</div>';
   try {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
     const rows = result.providerResults
@@ -201,17 +231,26 @@ async function runNow(id) {
       )
       .join('');
     const pending = result.providerResults.filter((r) => r.status === 'not_configured');
-    el.innerHTML = `
-      <table>
-        <tr><th>Programa</th><th>Preço</th><th>Milhas</th><th>Paradas</th></tr>
-        ${rows || '<tr><td colspan="4">Nenhuma oferta retornada.</td></tr>'}
-      </table>
-      ${result.alertCount > 0 ? `<div class="warning">${result.alertCount} alerta(s) disparado(s) e enviado(s).</div>` : ''}
-      ${pending.length > 0 ? `<div class="status-line">Pendentes de configuração: ${pending.map((p) => p.programId).join(', ')}</div>` : ''}
-    `;
-    loadSearches();
+    const allPending = pending.length === result.providerResults.length;
+
+    if (allPending) {
+      el.innerHTML = `
+        <div class="warning">Busca executada em ${new Date(result.checkedAt).toLocaleTimeString('pt-BR')}, mas nenhuma
+        fonte de preço está configurada ainda (${pending.map((p) => p.programId).join(', ')}) — por isso não há oferta
+        para mostrar. Veja "Status das integrações" acima para ativar o Amadeus/SerpApi/e-mail/WhatsApp.</div>`;
+    } else {
+      el.innerHTML = `
+        <table>
+          <tr><th>Programa</th><th>Preço</th><th>Milhas</th><th>Paradas</th></tr>
+          ${rows || '<tr><td colspan="4">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>'}
+        </table>
+        ${result.alertCount > 0 ? `<div class="warning">${result.alertCount} alerta(s) disparado(s) e enviado(s).</div>` : ''}
+        ${pending.length > 0 ? `<div class="status-line">Pendentes de configuração: ${pending.map((p) => p.programId).join(', ')}</div>` : ''}
+      `;
+    }
+    if (meta) meta.textContent = `Última checagem: ${new Date(result.checkedAt).toLocaleString('pt-BR')}`;
   } catch (err) {
-    el.textContent = 'Erro: ' + err.message;
+    el.innerHTML = `<div class="warning">Erro ao rodar a busca: ${err.message}</div>`;
   }
 }
 
@@ -254,4 +293,5 @@ async function removeSearch(id) {
 }
 
 loadProviderStatus();
+loadSchedulerStatus();
 loadSearches();

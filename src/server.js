@@ -4,8 +4,11 @@ const express = require('express');
 const db = require('./db');
 const { runSearch } = require('./search/runSearch');
 const { listProviderStatus } = require('./providers');
-const { searchAirports } = require('./airports');
+const { searchAirports, nearestAirports } = require('./airports');
+const { geocodePlace } = require('./geocode');
 const scheduler = require('./scheduler');
+const email = require('./notify/email');
+const whatsapp = require('./notify/whatsapp');
 
 const app = express();
 app.use(express.json());
@@ -13,14 +16,42 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const MILE_PROGRAMS = ['AA', 'LATAM', 'SMILES', 'AZUL'];
 
-app.get('/api/airports', (req, res) => {
+app.get('/api/airports', async (req, res) => {
   const q = String(req.query.q || '');
-  if (q.trim().length < 2) return res.json([]);
-  res.json(searchAirports(q));
+  if (q.trim().length < 2) return res.json({ airports: [], nearby: false });
+
+  const direct = searchAirports(q);
+  if (direct.length > 0) return res.json({ airports: direct, nearby: false });
+
+  // Nenhum aeroporto bate diretamente com a busca (ex: cidade pequena sem
+  // aeroporto próprio) — tenta geocodificar o texto e sugerir os aeroportos
+  // mais próximos daquele ponto.
+  const place = await geocodePlace(q);
+  if (!place) return res.json({ airports: [], nearby: false });
+
+  const nearby = nearestAirports(place.lat, place.lon, 6);
+  res.json({ airports: nearby, nearby: true, place: place.displayName });
 });
 
 app.get('/api/providers', (req, res) => {
-  res.json(listProviderStatus());
+  res.json({
+    priceProviders: listProviderStatus(),
+    notificationChannels: [
+      { id: 'EMAIL', label: 'E-mail (SMTP)', enabled: email.enabled() },
+      {
+        id: 'WHATSAPP',
+        label: 'WhatsApp (Twilio)',
+        enabled: whatsapp.enabled(),
+        note: whatsapp.enabled()
+          ? 'Sandbox Twilio: o número de destino precisa enviar "join <código>" pelo WhatsApp para o número do Twilio antes de poder receber alertas.'
+          : null,
+      },
+    ],
+  });
+});
+
+app.get('/api/scheduler/status', (req, res) => {
+  res.json(scheduler.getStatus());
 });
 
 app.get('/api/searches', (req, res) => {

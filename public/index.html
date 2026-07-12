@@ -89,6 +89,8 @@
       <div class="field">
         <label for="whatsapp">WhatsApp para alertas</label>
         <input type="text" id="whatsapp" placeholder="+5511999999999" />
+        <div class="status-line">Requer configurar Twilio no servidor (veja "Status das integrações" abaixo). No modo
+        sandbox, esse número precisa enviar "join &lt;código&gt;" ao WhatsApp do Twilio antes de poder receber.</div>
       </div>
     </div>
 
@@ -99,6 +101,11 @@
   <section class="card">
     <h2>Status das integrações</h2>
     <div id="providerStatus" class="provider-list">Carregando...</div>
+  </section>
+
+  <section class="card">
+    <h2>Agendador — quando a busca roda</h2>
+    <div id="schedulerStatus" class="provider-list">Carregando...</div>
   </section>
 
   <section class="card">
