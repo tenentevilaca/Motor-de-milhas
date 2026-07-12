@@ -5,7 +5,8 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 
 ## O que este projeto faz
 
-- Formulário de busca: origem, destino, datas (+ flexibilidade em dias), **múltiplos** programas de milhas,
+- Formulário de busca: origem e destino por **cidade, país ou código IATA** (autocomplete com ~6.000 aeroportos —
+  não é preciso saber o código de cor), datas (+ flexibilidade em dias), **múltiplos** programas de milhas,
   stopover e hidden-city/skiplagged como filtros opcionais.
 - Roda automaticamente todos os dias, em horários configuráveis (padrão: 06h, 13h, 21h + varredura a cada 2h
   para promoções relâmpago — ver raciocínio em `src/scheduler.js`).
@@ -93,3 +94,9 @@ src/
     email.js, whatsapp.js
 public/               formulário + dashboard
 ```
+
+## Créditos de dados
+
+A busca de aeroporto por cidade/país usa a base [OpenFlights Airports Database](https://openflights.org/data.html)
+(`src/data/airports.json`, licença [ODbL](https://opendatacommons.org/licenses/odbl/)), com aliases de cidade/país
+em português em `src/data/cityAliases.js` e `src/data/countryAliases.js`.

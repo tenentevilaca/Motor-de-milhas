@@ -7,81 +7,106 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="container">
-  <h1>✈️ Motor de Milhas</h1>
-  <p class="subtitle">Busca e monitoramento diário de passagens com milhas (AA, LATAM Pass, Smiles, TudoAzul) + comparação em dinheiro</p>
 
-  <div class="card">
+<div class="sky" aria-hidden="true">
+  <svg class="cloud cloud-1" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+  <svg class="cloud cloud-2" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+  <svg class="cloud cloud-3" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+</div>
+
+<header class="hero">
+  <svg class="flight-path" viewBox="0 0 400 60" aria-hidden="true">
+    <path d="M10 50 Q 150 10, 390 45" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="1 10" stroke-linecap="round" />
+    <g transform="translate(370,40) rotate(-20)">
+      <path d="M0 0 L 16 -6 L 4 0 L 16 6 Z" fill="currentColor" />
+    </g>
+  </svg>
+  <h1>✈️ Motor de Milhas</h1>
+  <p class="subtitle">Busca e monitoramento diário de passagens com milhas — AA, LATAM Pass, Smiles e TudoAzul</p>
+</header>
+
+<main class="container">
+
+  <section class="card">
     <h2>Nova busca</h2>
     <div class="row">
-      <div>
-        <label for="origin">Origem (código IATA)</label>
-        <input type="text" id="origin" placeholder="GRU" maxlength="3" />
+      <div class="field combobox-field">
+        <label for="originQuery">Origem</label>
+        <input type="text" id="originQuery" placeholder="Cidade, país ou código (ex: Lisboa, Brasil, GRU)" autocomplete="off" />
+        <input type="hidden" id="origin" />
+        <div class="combobox-list" id="originList"></div>
       </div>
-      <div>
-        <label for="destination">Destino (código IATA)</label>
-        <input type="text" id="destination" placeholder="MIA" maxlength="3" />
+      <div class="field combobox-field">
+        <label for="destinationQuery">Destino</label>
+        <input type="text" id="destinationQuery" placeholder="Cidade, país ou código (ex: Nova York, EUA, JFK)" autocomplete="off" />
+        <input type="hidden" id="destination" />
+        <div class="combobox-list" id="destinationList"></div>
       </div>
     </div>
     <div class="row">
-      <div>
+      <div class="field">
         <label for="departDate">Data de ida</label>
         <input type="date" id="departDate" />
       </div>
-      <div>
+      <div class="field">
         <label for="returnDate">Data de volta (opcional)</label>
         <input type="date" id="returnDate" />
       </div>
-      <div>
+      <div class="field field-narrow">
         <label for="flexDays">Flexibilidade (± dias)</label>
         <input type="number" id="flexDays" min="0" max="7" value="0" />
       </div>
-      <div>
-        <label for="targetPrice">Preço-alvo (R$, opcional)</label>
+      <div class="field field-narrow">
+        <label for="targetPrice">Preço-alvo (R$)</label>
         <input type="number" id="targetPrice" placeholder="1500" />
       </div>
     </div>
 
-    <label>Programas de milhas (escolha um ou mais)</label>
+    <label>Programas de milhas</label>
     <div class="checkbox-group" id="programs">
-      <label><input type="checkbox" value="AA" /> American Airlines (AAdvantage)</label>
+      <label><input type="checkbox" value="AA" /> American Airlines</label>
       <label><input type="checkbox" value="LATAM" /> LATAM Pass</label>
-      <label><input type="checkbox" value="SMILES" /> Smiles (Gol)</label>
+      <label><input type="checkbox" value="SMILES" /> Smiles</label>
       <label><input type="checkbox" value="AZUL" /> TudoAzul</label>
     </div>
 
     <div class="checkbox-group">
-      <label><input type="checkbox" id="allowStopover" /> Aceitar stopover (conexão longa proposital)</label>
-      <label><input type="checkbox" id="allowHiddenCity" /> Buscar também opções hidden-city / skiplagged</label>
+      <label><input type="checkbox" id="allowStopover" /> Aceitar stopover</label>
+      <label><input type="checkbox" id="allowHiddenCity" /> Buscar opções hidden-city / skiplagged</label>
     </div>
-    <div class="warning" id="hiddenCityWarning" style="display:none;">
-      <b>Risco:</b> hidden-city / skiplagged (comprar um trecho mais longo e descartar o final) viola o contrato de
-      transporte da maioria das companhias. Pode causar cancelamento do restante do itinerário, bloqueio da sua conta
-      de milhas/status, e não funciona com bagagem despachada ou ida-e-volta. O motor apenas <u>mostra</u> essa opção
-      quando existir — a decisão de comprar é sempre sua.
-      <label style="margin-top:8px;"><input type="checkbox" id="hiddenCityAck" /> Estou ciente dos riscos acima</label>
+    <div class="warning" id="hiddenCityWarning" hidden>
+      <b>Risco:</b> hidden-city/skiplagged viola o contrato de transporte da maioria das companhias e pode causar
+      cancelamento do restante do itinerário ou bloqueio da sua conta de milhas. O motor apenas mostra a opção
+      quando existir — a compra é sempre uma decisão sua.
+      <label class="ack"><input type="checkbox" id="hiddenCityAck" /> Estou ciente dos riscos acima</label>
     </div>
 
-    <label for="email">E-mail para alertas de promoções</label>
-    <input type="email" id="email" placeholder="voce@exemplo.com" />
+    <div class="row">
+      <div class="field">
+        <label for="email">E-mail para alertas</label>
+        <input type="email" id="email" placeholder="voce@exemplo.com" />
+      </div>
+      <div class="field">
+        <label for="whatsapp">WhatsApp para alertas</label>
+        <input type="text" id="whatsapp" placeholder="+5511999999999" />
+      </div>
+    </div>
 
-    <label for="whatsapp">WhatsApp para alertas (formato +55DDDNUMERO)</label>
-    <input type="text" id="whatsapp" placeholder="+5511999999999" />
-
-    <button onclick="createSearch()">Criar busca</button>
+    <button id="createBtn" onclick="createSearch()">Criar busca</button>
     <div class="status-line" id="createStatus"></div>
-  </div>
+  </section>
 
-  <div class="card">
+  <section class="card">
     <h2>Status das integrações</h2>
-    <div id="providerStatus">Carregando...</div>
-  </div>
+    <div id="providerStatus" class="provider-list">Carregando...</div>
+  </section>
 
-  <div class="card">
+  <section class="card">
     <h2>Buscas ativas</h2>
     <div id="searchList">Carregando...</div>
-  </div>
-</div>
+  </section>
+
+</main>
 
 <script src="app.js"></script>
 </body>
