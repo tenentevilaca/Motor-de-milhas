@@ -1,4 +1,4 @@
-const { ALL_PROVIDERS, MILE_PROGRAM_IDS } = require('../providers');
+const { ALL_PROVIDERS, MILE_PROGRAM_IDS, CASH_PROVIDER_IDS } = require('../providers');
 const { evaluateOffer } = require('./anomaly');
 const db = require('../db');
 const { sendEmailAlert } = require('../notify/email');
@@ -38,7 +38,7 @@ function buildAlertHtml(search, alertOffers) {
 }
 
 async function runSearch(search) {
-  const programsToQuery = ['CASH_AMADEUS', ...search.programs.filter((p) => MILE_PROGRAM_IDS.includes(p))];
+  const programsToQuery = [...CASH_PROVIDER_IDS, ...search.programs.filter((p) => MILE_PROGRAM_IDS.includes(p))];
   const results = [];
 
   for (const programId of programsToQuery) {

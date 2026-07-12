@@ -17,13 +17,17 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 
 1. **Não garante "a passagem mais barata possível".** Nenhuma ferramenta consegue prometer isso — disponibilidade
    de assentos-prêmio, câmbio e bloqueios antifraude dos sites estão fora de controle de qualquer software.
-2. **Não faz scraping automático de AA.com, Latam, Smiles ou TudoAzul.** Nenhuma dessas empresas oferece API
-   pública gratuita para busca de disponibilidade de prêmio, e fazer scraping do site de reservas geralmente
-   viola os Termos de Uso (proteção antibot, rate limiting, risco de bloqueio de conta/IP). Os adaptadores em
+2. **Não faz scraping automático de AA.com, Latam, Smiles ou TudoAzul.** Esses sites têm proteção antibot séria
+   (Akamai/PerimeterX/Cloudflare); tentar contornar isso é o tipo de coisa que leva a bloqueio de IP ou
+   **suspensão da sua conta de milhas** — destrói o próprio objetivo da ferramenta. Os adaptadores em
    `src/providers/` ficam "pendentes de configuração" até você apontar `AA_PROVIDER_URL` / `LATAM_PROVIDER_URL` /
    `SMILES_PROVIDER_URL` / `AZUL_PROVIDER_URL` para uma integração própria (parceria oficial, GDS, ou um serviço
    de scraping que você mesmo administra e está autorizado a rodar). Sem isso, o app mostra um link para
    checagem manual no site oficial.
+   **Alternativa sem API oficial da companhia:** o provedor `CASH_SERPAPI` (`src/providers/serpapi.js`) usa o
+   Google Flights via [SerpApi](https://serpapi.com) — um serviço terceirizado licenciado que já agrega AA,
+   LATAM, Azul, GOL e outras, sem que o motor precise falar diretamente com o site de cada companhia. Preço em
+   dinheiro real, sem risco de bloqueio de conta. 100 buscas/mês grátis.
 3. **Não automatiza a compra de tarifas com erro nem de passagens hidden-city.** O motor **detecta e avisa**
    quando encontra um preço muito abaixo do histórico (possível erro de tarifa) ou uma opção hidden-city — mas a
    decisão e a execução da compra são sempre manuais, porque:
@@ -32,9 +36,10 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
      reembolso).
    - Hidden-city/skiplagged viola o contrato de transporte da maioria das companhias e pode levar a cancelamento
      do restante do itinerário ou bloqueio de conta de milhas/status.
-4. **Comparação em dinheiro real via Amadeus, mas milhas via integração própria.** A API gratuita do Amadeus for
-   Developers dá cash fares reais (bom para comparar com o custo em milhas), mas não cobre disponibilidade de
-   prêmio das companhias citadas.
+4. **Comparação em dinheiro real via Amadeus e SerpApi/Google Flights, mas milhas via integração própria.** Essas
+   duas fontes dão preços reais em dinheiro (bom para comparar com o custo em milhas e para alimentar o detector
+   de anomalia), mas nenhuma cobre disponibilidade de assento-prêmio das companhias citadas — isso continua
+   exigindo integração própria (item 2).
 
 ## Estratégias de economia aplicadas
 
@@ -61,7 +66,8 @@ Acesse `http://localhost:3000`.
 
 | Recurso | Onde conseguir | Custo |
 |---|---|---|
-| Comparação em dinheiro real | [developers.amadeus.com](https://developers.amadeus.com) | Grátis (ambiente teste) |
+| Comparação em dinheiro real (GDS) | [developers.amadeus.com](https://developers.amadeus.com) | Grátis (ambiente teste) |
+| Comparação em dinheiro real (Google Flights, sem API da cia) | [serpapi.com](https://serpapi.com) | Grátis até 100 buscas/mês |
 | E-mail | Brevo, Resend, ou Gmail (senha de app) | Grátis (limite diário/mensal) |
 | WhatsApp | [Twilio WhatsApp Sandbox](https://www.twilio.com/docs/whatsapp/sandbox) | Grátis para testar, pago em produção |
 | Milhas (AA/LATAM/Smiles/Azul) | Parceria oficial ou integração própria que você administre | Depende |

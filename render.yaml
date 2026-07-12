@@ -18,6 +18,8 @@ services:
         sync: false
       - key: AMADEUS_CLIENT_SECRET
         sync: false
+      - key: SERPAPI_KEY
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER
