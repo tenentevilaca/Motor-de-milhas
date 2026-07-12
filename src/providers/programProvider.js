@@ -1,4 +1,5 @@
 const axios = require('axios');
+const config = require('../config');
 
 // Generic adapter for a frequent-flyer program (AA/AAdvantage, LATAM Pass,
 // Smiles, TudoAzul/Azul).
@@ -20,11 +21,11 @@ const axios = require('axios');
 //      human can check manually in the meantime.
 function createProgramProvider({ id, label, envPrefix, homepageUrl }) {
   function enabled() {
-    return Boolean(process.env[`${envPrefix}_PROVIDER_URL`]);
+    return Boolean(config.get(`${envPrefix}_PROVIDER_URL`));
   }
 
   async function search(params) {
-    const providerUrl = process.env[`${envPrefix}_PROVIDER_URL`];
+    const providerUrl = config.get(`${envPrefix}_PROVIDER_URL`);
     if (!providerUrl) {
       return {
         status: 'not_configured',

@@ -1,4 +1,5 @@
 const axios = require('axios');
+const config = require('../config');
 
 // SerpApi's Google Flights engine: um provedor terceirizado que já resolve o
 // problema de "pegar preço real sem falar direto com o site da companhia".
@@ -10,7 +11,7 @@ const axios = require('axios');
 const BASE_URL = 'https://serpapi.com/search.json';
 
 function enabled() {
-  return Boolean(process.env.SERPAPI_KEY);
+  return Boolean(config.get('SERPAPI_KEY'));
 }
 
 async function search({ origin, destination, departDate, returnDate, allowStopover }) {
@@ -32,7 +33,7 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
       type: returnDate ? 1 : 2, // 1 = ida e volta, 2 = somente ida
       currency: 'BRL',
       hl: 'pt',
-      api_key: process.env.SERPAPI_KEY,
+      api_key: config.get('SERPAPI_KEY'),
     },
   });
 

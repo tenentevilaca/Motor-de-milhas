@@ -1,23 +1,26 @@
 const axios = require('axios');
+const config = require('../config');
 
 // Amadeus for Developers - Self-Service Flight Offers Search API.
 // Free test-environment API key: https://developers.amadeus.com
 // This gives REAL cash-fare data (not miles), used as a baseline to compare
 // against award pricing and to catch generally cheap fares / anomalies.
 
-const BASE_URL = process.env.AMADEUS_BASE_URL || 'https://test.api.amadeus.com';
-
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
+
+function baseUrl() {
+  return config.get('AMADEUS_BASE_URL') || 'https://test.api.amadeus.com';
+}
 
 async function getToken() {
   if (cachedToken && Date.now() < cachedTokenExpiresAt) return cachedToken;
   const { data } = await axios.post(
-    `${BASE_URL}/v1/security/oauth2/token`,
+    `${baseUrl()}/v1/security/oauth2/token`,
     new URLSearchParams({
       grant_type: 'client_credentials',
-      client_id: process.env.AMADEUS_CLIENT_ID,
-      client_secret: process.env.AMADEUS_CLIENT_SECRET,
+      client_id: config.get('AMADEUS_CLIENT_ID'),
+      client_secret: config.get('AMADEUS_CLIENT_SECRET'),
     }),
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
   );
@@ -27,7 +30,7 @@ async function getToken() {
 }
 
 function enabled() {
-  return Boolean(process.env.AMADEUS_CLIENT_ID && process.env.AMADEUS_CLIENT_SECRET);
+  return Boolean(config.get('AMADEUS_CLIENT_ID') && config.get('AMADEUS_CLIENT_SECRET'));
 }
 
 async function search({ origin, destination, departDate, returnDate, allowStopover }) {
@@ -51,7 +54,7 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
   };
   if (returnDate) params.returnDate = returnDate;
 
-  const { data } = await axios.get(`${BASE_URL}/v2/shopping/flight-offers`, {
+  const { data } = await axios.get(`${baseUrl()}/v2/shopping/flight-offers`, {
     headers: { Authorization: `Bearer ${token}` },
     params,
   });

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Configurações — Motor de Milhas</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="sky" aria-hidden="true">
+  <svg class="cloud cloud-1" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+  <svg class="cloud cloud-2" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+</div>
+
+<header class="hero">
+  <h1>⚙️ Configurações</h1>
+  <p class="subtitle">Cole aqui as chaves de cada serviço — nada disso vai para o código ou pro GitHub</p>
+  <p class="subtitle"><a href="/index.html">← Voltar para o Motor de Milhas</a></p>
+</header>
+
+<main class="container">
+
+  <section class="card">
+    <h2>1. Comparação em dinheiro real</h2>
+    <p class="status-line">Essas fontes alimentam o detector de erro de tarifa / promoção relâmpago com preços reais,
+    sem precisar falar diretamente com o site de cada companhia. Configure quantas quiser — quanto mais fontes, melhor
+    a chance de pegar um preço fora da curva.</p>
+
+    <h3>Amadeus for Developers <span class="badge pending" id="badge-AMADEUS_CLIENT_ID">verificando…</span></h3>
+    <p class="status-line">1. Crie uma conta grátis em <a href="https://developers.amadeus.com" target="_blank" rel="noopener">developers.amadeus.com</a> ·
+    2. Crie um "New App" no painel · 3. Copie o "API Key" e o "API Secret".</p>
+    <div class="row">
+      <div class="field"><label for="AMADEUS_CLIENT_ID">API Key</label><input type="text" id="AMADEUS_CLIENT_ID" placeholder="já configurado" /></div>
+      <div class="field"><label for="AMADEUS_CLIENT_SECRET">API Secret</label><input type="password" id="AMADEUS_CLIENT_SECRET" placeholder="já configurado" /></div>
+    </div>
+
+    <h3>SerpApi (Google Flights) <span class="badge pending" id="badge-SERPAPI_KEY">verificando…</span></h3>
+    <p class="status-line">1. Crie uma conta grátis em <a href="https://serpapi.com/users/sign_up" target="_blank" rel="noopener">serpapi.com</a> (100 buscas/mês grátis) ·
+    2. No painel, copie sua "Private API Key".</p>
+    <div class="row">
+      <div class="field"><label for="SERPAPI_KEY">API Key</label><input type="password" id="SERPAPI_KEY" placeholder="já configurado" /></div>
+    </div>
+
+    <h3>Kiwi.com Tequila <span class="badge pending" id="badge-KIWI_TEQUILA_API_KEY">verificando…</span></h3>
+    <p class="status-line">1. Crie uma conta grátis em <a href="https://tequila.kiwi.com/portal/login" target="_blank" rel="noopener">tequila.kiwi.com</a> ·
+    2. Peça acesso de API (aprovação costuma ser automática/rápida) · 3. Copie a "API Key".</p>
+    <div class="row">
+      <div class="field"><label for="KIWI_TEQUILA_API_KEY">API Key</label><input type="password" id="KIWI_TEQUILA_API_KEY" placeholder="já configurado" /></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. E-mail (SMTP) <span class="badge pending" id="badge-SMTP_HOST">verificando…</span></h2>
+    <p class="status-line">Mais fácil: <a href="https://app.brevo.com/account/register" target="_blank" rel="noopener">Brevo</a> (300 e-mails/dia grátis).
+    1. Crie a conta · 2. Vá em "SMTP & API" → "SMTP" · 3. Copie host, porta, login e senha SMTP (não é a senha da sua conta).
+    Alternativas: Resend, ou Gmail com "senha de app".</p>
+    <div class="row">
+      <div class="field"><label for="SMTP_HOST">Host</label><input type="text" id="SMTP_HOST" placeholder="ex: smtp-relay.brevo.com" /></div>
+      <div class="field field-narrow"><label for="SMTP_PORT">Porta</label><input type="text" id="SMTP_PORT" placeholder="587" /></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="SMTP_USER">Usuário SMTP</label><input type="text" id="SMTP_USER" placeholder="já configurado" /></div>
+      <div class="field"><label for="SMTP_PASS">Senha SMTP</label><input type="password" id="SMTP_PASS" placeholder="já configurado" /></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="FROM_EMAIL">E-mail de envio (From)</label><input type="text" id="FROM_EMAIL" placeholder="alertas@seudominio.com" /></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. WhatsApp (Twilio) <span class="badge pending" id="badge-TWILIO_ACCOUNT_SID">verificando…</span></h2>
+    <p class="status-line">
+      1. Crie uma conta grátis em <a href="https://www.twilio.com/try-twilio" target="_blank" rel="noopener">twilio.com/try-twilio</a> (ganha crédito de teste) ·
+      2. No painel principal, copie "Account SID" e "Auth Token" ·
+      3. Vá em Messaging → Try it out → <a href="https://www.twilio.com/docs/whatsapp/sandbox" target="_blank" rel="noopener">WhatsApp Sandbox</a> e copie o número "From" (algo como <code>whatsapp:+14155238886</code>) ·
+      4. <b>Importante:</b> pelo seu celular, envie a mensagem "join &lt;código mostrado na tela&gt;" para esse número do WhatsApp — sem isso, o Twilio não vai entregar as mensagens ao seu número, mesmo com tudo certo aqui.
+    </p>
+    <div class="row">
+      <div class="field"><label for="TWILIO_ACCOUNT_SID">Account SID</label><input type="text" id="TWILIO_ACCOUNT_SID" placeholder="já configurado" /></div>
+      <div class="field"><label for="TWILIO_AUTH_TOKEN">Auth Token</label><input type="password" id="TWILIO_AUTH_TOKEN" placeholder="já configurado" /></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="TWILIO_WHATSAPP_FROM">Número "From" do WhatsApp</label><input type="text" id="TWILIO_WHATSAPP_FROM" placeholder="whatsapp:+14155238886" /></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>4. Milhas (AA / LATAM Pass / Smiles / TudoAzul)</h2>
+    <p class="status-line">Nenhuma dessas tem API pública — só ativam se você apontar para uma integração própria
+    (parceria oficial ou serviço que você mesmo administre e esteja autorizado a rodar). Sem isso, o app mostra um
+    link para checagem manual — o que já é o esperado para a maioria das pessoas.</p>
+    <div class="row">
+      <div class="field"><label for="AA_PROVIDER_URL">AA — URL da integração</label><input type="text" id="AA_PROVIDER_URL" placeholder="opcional" /></div>
+      <div class="field"><label for="LATAM_PROVIDER_URL">LATAM — URL da integração</label><input type="text" id="LATAM_PROVIDER_URL" placeholder="opcional" /></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="SMILES_PROVIDER_URL">Smiles — URL da integração</label><input type="text" id="SMILES_PROVIDER_URL" placeholder="opcional" /></div>
+      <div class="field"><label for="AZUL_PROVIDER_URL">TudoAzul — URL da integração</label><input type="text" id="AZUL_PROVIDER_URL" placeholder="opcional" /></div>
+    </div>
+  </section>
+
+  <button id="saveBtn" onclick="saveSettings()">Salvar configurações</button>
+  <div class="status-line" id="saveStatus"></div>
+
+</main>
+
+<script src="settings.js"></script>
+</body>
+</html>

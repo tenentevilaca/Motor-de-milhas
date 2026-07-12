@@ -20,6 +20,8 @@ services:
         sync: false
       - key: SERPAPI_KEY
         sync: false
+      - key: KIWI_TEQUILA_API_KEY
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER
@@ -35,6 +37,10 @@ services:
       - key: TWILIO_WHATSAPP_FROM
         sync: false
     # Nota: o plano "free" do Render não suporta disco persistente. Os dados
-    # em ./data (buscas salvas e histórico de preços) serão perdidos a cada
-    # deploy/restart nesse plano. Para persistir de verdade, migre para um
-    # plano pago com "disk" ou troque o storage por um banco externo.
+    # em ./data (buscas salvas, histórico de preços, e as chaves que você
+    # colar na tela de Configurações) serão perdidos a cada deploy/restart
+    # nesse plano. No free tier, prefira preencher as chaves acima como
+    # variáveis de ambiente do Render (que persistem de verdade) em vez de
+    # usar a tela de Configurações. Para a tela de Configurações persistir,
+    # migre para um plano pago com "disk" ou troque o storage por um banco
+    # externo.

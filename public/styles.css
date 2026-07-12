@@ -51,6 +51,8 @@ body {
   color: var(--accent-dark);
 }
 .hero h1 { margin: 6px 0 4px; font-size: 1.9rem; }
+.hero a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.hero a:hover { text-decoration: underline; }
 .hero .subtitle { margin: 0; color: var(--muted); font-size: 0.95rem; }
 .flight-path {
   width: 220px;
@@ -79,6 +81,18 @@ body {
   font-size: 1.1rem;
   color: var(--accent-dark);
 }
+.card h3 {
+  margin: 22px 0 4px;
+  font-size: 0.95rem;
+  color: var(--accent-dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card h3:first-of-type { margin-top: 4px; }
+.card p.status-line { margin: 4px 0 10px; line-height: 1.5; }
+.card a { color: var(--accent); }
+code { background: #eef6fc; padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
 
 label {
   display: block;

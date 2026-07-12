@@ -9,6 +9,7 @@ const { geocodePlace } = require('./geocode');
 const scheduler = require('./scheduler');
 const email = require('./notify/email');
 const whatsapp = require('./notify/whatsapp');
+const config = require('./config');
 
 const app = express();
 app.use(express.json());
@@ -52,6 +53,15 @@ app.get('/api/providers', (req, res) => {
 
 app.get('/api/scheduler/status', (req, res) => {
   res.json(scheduler.getStatus());
+});
+
+app.get('/api/settings', (req, res) => {
+  res.json(config.statusForAllKeys());
+});
+
+app.post('/api/settings', (req, res) => {
+  config.setMany(req.body || {});
+  res.json(config.statusForAllKeys());
 });
 
 app.get('/api/searches', (req, res) => {

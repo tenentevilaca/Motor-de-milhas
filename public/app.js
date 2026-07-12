@@ -231,13 +231,14 @@ async function runNow(id) {
       )
       .join('');
     const pending = result.providerResults.filter((r) => r.status === 'not_configured');
-    const allPending = pending.length === result.providerResults.length;
+    const errored = result.providerResults.filter((r) => r.status === 'error');
+    const allUnusable = pending.length + errored.length === result.providerResults.length;
 
-    if (allPending) {
+    if (allUnusable && errored.length === 0) {
       el.innerHTML = `
         <div class="warning">Busca executada em ${new Date(result.checkedAt).toLocaleTimeString('pt-BR')}, mas nenhuma
         fonte de preço está configurada ainda (${pending.map((p) => p.programId).join(', ')}) — por isso não há oferta
-        para mostrar. Veja "Status das integrações" acima para ativar o Amadeus/SerpApi/e-mail/WhatsApp.</div>`;
+        para mostrar. Veja "Configurações" (link no topo) para ativar o Amadeus/SerpApi/Kiwi/e-mail/WhatsApp.</div>`;
     } else {
       el.innerHTML = `
         <table>
@@ -246,6 +247,7 @@ async function runNow(id) {
         </table>
         ${result.alertCount > 0 ? `<div class="warning">${result.alertCount} alerta(s) disparado(s) e enviado(s).</div>` : ''}
         ${pending.length > 0 ? `<div class="status-line">Pendentes de configuração: ${pending.map((p) => p.programId).join(', ')}</div>` : ''}
+        ${errored.map((r) => `<div class="warning">${r.programId}: ${r.message}</div>`).join('')}
       `;
     }
     if (meta) meta.textContent = `Última checagem: ${new Date(result.checkedAt).toLocaleString('pt-BR')}`;

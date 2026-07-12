@@ -25,10 +25,11 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
    `SMILES_PROVIDER_URL` / `AZUL_PROVIDER_URL` para uma integração própria (parceria oficial, GDS, ou um serviço
    de scraping que você mesmo administra e está autorizado a rodar). Sem isso, o app mostra um link para
    checagem manual no site oficial.
-   **Alternativa sem API oficial da companhia:** o provedor `CASH_SERPAPI` (`src/providers/serpapi.js`) usa o
-   Google Flights via [SerpApi](https://serpapi.com) — um serviço terceirizado licenciado que já agrega AA,
-   LATAM, Azul, GOL e outras, sem que o motor precise falar diretamente com o site de cada companhia. Preço em
-   dinheiro real, sem risco de bloqueio de conta. 100 buscas/mês grátis.
+   **Alternativa sem API oficial da companhia:** os provedores `CASH_SERPAPI` e `CASH_KIWI` usam Google Flights
+   (via [SerpApi](https://serpapi.com)) e [Kiwi.com](https://tequila.kiwi.com) — dois dos maiores agregadores de
+   passagens da internet, que já cobrem AA, LATAM, Azul, GOL e centenas de outras companhias, sem que o motor
+   precise falar diretamente com o site de cada uma. Somados ao Amadeus, são três fontes reais e independentes
+   de preço em dinheiro rodando em toda busca — sem risco de bloqueio de conta.
 3. **Não automatiza a compra de tarifas com erro nem de passagens hidden-city.** O motor **detecta e avisa**
    quando encontra um preço muito abaixo do histórico (possível erro de tarifa) ou uma opção hidden-city — mas a
    decisão e a execução da compra são sempre manuais, porque:
@@ -37,10 +38,16 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
      reembolso).
    - Hidden-city/skiplagged viola o contrato de transporte da maioria das companhias e pode levar a cancelamento
      do restante do itinerário ou bloqueio de conta de milhas/status.
-4. **Comparação em dinheiro real via Amadeus e SerpApi/Google Flights, mas milhas via integração própria.** Essas
-   duas fontes dão preços reais em dinheiro (bom para comparar com o custo em milhas e para alimentar o detector
-   de anomalia), mas nenhuma cobre disponibilidade de assento-prêmio das companhias citadas — isso continua
+4. **Comparação em dinheiro real via Amadeus, SerpApi e Kiwi.com, mas milhas via integração própria.** Essas três
+   fontes dão preços reais em dinheiro (bom para comparar com o custo em milhas e para alimentar o detector de
+   anomalia), mas nenhuma cobre disponibilidade de assento-prêmio das companhias citadas — isso continua
    exigindo integração própria (item 2).
+5. **Não vem com as chaves de API já preenchidas.** Amadeus, SerpApi, Kiwi.com, seu provedor de e-mail e o
+   Twilio exigem uma conta pessoal (identidade, e-mail/telefone verificado, aceite dos termos de uso) — isso só
+   quem vai usar o serviço pode criar, não pode ser feito por automação em nome de outra pessoa. O que este
+   projeto faz para reduzir o trabalho ao mínimo é a tela **Configurações** (`/settings.html`): você cola cada
+   chave direto pelo navegador, sem editar `.env` nem redeployar, com o passo a passo de cada cadastro na própria
+   tela (leva uns 5 minutos por serviço).
 
 ## Estratégias de economia aplicadas
 
@@ -55,44 +62,58 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 
 ```bash
 npm install
-cp .env.example .env
-# preencha as chaves que você já tiver (Amadeus, SMTP, Twilio) — o resto
-# funciona com "pendente de configuração" até você configurar
 npm start
 ```
 
-Acesse `http://localhost:3000`.
+Acesse `http://localhost:3000` e depois `http://localhost:3000/settings.html` para colar suas chaves de API — cada
+seção da tela de Configurações tem o passo a passo de onde conseguir a chave. Também dá pra usar variáveis de
+ambiente (`.env`, veja `.env.example`) se preferir; o que estiver salvo na tela de Configurações tem prioridade.
 
 ### Contas gratuitas para habilitar as integrações
 
 | Recurso | Onde conseguir | Custo |
 |---|---|---|
 | Comparação em dinheiro real (GDS) | [developers.amadeus.com](https://developers.amadeus.com) | Grátis (ambiente teste) |
-| Comparação em dinheiro real (Google Flights, sem API da cia) | [serpapi.com](https://serpapi.com) | Grátis até 100 buscas/mês |
+| Comparação em dinheiro real (Google Flights) | [serpapi.com](https://serpapi.com) | Grátis até 100 buscas/mês |
+| Comparação em dinheiro real (agregador low-cost) | [tequila.kiwi.com](https://tequila.kiwi.com) | Grátis |
 | E-mail | Brevo, Resend, ou Gmail (senha de app) | Grátis (limite diário/mensal) |
 | WhatsApp | [Twilio WhatsApp Sandbox](https://www.twilio.com/docs/whatsapp/sandbox) | Grátis para testar, pago em produção |
 | Milhas (AA/LATAM/Smiles/Azul) | Parceria oficial ou integração própria que você administre | Depende |
+
+### E-mail e/ou WhatsApp — como escolher
+
+Cada busca tem os dois campos (e-mail e WhatsApp) opcionais e independentes: preencha só o e-mail, só o WhatsApp,
+ou os dois — o alerta é enviado para **todo canal que tiver um valor preenchido** naquela busca específica. Não
+precisa de nenhuma opção extra de "canal preferido".
 
 ## Deploy no Render
 
 Este repo já inclui `render.yaml`. Conecte o repositório em [render.com](https://render.com) e configure as
 variáveis de ambiente marcadas como `sync: false` no painel. **Atenção:** o plano free do Render não tem disco
-persistente — os dados em `./data` (buscas salvas e histórico) são perdidos a cada deploy/restart nesse plano.
+persistente — os dados em `./data` (buscas salvas, histórico, e as chaves salvas pela tela de Configurações) são
+perdidos a cada deploy/restart nesse plano. Por isso, no free tier, prefira preencher as chaves de API como
+variáveis de ambiente do Render (persistem de verdade) em vez da tela `/settings.html`. Se quiser usar a tela de
+Configurações em produção, migre para um plano pago com disco persistente.
 
 ## Estrutura
 
 ```
 src/
   server.js          API Express + serve o frontend
+  config.js            configurações salvas via tela de Configurações (data/settings.json) + fallback a .env
   db.js               storage em JSON (buscas + histórico de preços)
   scheduler.js         node-cron com os horários de busca
+  airports.js           busca/proximidade de aeroportos
+  geocode.js            geocodificação (Nominatim) para aeroportos mais próximos
   providers/            um adaptador por programa/fonte de dados
   search/
     runSearch.js        orquestra os provedores, grava histórico, dispara alertas
     anomaly.js           detecção de erro de tarifa / promoção relâmpago
   notify/
     email.js, whatsapp.js
-public/               formulário + dashboard
+public/
+  index.html, app.js      formulário + dashboard
+  settings.html, settings.js  tela de Configurações (chaves de API, e-mail, WhatsApp)
 ```
 
 ## Créditos de dados
