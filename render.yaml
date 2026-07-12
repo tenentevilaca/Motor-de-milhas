@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: motor-de-milhas
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SCHEDULE_TIMEZONE
+        value: America/Sao_Paulo
+      - key: SCHEDULE_CRON_MAIN
+        value: 0 6,13,21 * * *
+      - key: SCHEDULE_CRON_FLASHSALE
+        value: 0 */2 * * *
+      - key: AMADEUS_CLIENT_ID
+        sync: false
+      - key: AMADEUS_CLIENT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+    # Nota: o plano "free" do Render não suporta disco persistente. Os dados
+    # em ./data (buscas salvas e histórico de preços) serão perdidos a cada
+    # deploy/restart nesse plano. Para persistir de verdade, migre para um
+    # plano pago com "disk" ou troque o storage por um banco externo.

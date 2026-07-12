@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Motor de Milhas</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="container">
+  <h1>✈️ Motor de Milhas</h1>
+  <p class="subtitle">Busca e monitoramento diário de passagens com milhas (AA, LATAM Pass, Smiles, TudoAzul) + comparação em dinheiro</p>
+
+  <div class="card">
+    <h2>Nova busca</h2>
+    <div class="row">
+      <div>
+        <label for="origin">Origem (código IATA)</label>
+        <input type="text" id="origin" placeholder="GRU" maxlength="3" />
+      </div>
+      <div>
+        <label for="destination">Destino (código IATA)</label>
+        <input type="text" id="destination" placeholder="MIA" maxlength="3" />
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="departDate">Data de ida</label>
+        <input type="date" id="departDate" />
+      </div>
+      <div>
+        <label for="returnDate">Data de volta (opcional)</label>
+        <input type="date" id="returnDate" />
+      </div>
+      <div>
+        <label for="flexDays">Flexibilidade (± dias)</label>
+        <input type="number" id="flexDays" min="0" max="7" value="0" />
+      </div>
+      <div>
+        <label for="targetPrice">Preço-alvo (R$, opcional)</label>
+        <input type="number" id="targetPrice" placeholder="1500" />
+      </div>
+    </div>
+
+    <label>Programas de milhas (escolha um ou mais)</label>
+    <div class="checkbox-group" id="programs">
+      <label><input type="checkbox" value="AA" /> American Airlines (AAdvantage)</label>
+      <label><input type="checkbox" value="LATAM" /> LATAM Pass</label>
+      <label><input type="checkbox" value="SMILES" /> Smiles (Gol)</label>
+      <label><input type="checkbox" value="AZUL" /> TudoAzul</label>
+    </div>
+
+    <div class="checkbox-group">
+      <label><input type="checkbox" id="allowStopover" /> Aceitar stopover (conexão longa proposital)</label>
+      <label><input type="checkbox" id="allowHiddenCity" /> Buscar também opções hidden-city / skiplagged</label>
+    </div>
+    <div class="warning" id="hiddenCityWarning" style="display:none;">
+      <b>Risco:</b> hidden-city / skiplagged (comprar um trecho mais longo e descartar o final) viola o contrato de
+      transporte da maioria das companhias. Pode causar cancelamento do restante do itinerário, bloqueio da sua conta
+      de milhas/status, e não funciona com bagagem despachada ou ida-e-volta. O motor apenas <u>mostra</u> essa opção
+      quando existir — a decisão de comprar é sempre sua.
+      <label style="margin-top:8px;"><input type="checkbox" id="hiddenCityAck" /> Estou ciente dos riscos acima</label>
+    </div>
+
+    <label for="email">E-mail para alertas de promoções</label>
+    <input type="email" id="email" placeholder="voce@exemplo.com" />
+
+    <label for="whatsapp">WhatsApp para alertas (formato +55DDDNUMERO)</label>
+    <input type="text" id="whatsapp" placeholder="+5511999999999" />
+
+    <button onclick="createSearch()">Criar busca</button>
+    <div class="status-line" id="createStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Status das integrações</h2>
+    <div id="providerStatus">Carregando...</div>
+  </div>
+
+  <div class="card">
+    <h2>Buscas ativas</h2>
+    <div id="searchList">Carregando...</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

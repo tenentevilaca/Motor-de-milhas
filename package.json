@@ -1,0 +1,19 @@
+{
+  "name": "motor-de-milhas",
+  "version": "1.0.0",
+  "description": "Motor de busca e monitoramento de passagens aereas com milhas (AA, Latam Pass, Smiles, Azul) com alertas de preco por e-mail e WhatsApp",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.16"
+  }
+}
