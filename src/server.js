@@ -43,9 +43,9 @@ app.get('/api/providers', (req, res) => {
       { id: 'EMAIL', label: 'E-mail (SMTP)', enabled: email.enabled() },
       {
         id: 'WHATSAPP',
-        label: 'WhatsApp (Twilio)',
+        label: whatsapp.callMeBotEnabled() ? 'WhatsApp (CallMeBot)' : 'WhatsApp (Twilio)',
         enabled: whatsapp.enabled(),
-        note: whatsapp.enabled()
+        note: whatsapp.twilioEnabled() && !whatsapp.callMeBotEnabled()
           ? 'Sandbox Twilio: o número de destino precisa enviar "join <código>" pelo WhatsApp para o número do Twilio antes de poder receber alertas.'
           : null,
       },
@@ -62,7 +62,9 @@ app.get('/api/settings', (req, res) => {
 });
 
 app.post('/api/settings', (req, res) => {
-  config.setMany(req.body || {});
+  const { clearKeys, ...patch } = req.body || {};
+  if (Array.isArray(clearKeys)) clearKeys.forEach((key) => config.clearKey(key));
+  config.setMany(patch);
   res.json(config.statusForAllKeys());
 });
 

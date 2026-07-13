@@ -8,26 +8,46 @@ async function api(path, options) {
 const FIELDS = [
   'AMADEUS_CLIENT_ID', 'AMADEUS_CLIENT_SECRET', 'SERPAPI_KEY', 'KIWI_TEQUILA_API_KEY',
   'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'FROM_EMAIL',
+  'CALLMEBOT_API_KEY',
   'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_WHATSAPP_FROM',
   'AA_PROVIDER_URL', 'LATAM_PROVIDER_URL', 'SMILES_PROVIDER_URL', 'AZUL_PROVIDER_URL',
   'DEAL_FEED_URLS',
 ];
+
+const PROVIDER_URL_KEYS = ['AA_PROVIDER_URL', 'LATAM_PROVIDER_URL', 'SMILES_PROVIDER_URL', 'AZUL_PROVIDER_URL'];
 
 const BADGE_GROUPS = {
   AMADEUS_CLIENT_ID: ['AMADEUS_CLIENT_ID', 'AMADEUS_CLIENT_SECRET'],
   SERPAPI_KEY: ['SERPAPI_KEY'],
   KIWI_TEQUILA_API_KEY: ['KIWI_TEQUILA_API_KEY'],
   SMTP_HOST: ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'],
+  CALLMEBOT_API_KEY: ['CALLMEBOT_API_KEY'],
   TWILIO_ACCOUNT_SID: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_WHATSAPP_FROM'],
 };
 
+let lastStatus = {};
+
+function toggleProviderUrl(key) {
+  const mode = document.getElementById(`${key}_mode`).value;
+  const input = document.getElementById(key);
+  input.style.display = mode === 'custom' ? 'block' : 'none';
+}
+
 function applyStatus(status) {
+  lastStatus = status;
   for (const key of FIELDS) {
     const input = document.getElementById(key);
     if (!input) continue;
     const s = status[key];
     input.placeholder = s && s.configured ? `configurado (${s.masked})` : input.placeholder || 'cole aqui';
     input.value = '';
+  }
+  for (const key of PROVIDER_URL_KEYS) {
+    const select = document.getElementById(`${key}_mode`);
+    if (!select) continue;
+    const configured = Boolean(status[key] && status[key].configured);
+    select.value = configured ? 'custom' : 'none';
+    toggleProviderUrl(key);
   }
   for (const [groupKey, members] of Object.entries(BADGE_GROUPS)) {
     const badge = document.getElementById(`badge-${groupKey}`);
@@ -50,17 +70,25 @@ async function loadStatus() {
 async function saveSettings() {
   const statusEl = document.getElementById('saveStatus');
   const patch = {};
+  const clearKeys = [];
   for (const key of FIELDS) {
     const input = document.getElementById(key);
-    if (input && input.value.trim()) patch[key] = input.value.trim();
+    if (!input) continue;
+    if (input.value.trim()) {
+      patch[key] = input.value.trim();
+    } else if (PROVIDER_URL_KEYS.includes(key)) {
+      const mode = document.getElementById(`${key}_mode`)?.value;
+      const wasConfigured = Boolean(lastStatus[key] && lastStatus[key].configured);
+      if (mode === 'none' && wasConfigured) clearKeys.push(key);
+    }
   }
-  if (Object.keys(patch).length === 0) {
-    statusEl.textContent = 'Nada para salvar — preencha ao menos um campo.';
+  if (Object.keys(patch).length === 0 && clearKeys.length === 0) {
+    statusEl.textContent = 'Nada para salvar — preencha ao menos um campo ou mude uma opção.';
     statusEl.style.color = 'var(--muted)';
     return;
   }
   try {
-    const status = await api('/api/settings', { method: 'POST', body: JSON.stringify(patch) });
+    const status = await api('/api/settings', { method: 'POST', body: JSON.stringify({ ...patch, clearKeys }) });
     applyStatus(status);
     statusEl.textContent = 'Configurações salvas.';
     statusEl.style.color = '#16a34a';

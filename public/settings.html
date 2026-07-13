@@ -69,12 +69,30 @@
   </section>
 
   <section class="card">
-    <h2>3. WhatsApp (Twilio) <span class="badge pending" id="badge-TWILIO_ACCOUNT_SID">verificando…</span></h2>
+    <h2>3. WhatsApp — opção simples: CallMeBot <span class="badge pending" id="badge-CALLMEBOT_API_KEY">verificando…</span></h2>
     <p class="status-line">
-      1. Crie uma conta grátis em <a href="https://www.twilio.com/try-twilio" target="_blank" rel="noopener">twilio.com/try-twilio</a> (ganha crédito de teste) ·
-      2. No painel principal, copie "Account SID" e "Auth Token" ·
+      <b>Sem cadastro em site nenhum.</b> 1. Salve o número <code>+34 644 59 71 67</code> nos seus contatos ·
+      2. Pelo seu WhatsApp, mande a mensagem <code>I allow callmebot to send me messages</code> pra esse número ·
+      3. Em poucos segundos você recebe de volta uma mensagem com sua "API Key" — cole ela abaixo.
+      Serviço gratuito de terceiros (não é do WhatsApp/Meta), pensado pra uso pessoal — se parar de responder,
+      é só mandar a mensagem de novo pra reativar. Mais detalhes:
+      <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener">callmebot.com</a>.
+    </p>
+    <div class="row">
+      <div class="field"><label for="CALLMEBOT_API_KEY">API Key do CallMeBot</label><input type="password" id="CALLMEBOT_API_KEY" placeholder="já configurado" /></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3b. WhatsApp — opção avançada: Twilio <span class="badge pending" id="badge-TWILIO_ACCOUNT_SID">verificando…</span></h2>
+    <p class="status-line">
+      Mais robusto que o CallMeBot, mas exige conta com verificação de telefone/cartão. Só configure se o CallMeBot
+      acima não atender (ex: quer usar em produção com vários números).
+      1. Crie uma conta grátis em <a href="https://www.twilio.com/try-twilio" target="_blank" rel="noopener">twilio.com/try-twilio</a> ·
+      2. Account SID e Auth Token ficam no painel principal (<code>console.twilio.com</code>), no card "Account Info" —
+      se não aparecer, veja no menu da conta (ícone no canto superior direito) → "API keys & tokens" ·
       3. Vá em Messaging → Try it out → <a href="https://www.twilio.com/docs/whatsapp/sandbox" target="_blank" rel="noopener">WhatsApp Sandbox</a> e copie o número "From" (algo como <code>whatsapp:+14155238886</code>) ·
-      4. <b>Importante:</b> pelo seu celular, envie a mensagem "join &lt;código mostrado na tela&gt;" para esse número do WhatsApp — sem isso, o Twilio não vai entregar as mensagens ao seu número, mesmo com tudo certo aqui.
+      4. <b>Importante:</b> pelo seu celular, envie a mensagem "join &lt;código mostrado na tela&gt;" para esse número — sem isso, o Twilio não entrega as mensagens, mesmo com tudo certo aqui. Esse opt-in expira em 72h no modo sandbox e precisa ser refeito.
     </p>
     <div class="row">
       <div class="field"><label for="TWILIO_ACCOUNT_SID">Account SID</label><input type="text" id="TWILIO_ACCOUNT_SID" placeholder="já configurado" /></div>
@@ -87,16 +105,45 @@
 
   <section class="card">
     <h2>4. Milhas (AA / LATAM Pass / Smiles / TudoAzul)</h2>
-    <p class="status-line">Nenhuma dessas tem API pública — só ativam se você apontar para uma integração própria
-    (parceria oficial ou serviço que você mesmo administre e esteja autorizado a rodar). Sem isso, o app mostra um
-    link para checagem manual — o que já é o esperado para a maioria das pessoas.</p>
+    <p class="status-line">Nenhuma dessas companhias tem parceiro público pronto pra oferecer aqui como opção —
+    por isso a lista abaixo tem só duas escolhas por programa: deixar "não configurado" (o app mostra um link
+    para checagem manual, que já é o esperado pra maioria das pessoas) ou informar a URL de uma integração que
+    você mesmo tenha (parceria oficial, GDS, ou serviço que você administre e esteja autorizado a rodar).</p>
     <div class="row">
-      <div class="field"><label for="AA_PROVIDER_URL">AA — URL da integração</label><input type="text" id="AA_PROVIDER_URL" placeholder="opcional" /></div>
-      <div class="field"><label for="LATAM_PROVIDER_URL">LATAM — URL da integração</label><input type="text" id="LATAM_PROVIDER_URL" placeholder="opcional" /></div>
+      <div class="field">
+        <label for="AA_PROVIDER_URL_mode">American Airlines</label>
+        <select id="AA_PROVIDER_URL_mode" onchange="toggleProviderUrl('AA_PROVIDER_URL')">
+          <option value="none">Não configurado</option>
+          <option value="custom">Tenho minha própria integração</option>
+        </select>
+        <input type="text" id="AA_PROVIDER_URL" placeholder="https://sua-integracao.com/aa" style="margin-top:6px; display:none;" />
+      </div>
+      <div class="field">
+        <label for="LATAM_PROVIDER_URL_mode">LATAM Pass</label>
+        <select id="LATAM_PROVIDER_URL_mode" onchange="toggleProviderUrl('LATAM_PROVIDER_URL')">
+          <option value="none">Não configurado</option>
+          <option value="custom">Tenho minha própria integração</option>
+        </select>
+        <input type="text" id="LATAM_PROVIDER_URL" placeholder="https://sua-integracao.com/latam" style="margin-top:6px; display:none;" />
+      </div>
     </div>
     <div class="row">
-      <div class="field"><label for="SMILES_PROVIDER_URL">Smiles — URL da integração</label><input type="text" id="SMILES_PROVIDER_URL" placeholder="opcional" /></div>
-      <div class="field"><label for="AZUL_PROVIDER_URL">TudoAzul — URL da integração</label><input type="text" id="AZUL_PROVIDER_URL" placeholder="opcional" /></div>
+      <div class="field">
+        <label for="SMILES_PROVIDER_URL_mode">Smiles</label>
+        <select id="SMILES_PROVIDER_URL_mode" onchange="toggleProviderUrl('SMILES_PROVIDER_URL')">
+          <option value="none">Não configurado</option>
+          <option value="custom">Tenho minha própria integração</option>
+        </select>
+        <input type="text" id="SMILES_PROVIDER_URL" placeholder="https://sua-integracao.com/smiles" style="margin-top:6px; display:none;" />
+      </div>
+      <div class="field">
+        <label for="AZUL_PROVIDER_URL_mode">TudoAzul</label>
+        <select id="AZUL_PROVIDER_URL_mode" onchange="toggleProviderUrl('AZUL_PROVIDER_URL')">
+          <option value="none">Não configurado</option>
+          <option value="custom">Tenho minha própria integração</option>
+        </select>
+        <input type="text" id="AZUL_PROVIDER_URL" placeholder="https://sua-integracao.com/azul" style="margin-top:6px; display:none;" />
+      </div>
     </div>
   </section>
 
