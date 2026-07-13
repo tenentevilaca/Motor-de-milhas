@@ -208,6 +208,30 @@ th { color: var(--muted); font-weight: 600; }
 }
 .section-label:first-child { margin-top: 0; }
 
+.guide-toggle {
+  margin: 0 0 0 8px;
+  padding: 2px 9px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.guide-toggle:hover { background: #cfe4f2; }
+.guide-panel {
+  margin: 8px 0 4px;
+  padding: 12px 14px;
+  background: #f7fbfe;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.guide-panel ol { margin: 6px 0 0; padding-left: 20px; }
+.guide-panel a { color: var(--accent); }
+
 .search-item {
   background: #fbfeff;
   border: 1px solid var(--card-border);

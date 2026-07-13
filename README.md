@@ -96,8 +96,16 @@ detecção de erro de tarifa com preço real, basta **uma** das três fontes de 
 Kiwi.com) — não precisa das três. Para alertas, e-mail ou Telegram costumam ser os mais rápidos de configurar.
 
 Acesse `http://localhost:3000` e depois `http://localhost:3000/settings.html` para colar suas chaves de API — cada
-seção da tela de Configurações tem o passo a passo de onde conseguir a chave. Também dá pra usar variáveis de
-ambiente (`.env`, veja `.env.example`) se preferir; o que estiver salvo na tela de Configurações tem prioridade.
+seção da tela de Configurações tem o passo a passo de onde conseguir a chave. Na própria tela principal, o painel
+"Status das integrações" tem um botão "❓ como configurar" em cada item que expande o mesmo passo a passo sem
+precisar sair da página — só cobre serviços com opção gratuita de verdade (Amadeus, SerpApi, Kiwi.com, Brevo,
+CallMeBot, Telegram). Também dá pra usar variáveis de ambiente (`.env`, veja `.env.example`) se preferir; o que
+estiver salvo na tela de Configurações tem prioridade.
+
+> **Nota sobre esse passo a passo:** foi escrito com base no fluxo de cadastro mais recente que eu conhecia, mas
+> não consegui abrir essas páginas ao vivo pra conferir durante o desenvolvimento (o ambiente onde este projeto
+> foi construído bloqueia acesso a domínios externos fora de uma lista pequena). Se algum passo estiver
+> desatualizado ou algum botão tiver mudado de lugar, me avise que corrijo na hora.
 
 ### Contas gratuitas para habilitar as integrações
 

@@ -120,10 +120,104 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId }) {
 setupAirportCombobox({ queryInputId: 'originQuery', hiddenInputId: 'origin', listId: 'originList' });
 setupAirportCombobox({ queryInputId: 'destinationQuery', hiddenInputId: 'destination', listId: 'destinationList' });
 
-function badgeRow(label, enabledFlag, note) {
+// Passo a passo de cadastro — só serviços com opção gratuita. Baseado no
+// fluxo mais recente que conheço; não consegui testar ao vivo nesta sessão
+// (esta sandbox de desenvolvimento bloqueia acesso a esses domínios). Se
+// algum passo estiver desatualizado, me avise que corrijo na hora.
+const INTEGRATION_GUIDES = {
+  CASH_AMADEUS: {
+    title: 'Amadeus for Developers (grátis, ambiente de teste)',
+    steps: [
+      'Acesse <a href="https://developers.amadeus.com/register" target="_blank" rel="noopener">developers.amadeus.com/register</a> e crie a conta (sem cartão).',
+      'Confirme seu e-mail.',
+      'Faça login e abra "My Self-Service Workspace".',
+      'Clique em "Create New App", dê qualquer nome.',
+      'Copie o "API Key" e o "API Secret" e cole na tela de Configurações, seção 1.',
+    ],
+  },
+  CASH_SERPAPI: {
+    title: 'SerpApi / Google Flights (100 buscas/mês grátis)',
+    steps: [
+      'Acesse <a href="https://serpapi.com/users/sign_up" target="_blank" rel="noopener">serpapi.com/users/sign_up</a> e crie a conta.',
+      'Confirme seu e-mail.',
+      'No Dashboard, copie sua "Private API Key".',
+      'Cole na tela de Configurações, seção 1.',
+      'Se o cadastro pedir telefone e bloquear como suspeito, tente outro número ou pule pro Kiwi.com abaixo.',
+    ],
+  },
+  CASH_KIWI: {
+    title: 'Kiwi.com Tequila (grátis)',
+    steps: [
+      'Acesse <a href="https://tequila.kiwi.com/portal/login" target="_blank" rel="noopener">tequila.kiwi.com/portal/login</a> e crie a conta (e-mail e senha, geralmente sem telefone).',
+      'Depois de logar, peça acesso de API se for solicitado.',
+      'Copie sua "API Key".',
+      'Cole na tela de Configurações, seção 1.',
+    ],
+  },
+  EMAIL: {
+    title: 'Brevo — SMTP grátis (300 e-mails/dia)',
+    steps: [
+      'Acesse <a href="https://app.brevo.com/account/register" target="_blank" rel="noopener">app.brevo.com/account/register</a> e crie a conta.',
+      'Confirme seu e-mail.',
+      'No painel, vá em "SMTP & API" → aba "SMTP".',
+      'Copie host (smtp-relay.brevo.com), porta (587), login e a "senha SMTP" gerada ali (não é a senha da sua conta).',
+      'Cole tudo na tela de Configurações, seção 2.',
+    ],
+  },
+  WHATSAPP: {
+    title: 'CallMeBot — WhatsApp sem cadastro em site nenhum',
+    steps: [
+      'Salve o número <b>+34 644 59 71 67</b> nos contatos do seu WhatsApp.',
+      'Mande a mensagem <code>I allow callmebot to send me messages</code> pra esse número.',
+      'Em poucos segundos você recebe de volta uma mensagem com sua API key.',
+      'Cole na tela de Configurações, seção 3.',
+    ],
+  },
+  TELEGRAM: {
+    title: 'Telegram — provavelmente o mais fácil de todos',
+    steps: [
+      'Abra uma conversa com <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> no Telegram.',
+      'Mande <code>/newbot</code> e siga as instruções (nome + username do bot).',
+      'Copie o token que ele devolve e cole na tela de Configurações, seção 3c.',
+      'Mande uma mensagem qualquer pro seu bot recém-criado (ex: <code>/start</code>).',
+      'Volte no formulário principal, campo Telegram, e clique em "Descobrir meu Chat ID".',
+    ],
+  },
+  AA: { title: 'American Airlines', noApi: true },
+  LATAM: { title: 'LATAM Pass', noApi: true },
+  SMILES: { title: 'Smiles', noApi: true },
+  AZUL: { title: 'TudoAzul', noApi: true },
+};
+
+function guideHtml(id) {
+  const guide = INTEGRATION_GUIDES[id];
+  if (!guide) return '';
+  if (guide.noApi) {
+    return `<div class="guide-panel" id="guide-${id}" hidden>
+      <b>${guide.title}</b>
+      <p>Nenhuma API pública gratuita existe pra isso hoje — nenhum parceiro autorizado oferece acesso a pessoa
+      física. Só ativa se você tiver uma integração própria (parceria oficial ou serviço que você administre),
+      configurável na tela de Configurações, seção 4.</p>
+    </div>`;
+  }
+  return `<div class="guide-panel" id="guide-${id}" hidden>
+    <b>${guide.title}</b>
+    <ol>${guide.steps.map((s) => `<li>${s}</li>`).join('')}</ol>
+  </div>`;
+}
+
+function toggleGuide(id) {
+  const panel = document.getElementById(`guide-${id}`);
+  if (panel) panel.hidden = !panel.hidden;
+}
+
+function badgeRow(id, label, enabledFlag, note) {
+  const hasGuide = Boolean(INTEGRATION_GUIDES[id]);
   return `<div>${label}: <span class="badge ${enabledFlag ? 'ok' : 'pending'}">${
     enabledFlag ? 'ativo' : 'pendente de configuração'
-  }</span>${note ? `<div class="status-line">${note}</div>` : ''}</div>`;
+  }</span>${
+    hasGuide ? ` <button type="button" class="guide-toggle" title="Ver passo a passo" onclick="toggleGuide('${id}')">❓ como configurar</button>` : ''
+  }${note ? `<div class="status-line">${note}</div>` : ''}${guideHtml(id)}</div>`;
 }
 
 async function loadProviderStatus() {
@@ -132,9 +226,9 @@ async function loadProviderStatus() {
     const { priceProviders, notificationChannels } = await api('/api/providers');
     el.innerHTML =
       '<b class="section-label">Fontes de preço</b>' +
-      priceProviders.map((p) => badgeRow(p.label, p.enabled)).join('') +
+      priceProviders.map((p) => badgeRow(p.id, p.label, p.enabled)).join('') +
       '<b class="section-label">Notificações</b>' +
-      notificationChannels.map((n) => badgeRow(n.label, n.enabled, n.note)).join('');
+      notificationChannels.map((n) => badgeRow(n.id, n.label, n.enabled, n.note)).join('');
   } catch (err) {
     el.textContent = 'Erro ao carregar: ' + err.message;
   }
