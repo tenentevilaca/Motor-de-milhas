@@ -1,6 +1,7 @@
 const amadeus = require('./amadeus');
 const serpapi = require('./serpapi');
 const kiwi = require('./kiwi');
+const travelpayouts = require('./travelpayouts');
 const aa = require('./aa');
 const latampass = require('./latampass');
 const smiles = require('./smiles');
@@ -22,6 +23,7 @@ const ALL_PROVIDERS = {
   CASH_AMADEUS: amadeus,
   CASH_SERPAPI: serpapi,
   CASH_KIWI: kiwi,
+  CASH_TRAVELPAYOUTS: travelpayouts,
   AA: aa,
   LATAM: latampass,
   SMILES: smiles,
@@ -32,7 +34,7 @@ const ALL_PROVIDERS = {
 // dos programas de milhas escolhidos — são a fonte real de dados usada pelo
 // detector de anomalia (src/search/anomaly.js) sem depender de scraping dos
 // sites das companhias.
-const CASH_PROVIDER_IDS = ['CASH_AMADEUS', 'CASH_SERPAPI', 'CASH_KIWI'];
+const CASH_PROVIDER_IDS = ['CASH_AMADEUS', 'CASH_SERPAPI', 'CASH_KIWI', 'CASH_TRAVELPAYOUTS'];
 
 const MILE_PROGRAM_IDS = ['AA', 'LATAM', 'SMILES', 'AZUL'];
 

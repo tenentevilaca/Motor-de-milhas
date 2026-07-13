@@ -126,9 +126,14 @@ setupAirportCombobox({ queryInputId: 'destinationQuery', hiddenInputId: 'destina
 // algum passo estiver desatualizado, me avise que corrijo na hora.
 const INTEGRATION_GUIDES = {
   CASH_AMADEUS: {
-    title: 'Amadeus for Developers (grátis, ambiente de teste)',
+    title: 'Amadeus for Developers — portal self-service sendo desativado',
+    warning:
+      '⚠️ O portal de autoatendimento (self-service) da Amadeus for Developers será desativado em <b>17/07/2026</b>. ' +
+      'Depois dessa data, provavelmente não vai dar mais pra criar conta nova por aqui (as APIs corporativas ' +
+      'continuam, mas exigem contrato empresarial). Recomendo focar no SerpApi e no Kiwi.com abaixo — se você já ' +
+      'tem uma conta Amadeus antiga, ela deve continuar funcionando até ser desativada.',
     steps: [
-      'Acesse <a href="https://developers.amadeus.com/register" target="_blank" rel="noopener">developers.amadeus.com/register</a> e crie a conta (sem cartão).',
+      'Acesse <a href="https://developers.amadeus.com/register" target="_blank" rel="noopener">developers.amadeus.com/register</a> e crie a conta (sem cartão) — só funciona até 17/07/2026.',
       'Confirme seu e-mail.',
       'Faça login e abra "My Self-Service Workspace".',
       'Clique em "Create New App", dê qualquer nome.',
@@ -151,6 +156,14 @@ const INTEGRATION_GUIDES = {
       'Acesse <a href="https://tequila.kiwi.com/portal/login" target="_blank" rel="noopener">tequila.kiwi.com/portal/login</a> e crie a conta (e-mail e senha, geralmente sem telefone).',
       'Depois de logar, peça acesso de API se for solicitado.',
       'Copie sua "API Key".',
+      'Cole na tela de Configurações, seção 1.',
+    ],
+  },
+  CASH_TRAVELPAYOUTS: {
+    title: 'Travelpayouts (grátis, sem telefone)',
+    steps: [
+      'Acesse <a href="https://www.travelpayouts.com" target="_blank" rel="noopener">travelpayouts.com</a> e crie a conta (geralmente só e-mail).',
+      'No painel, vá na seção "API" e gere um token.',
       'Cole na tela de Configurações, seção 1.',
     ],
   },
@@ -202,6 +215,7 @@ function guideHtml(id) {
   }
   return `<div class="guide-panel" id="guide-${id}" hidden>
     <b>${guide.title}</b>
+    ${guide.warning ? `<div class="warning" style="margin:8px 0;">${guide.warning}</div>` : ''}
     <ol>${guide.steps.map((s) => `<li>${s}</li>`).join('')}</ol>
   </div>`;
 }

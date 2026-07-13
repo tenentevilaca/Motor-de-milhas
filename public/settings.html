@@ -28,7 +28,12 @@
     a chance de pegar um preço fora da curva.</p>
 
     <h3>Amadeus for Developers <span class="badge pending" id="badge-AMADEUS_CLIENT_ID">verificando…</span></h3>
-    <p class="status-line">1. Crie uma conta grátis em <a href="https://developers.amadeus.com" target="_blank" rel="noopener">developers.amadeus.com</a> ·
+    <div class="warning" style="margin-bottom:10px;">⚠️ O portal de autoatendimento (self-service) da Amadeus for
+    Developers será desativado em <b>17/07/2026</b>. Depois dessa data, provavelmente não vai dar mais pra criar
+    conta nova por aqui — as APIs corporativas continuam, mas exigem contrato empresarial. Recomendamos priorizar
+    SerpApi, Kiwi.com e Travelpayouts abaixo. Se você já tem uma conta Amadeus, ela deve continuar funcionando até
+    a desativação.</div>
+    <p class="status-line">1. Crie uma conta grátis em <a href="https://developers.amadeus.com" target="_blank" rel="noopener">developers.amadeus.com</a> (só até 17/07/2026) ·
     2. Crie um "New App" no painel · 3. Copie o "API Key" e o "API Secret".</p>
     <div class="row">
       <div class="field"><label for="AMADEUS_CLIENT_ID">API Key</label><input type="text" id="AMADEUS_CLIENT_ID" placeholder="já configurado" /></div>
@@ -47,6 +52,14 @@
     2. Peça acesso de API (aprovação costuma ser automática/rápida) · 3. Copie a "API Key".</p>
     <div class="row">
       <div class="field"><label for="KIWI_TEQUILA_API_KEY">API Key</label><input type="password" id="KIWI_TEQUILA_API_KEY" placeholder="já configurado" /></div>
+    </div>
+
+    <h3>Travelpayouts <span class="badge pending" id="badge-TRAVELPAYOUTS_TOKEN">verificando…</span></h3>
+    <p class="status-line">1. Crie uma conta grátis em <a href="https://www.travelpayouts.com" target="_blank" rel="noopener">travelpayouts.com</a> (geralmente só e-mail, sem telefone) ·
+    2. No painel, gere um token de API (seção "API" da conta) · 3. Cole abaixo. Retorna o menor preço já visto
+    recentemente pra rota — mais uma fonte independente pro detector de anomalia.</p>
+    <div class="row">
+      <div class="field"><label for="TRAVELPAYOUTS_TOKEN">API Token</label><input type="password" id="TRAVELPAYOUTS_TOKEN" placeholder="já configurado" /></div>
     </div>
   </section>
 
