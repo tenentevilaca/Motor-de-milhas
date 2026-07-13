@@ -195,6 +195,7 @@ th { color: var(--muted); font-weight: 600; }
 .badge.pending { background: #fef3c7; color: #92400e; }
 
 .status-line { font-size: 0.82rem; color: var(--muted); margin-top: 10px; }
+.status-line a { color: var(--accent); font-weight: 600; }
 
 .provider-list > div { margin-bottom: 8px; }
 .section-label {

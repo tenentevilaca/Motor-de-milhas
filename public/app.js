@@ -190,6 +190,34 @@ function formatBRL(v) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+// Links diretos pros maiores buscadores, prontos com origem/destino/data —
+// funcionam sem nenhuma API configurada, então dão valor imediato mesmo
+// antes (ou sem nunca) configurar Amadeus/SerpApi/Kiwi.
+function buildManualLinks(s) {
+  const o = s.origin;
+  const d = s.destination;
+  const toSkyDate = (iso) => iso.replace(/-/g, '').slice(2); // "2026-09-10" -> "260910"
+
+  const links = [];
+  if (s.departDate) {
+    const gfQuery = `Flights from ${o} to ${d} on ${s.departDate}` + (s.returnDate ? ` through ${s.returnDate}` : '');
+    links.push({ label: 'Google Flights', url: `https://www.google.com/travel/flights?q=${encodeURIComponent(gfQuery)}` });
+
+    const skyPath = s.returnDate
+      ? `${o}/${d}/${toSkyDate(s.departDate)}/${toSkyDate(s.returnDate)}/`
+      : `${o}/${d}/${toSkyDate(s.departDate)}/`;
+    links.push({ label: 'Skyscanner', url: `https://www.skyscanner.net/transport/flights/${skyPath.toLowerCase()}` });
+
+    const kayakPath = s.returnDate ? `${o}-${d}/${s.departDate}/${s.returnDate}` : `${o}-${d}/${s.departDate}`;
+    links.push({ label: 'Kayak', url: `https://www.kayak.com/flights/${kayakPath}` });
+  } else {
+    links.push({ label: 'Google Flights', url: `https://www.google.com/travel/flights?q=${encodeURIComponent(`Flights from ${o} to ${d}`)}` });
+    links.push({ label: 'Skyscanner', url: `https://www.skyscanner.net/transport/flights/${o.toLowerCase()}/${d.toLowerCase()}/` });
+    links.push({ label: 'Kayak', url: `https://www.kayak.com/flights/${o}-${d}` });
+  }
+  return links;
+}
+
 async function loadSearches() {
   const el = document.getElementById('searchList');
   try {
@@ -209,6 +237,9 @@ async function loadSearches() {
           Hidden-city: ${s.allowHiddenCity ? 'sim' : 'não'}
         </div>
         <div class="status-line" id="meta-${s.id}">Última checagem: ${s.lastRunAt ? new Date(s.lastRunAt).toLocaleString('pt-BR') : 'nunca'}</div>
+        <div class="status-line">Conferir agora, sem esperar nenhuma API: ${buildManualLinks(s)
+          .map((l) => `<a href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`)
+          .join(' · ')}</div>
         <div class="actions">
           <button onclick="runNow('${s.id}')">Rodar agora</button>
           <button class="secondary" onclick="viewHistory('${s.id}')">Ver histórico</button>
