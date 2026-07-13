@@ -168,6 +168,20 @@ input:focus {
 .warning .ack { margin-top: 8px; color: var(--danger-text); }
 .warning .ack input { margin-right: 6px; }
 
+.callout {
+  max-width: 880px;
+  margin: 0 auto 20px;
+  padding: 14px 20px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #14532d;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  position: relative;
+  z-index: 1;
+}
+
 button {
   background: var(--accent);
   color: white;

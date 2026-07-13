@@ -28,6 +28,13 @@
 
 <main class="container">
 
+  <div class="callout">
+    <b>✅ Isso já funciona sem você criar conta em lugar nenhum:</b> o feed de promoções (blogs de milhas) e os
+    links de comparação manual (Google Flights, Skyscanner, Kayak) em cada busca. O painel "Status das
+    integrações" lá embaixo é <b>opcional</b> — só ative alguma fonte ali se quiser alertas automáticos de erro de
+    tarifa pra uma rota específica; sem isso, o motor continua útil do jeito que está.
+  </div>
+
   <section class="card">
     <h2>Nova busca</h2>
     <div class="row">
@@ -112,8 +119,18 @@
   </section>
 
   <section class="card">
-    <h2>Status das integrações</h2>
-    <div id="providerStatus" class="provider-list">Carregando...</div>
+    <h2>Buscas ativas</h2>
+    <p class="status-line">Cada busca já vem com links de comparação manual (Google Flights, Skyscanner, Kayak) —
+    funcionam na hora, sem nenhuma configuração.</p>
+    <div id="searchList">Carregando...</div>
+  </section>
+
+  <section class="card">
+    <h2>Feed de promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
+    <p class="status-line">Últimos posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira,
+    Mestre das Milhas, Flip Milhas) — já funciona sem nenhuma conta. Se mencionarem a origem/destino de uma busca
+    sua, você recebe um alerta automaticamente.</p>
+    <div id="dealFeedList">Carregando...</div>
   </section>
 
   <section class="card">
@@ -122,16 +139,11 @@
   </section>
 
   <section class="card">
-    <h2>Feed de promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
-    <p class="status-line">Últimos posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira,
-    Mestre das Milhas, Flip Milhas). Se mencionarem a origem/destino de uma busca sua, você recebe um alerta
-    automaticamente.</p>
-    <div id="dealFeedList">Carregando...</div>
-  </section>
-
-  <section class="card">
-    <h2>Buscas ativas</h2>
-    <div id="searchList">Carregando...</div>
+    <h2>Status das integrações <span class="status-line" style="display:inline; margin:0;">(opcional)</span></h2>
+    <p class="status-line">Tudo abaixo é opcional — só ative se quiser alertas automáticos de erro de tarifa numa
+    rota específica. Cada item tem um botão "como configurar" com o passo a passo (todas as opções aqui são
+    gratuitas).</p>
+    <div id="providerStatus" class="provider-list">Carregando...</div>
   </section>
 
 </main>
