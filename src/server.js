@@ -10,6 +10,8 @@ const scheduler = require('./scheduler');
 const email = require('./notify/email');
 const whatsapp = require('./notify/whatsapp');
 const config = require('./config');
+const { fetchAllPosts } = require('./dealFeeds');
+const { checkDealFeedsForAllSearches } = require('./search/checkDealFeeds');
 
 const app = express();
 app.use(express.json());
@@ -116,6 +118,28 @@ app.get('/api/searches/:id/history', (req, res) => {
   const search = db.getSearch(req.params.id);
   if (!search) return res.status(404).json({ error: 'busca não encontrada' });
   res.json(db.getHistoryForSearch(req.params.id));
+});
+
+app.get('/api/deal-feed/latest', async (req, res) => {
+  try {
+    const posts = await fetchAllPosts();
+    const sorted = posts
+      .filter((p) => p.publishedAt)
+      .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+      .slice(0, 20);
+    res.json(sorted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/deal-feed/check', async (req, res) => {
+  try {
+    const result = await checkDealFeedsForAllSearches();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));

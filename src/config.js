@@ -26,6 +26,7 @@ const KNOWN_KEYS = [
   'TWILIO_ACCOUNT_SID',
   'TWILIO_AUTH_TOKEN',
   'TWILIO_WHATSAPP_FROM',
+  'DEAL_FEED_URLS',
 ];
 
 function readSettings() {

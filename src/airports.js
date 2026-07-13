@@ -95,4 +95,10 @@ function nearestAirports(lat, lon, limit = 6) {
     }));
 }
 
-module.exports = { searchAirports, nearestAirports };
+const byIata = new Map(airports.map((a) => [a.iata, a]));
+
+function getAirportByIata(iata) {
+  return byIata.get(String(iata).toUpperCase()) || null;
+}
+
+module.exports = { searchAirports, nearestAirports, getAirportByIata };

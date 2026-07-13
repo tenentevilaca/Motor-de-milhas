@@ -14,6 +14,10 @@ services:
         value: 0 6,13,21 * * *
       - key: SCHEDULE_CRON_FLASHSALE
         value: 0 */2 * * *
+      - key: SCHEDULE_CRON_DEALFEED
+        value: "*/30 * * * *"
+      - key: DEAL_FEED_URLS
+        sync: false
       - key: AMADEUS_CLIENT_ID
         sync: false
       - key: AMADEUS_CLIENT_SECRET

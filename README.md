@@ -12,6 +12,9 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
   para promoções relâmpago — ver raciocínio em `src/scheduler.js`).
 - Detecta anomalias de preço (possíveis erros de tarifa) e novos mínimos históricos (possíveis promoções
   relâmpago) comparando cada oferta com o histórico da rota.
+- Monitora RSS de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre das Milhas) a cada
+  30min e alerta quando um post menciona a origem/destino de uma busca sua — é onde erro de tarifa e bônus de
+  transferência de pontos costumam aparecer primeiro, antes de qualquer agregador de preço.
 - Envia alertas por e-mail (qualquer SMTP) e WhatsApp (Twilio).
 
 ## O que este projeto **não** faz (e por quê)
@@ -48,6 +51,12 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
    projeto faz para reduzir o trabalho ao mínimo é a tela **Configurações** (`/settings.html`): você cola cada
    chave direto pelo navegador, sem editar `.env` nem redeployar, com o passo a passo de cada cadastro na própria
    tela (leva uns 5 minutos por serviço).
+6. **Não monitora Instagram nem grupos de WhatsApp.** Instagram: scraping de contas de terceiros viola os Termos
+   da Meta, que já processou empresas por isso (Meta vs. BrightData/BrandTotal) — sem API pública pra esse uso.
+   Grupos de WhatsApp: só dá pra automatizar via bibliotecas não-oficiais que imitam o WhatsApp Web, violando os
+   Termos do WhatsApp com risco real de banimento da conta pessoal usada. O que o projeto monitora em vez disso —
+   blogs de promoção via RSS — cobre o mesmo tipo de conteúdo (erro de tarifa, promoção, bônus de milhas) sem
+   nenhum desses riscos, porque RSS é feito justamente para consumo automatizado.
 
 ## Estratégias de economia aplicadas
 
@@ -105,10 +114,12 @@ src/
   scheduler.js         node-cron com os horários de busca
   airports.js           busca/proximidade de aeroportos
   geocode.js            geocodificação (Nominatim) para aeroportos mais próximos
+  dealFeeds.js            lê RSS de blogs de promoção/milhas
   providers/            um adaptador por programa/fonte de dados
   search/
     runSearch.js        orquestra os provedores, grava histórico, dispara alertas
     anomaly.js           detecção de erro de tarifa / promoção relâmpago
+    checkDealFeeds.js     casa posts de blog com buscas salvas, dispara alertas
   notify/
     email.js, whatsapp.js
 public/

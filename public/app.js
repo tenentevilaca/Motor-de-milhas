@@ -137,7 +137,32 @@ async function loadSchedulerStatus() {
       <div class="status-line">Última execução: ${fmt(s.main.lastRunAt)}${s.main.lastSearchCount != null ? ` (${s.main.lastSearchCount} busca(s))` : ''} · Próxima: ${fmt(s.main.nextRunAt)}</div>
       <div style="margin-top:10px;">Varredura de promoção relâmpago (a cada 2h)</div>
       <div class="status-line">Última execução: ${fmt(s.flashSale.lastRunAt)}${s.flashSale.lastSearchCount != null ? ` (${s.flashSale.lastSearchCount} busca(s))` : ''} · Próxima: ${fmt(s.flashSale.nextRunAt)}</div>
+      <div style="margin-top:10px;">Feed de promoções (a cada 30min)</div>
+      <div class="status-line">Última execução: ${fmt(s.dealFeed.lastRunAt)}${s.dealFeed.lastResult ? ` (${s.dealFeed.lastResult.newPosts} post(s) novo(s))` : ''} · Próxima: ${fmt(s.dealFeed.nextRunAt)}</div>
     `;
+  } catch (err) {
+    el.textContent = 'Erro ao carregar: ' + err.message;
+  }
+}
+
+async function loadDealFeed() {
+  const el = document.getElementById('dealFeedList');
+  el.textContent = 'Carregando...';
+  try {
+    const posts = await api('/api/deal-feed/latest');
+    if (posts.length === 0) {
+      el.innerHTML = '<p class="status-line">Nenhum post encontrado (feeds podem estar indisponíveis).</p>';
+      return;
+    }
+    el.innerHTML = posts
+      .map(
+        (p) => `
+      <div style="margin-bottom:10px;">
+        <a href="${p.link}" target="_blank" rel="noopener">${p.title}</a>
+        <div class="status-line">${p.source}${p.publishedAt ? ' · ' + new Date(p.publishedAt).toLocaleDateString('pt-BR') : ''}</div>
+      </div>`
+      )
+      .join('');
   } catch (err) {
     el.textContent = 'Erro ao carregar: ' + err.message;
   }
@@ -296,4 +321,5 @@ async function removeSearch(id) {
 
 loadProviderStatus();
 loadSchedulerStatus();
+loadDealFeed();
 loadSearches();

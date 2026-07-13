@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const { parseExpression } = require('cron-parser');
 const db = require('./db');
 const { runSearch } = require('./search/runSearch');
+const { checkDealFeedsForAllSearches } = require('./search/checkDealFeeds');
 
 // "Melhor horário" para rodar as buscas:
 // A ideia popular de "compre passagem terça de manhã" é folclore já
@@ -15,9 +16,11 @@ const { runSearch } = require('./search/runSearch');
 //      espaçados (manhã/tarde/noite) captura essa variação.
 // Por isso: 3 buscas completas por dia (06h, 13h, 21h) + varredura mais
 // frequente (a cada 2h) focada em pegar promoções relâmpago/erros de tarifa
-// o quanto antes. Ambos configuráveis via .env.
+// o quanto antes, + checagem de blogs de promoção a cada 30min (esses posts
+// somem/mudam rápido quando a promoção é boa). Tudo configurável via .env.
 const MAIN_CRON = process.env.SCHEDULE_CRON_MAIN || '0 6,13,21 * * *';
 const FLASHSALE_CRON = process.env.SCHEDULE_CRON_FLASHSALE || '0 */2 * * *';
+const DEALFEED_CRON = process.env.SCHEDULE_CRON_DEALFEED || '*/30 * * * *';
 const TIMEZONE = process.env.SCHEDULE_TIMEZONE || 'America/Sao_Paulo';
 const enabled = process.env.DISABLE_SCHEDULER !== 'true';
 
@@ -28,6 +31,8 @@ const state = {
   lastFlashSaleRunAt: null,
   lastMainSearchCount: null,
   lastFlashSaleSearchCount: null,
+  lastDealFeedRunAt: null,
+  lastDealFeedResult: null,
 };
 
 async function runAllActiveSearches(label) {
@@ -53,6 +58,19 @@ async function runAllActiveSearches(label) {
   }
 }
 
+async function runDealFeedCheck() {
+  try {
+    const result = await checkDealFeedsForAllSearches();
+    state.lastDealFeedRunAt = result.checkedAt;
+    state.lastDealFeedResult = result;
+    if (result.alertsSent.length > 0) {
+      console.log(`[scheduler:feed-promocoes] ${result.alertsSent.length} busca(s) com alerta de post novo`);
+    }
+  } catch (err) {
+    console.error('[scheduler:feed-promocoes] erro:', err.message);
+  }
+}
+
 function nextRun(cronExpr) {
   try {
     return parseExpression(cronExpr, { tz: TIMEZONE }).next().toDate().toISOString();
@@ -67,13 +85,15 @@ function getStatus() {
     timezone: TIMEZONE,
     main: { cron: MAIN_CRON, lastRunAt: state.lastMainRunAt, lastSearchCount: state.lastMainSearchCount, nextRunAt: enabled ? nextRun(MAIN_CRON) : null },
     flashSale: { cron: FLASHSALE_CRON, lastRunAt: state.lastFlashSaleRunAt, lastSearchCount: state.lastFlashSaleSearchCount, nextRunAt: enabled ? nextRun(FLASHSALE_CRON) : null },
+    dealFeed: { cron: DEALFEED_CRON, lastRunAt: state.lastDealFeedRunAt, lastResult: state.lastDealFeedResult, nextRunAt: enabled ? nextRun(DEALFEED_CRON) : null },
   };
 }
 
 function start() {
   cron.schedule(MAIN_CRON, () => runAllActiveSearches('principal'), { timezone: TIMEZONE });
   cron.schedule(FLASHSALE_CRON, () => runAllActiveSearches('promo-relampago'), { timezone: TIMEZONE });
-  console.log(`Agendador iniciado (fuso ${TIMEZONE}): principal="${MAIN_CRON}" flash-sale="${FLASHSALE_CRON}"`);
+  cron.schedule(DEALFEED_CRON, runDealFeedCheck, { timezone: TIMEZONE });
+  console.log(`Agendador iniciado (fuso ${TIMEZONE}): principal="${MAIN_CRON}" flash-sale="${FLASHSALE_CRON}" feed-promocoes="${DEALFEED_CRON}"`);
 }
 
-module.exports = { start, runAllActiveSearches, getStatus };
+module.exports = { start, runAllActiveSearches, runDealFeedCheck, getStatus };
