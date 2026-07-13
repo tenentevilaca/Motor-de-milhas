@@ -16,11 +16,12 @@ const { checkDealFeedsForAllSearches } = require('./search/checkDealFeeds');
 //      espaçados (manhã/tarde/noite) captura essa variação.
 // Por isso: 3 buscas completas por dia (06h, 13h, 21h) + varredura mais
 // frequente (a cada 2h) focada em pegar promoções relâmpago/erros de tarifa
-// o quanto antes, + checagem de blogs de promoção a cada 30min (esses posts
-// somem/mudam rápido quando a promoção é boa). Tudo configurável via .env.
+// o quanto antes, + checagem de blogs de promoção a cada 10min (esses posts
+// somem/mudam rápido quando a promoção é boa — RSS aguenta tranquilo essa
+// frequência, é feito pra isso). Tudo configurável via .env.
 const MAIN_CRON = process.env.SCHEDULE_CRON_MAIN || '0 6,13,21 * * *';
 const FLASHSALE_CRON = process.env.SCHEDULE_CRON_FLASHSALE || '0 */2 * * *';
-const DEALFEED_CRON = process.env.SCHEDULE_CRON_DEALFEED || '*/30 * * * *';
+const DEALFEED_CRON = process.env.SCHEDULE_CRON_DEALFEED || '*/10 * * * *';
 const TIMEZONE = process.env.SCHEDULE_TIMEZONE || 'America/Sao_Paulo';
 const enabled = process.env.DISABLE_SCHEDULER !== 'true';
 

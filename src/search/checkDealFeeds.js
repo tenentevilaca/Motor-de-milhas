@@ -3,6 +3,7 @@ const { fetchAllPosts, postMatchesPlace } = require('../dealFeeds');
 const { getAirportByIata } = require('../airports');
 const { sendEmailAlert } = require('../notify/email');
 const { sendWhatsAppAlert } = require('../notify/whatsapp');
+const { sendTelegramAlert } = require('../notify/telegram');
 
 function buildEmailHtml(search, posts) {
   const rows = posts
@@ -39,10 +40,16 @@ async function checkDealFeedsForAllSearches() {
         html: buildEmailHtml(search, matches),
       });
     }
+    const text = matches.map((p) => `${p.title} (${p.source}): ${p.link}`).join('\n');
     if (search.whatsapp) {
-      const text = matches.map((p) => `${p.title} (${p.source}): ${p.link}`).join('\n');
       await sendWhatsAppAlert({
         to: search.whatsapp,
+        message: `Motor de Milhas — promoção para ${search.origin}->${search.destination}:\n${text}`,
+      });
+    }
+    if (search.telegramChatId) {
+      await sendTelegramAlert({
+        chatId: search.telegramChatId,
         message: `Motor de Milhas — promoção para ${search.origin}->${search.destination}:\n${text}`,
       });
     }

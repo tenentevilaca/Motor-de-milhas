@@ -4,6 +4,23 @@ hiddenCityCheckbox.addEventListener('change', () => {
   hiddenCityWarning.hidden = !hiddenCityCheckbox.checked;
 });
 
+async function findTelegramChatId() {
+  const el = document.getElementById('telegramChatIdResult');
+  el.textContent = 'Buscando...';
+  try {
+    const chats = await api('/api/notify/telegram/chats');
+    if (chats.length === 0) {
+      el.textContent = 'Nenhuma conversa encontrada — mande uma mensagem pro seu bot no Telegram primeiro (ex: /start) e tente de novo.';
+      return;
+    }
+    el.innerHTML = chats
+      .map((c) => `<div>${c.name}: <b>${c.chatId}</b> <button type="button" class="secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="document.getElementById('telegramChatId').value='${c.chatId}'">usar</button></div>`)
+      .join('');
+  } catch (err) {
+    el.textContent = 'Erro: ' + err.message + ' (configure o bot nas Configurações primeiro)';
+  }
+}
+
 async function api(path, options) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -133,11 +150,11 @@ async function loadSchedulerStatus() {
     }
     const fmt = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR') : 'ainda não rodou nesta sessão');
     el.innerHTML = `
-      <div>Busca completa (3x/dia) · fuso ${s.timezone}</div>
+      <div>Busca completa (${s.main.cron}) · fuso ${s.timezone}</div>
       <div class="status-line">Última execução: ${fmt(s.main.lastRunAt)}${s.main.lastSearchCount != null ? ` (${s.main.lastSearchCount} busca(s))` : ''} · Próxima: ${fmt(s.main.nextRunAt)}</div>
-      <div style="margin-top:10px;">Varredura de promoção relâmpago (a cada 2h)</div>
+      <div style="margin-top:10px;">Varredura de promoção relâmpago (${s.flashSale.cron})</div>
       <div class="status-line">Última execução: ${fmt(s.flashSale.lastRunAt)}${s.flashSale.lastSearchCount != null ? ` (${s.flashSale.lastSearchCount} busca(s))` : ''} · Próxima: ${fmt(s.flashSale.nextRunAt)}</div>
-      <div style="margin-top:10px;">Feed de promoções (a cada 30min)</div>
+      <div style="margin-top:10px;">Feed de promoções (${s.dealFeed.cron})</div>
       <div class="status-line">Última execução: ${fmt(s.dealFeed.lastRunAt)}${s.dealFeed.lastResult ? ` (${s.dealFeed.lastResult.newPosts} post(s) novo(s))` : ''} · Próxima: ${fmt(s.dealFeed.nextRunAt)}</div>
     `;
   } catch (err) {
@@ -225,10 +242,12 @@ async function createSearch() {
     targetPrice: document.getElementById('targetPrice').value || null,
     programs,
     allowStopover: document.getElementById('allowStopover').checked,
+    compareSplitTickets: document.getElementById('compareSplitTickets').checked,
     allowHiddenCity: hiddenCityCheckbox.checked,
     hiddenCityRiskAcknowledged: document.getElementById('hiddenCityAck').checked,
     email: document.getElementById('email').value.trim() || null,
     whatsapp: document.getElementById('whatsapp').value.trim() || null,
+    telegramChatId: document.getElementById('telegramChatId').value.trim() || null,
   };
   try {
     await api('/api/searches', { method: 'POST', body: JSON.stringify(body) });
@@ -271,6 +290,13 @@ async function runNow(id) {
           ${rows || '<tr><td colspan="4">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>'}
         </table>
         ${result.alertCount > 0 ? `<div class="warning">${result.alertCount} alerta(s) disparado(s) e enviado(s).</div>` : ''}
+        ${
+          result.splitSuggestions && result.splitSuggestions.length > 0
+            ? `<table><tr><th>Quebra de bilhete</th><th>Ida e volta</th><th>Separado</th><th>Economia</th></tr>${result.splitSuggestions
+                .map((s) => `<tr><td>${s.program}</td><td>${formatBRL(s.roundTripPriceBRL)}</td><td>${formatBRL(s.splitPriceBRL)}</td><td>${formatBRL(s.savingsBRL)}</td></tr>`)
+                .join('')}</table>`
+            : ''
+        }
         ${pending.length > 0 ? `<div class="status-line">Pendentes de configuração: ${pending.map((p) => p.programId).join(', ')}</div>` : ''}
         ${errored.map((r) => `<div class="warning">${r.programId}: ${r.message}</div>`).join('')}
       `;

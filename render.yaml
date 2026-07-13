@@ -15,7 +15,7 @@ services:
       - key: SCHEDULE_CRON_FLASHSALE
         value: 0 */2 * * *
       - key: SCHEDULE_CRON_DEALFEED
-        value: "*/30 * * * *"
+        value: "*/10 * * * *"
       - key: DEAL_FEED_URLS
         sync: false
       - key: AMADEUS_CLIENT_ID
@@ -35,6 +35,8 @@ services:
       - key: FROM_EMAIL
         sync: false
       - key: CALLMEBOT_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false

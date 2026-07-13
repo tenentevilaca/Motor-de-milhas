@@ -9,6 +9,7 @@ const { geocodePlace } = require('./geocode');
 const scheduler = require('./scheduler');
 const email = require('./notify/email');
 const whatsapp = require('./notify/whatsapp');
+const telegram = require('./notify/telegram');
 const config = require('./config');
 const { fetchAllPosts } = require('./dealFeeds');
 const { checkDealFeedsForAllSearches } = require('./search/checkDealFeeds');
@@ -49,8 +50,17 @@ app.get('/api/providers', (req, res) => {
           ? 'Sandbox Twilio: o número de destino precisa enviar "join <código>" pelo WhatsApp para o número do Twilio antes de poder receber alertas.'
           : null,
       },
+      { id: 'TELEGRAM', label: 'Telegram', enabled: telegram.enabled() },
     ],
   });
+});
+
+app.get('/api/notify/telegram/chats', async (req, res) => {
+  try {
+    res.json(await telegram.getRecentChats());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/scheduler/status', (req, res) => {
@@ -88,6 +98,9 @@ app.post('/api/searches', (req, res) => {
     return res.status(400).json({
       error: 'Para habilitar busca hidden-city/skiplagged é preciso confirmar a ciência dos riscos (hiddenCityRiskAcknowledged).',
     });
+  }
+  if (body.compareSplitTickets && !body.returnDate) {
+    return res.status(400).json({ error: 'Comparar quebra de bilhete exige data de volta preenchida.' });
   }
   const search = db.createSearch({ ...body, programs });
   res.status(201).json(search);

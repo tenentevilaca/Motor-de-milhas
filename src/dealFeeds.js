@@ -10,6 +10,7 @@ const DEFAULT_FEEDS = [
   { name: 'Melhores Destinos', url: 'https://www.melhoresdestinos.com.br/feed' },
   { name: 'Passageiro de Primeira', url: 'https://passageirodeprimeira.com/feed' },
   { name: 'Mestre das Milhas', url: 'https://www.mestredasmilhas.com/feed' },
+  { name: 'Flip Milhas', url: 'https://flipmilhas.com/feed' },
 ];
 
 const parser = new Parser({ timeout: 10000 });

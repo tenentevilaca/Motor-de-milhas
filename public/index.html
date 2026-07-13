@@ -73,8 +73,12 @@
 
     <div class="checkbox-group">
       <label><input type="checkbox" id="allowStopover" /> Aceitar stopover</label>
+      <label><input type="checkbox" id="compareSplitTickets" /> Comparar quebra de bilhete (ida/volta separadas)</label>
       <label><input type="checkbox" id="allowHiddenCity" /> Buscar opções hidden-city / skiplagged</label>
     </div>
+    <div class="status-line">Stopover: algumas companhias oferecem parada estendida <b>gratuita</b> de propósito —
+    TAP (Lisboa/Porto), Turkish Airlines (Istambul), Icelandair (Reykjavik), Emirates (Dubai), Singapore Airlines
+    (Cingapura). Marque "aceitar stopover" pra não descartar essas rotas na busca.</div>
     <div class="warning" id="hiddenCityWarning" hidden>
       <b>Risco:</b> hidden-city/skiplagged viola o contrato de transporte da maioria das companhias e pode causar
       cancelamento do restante do itinerário ou bloqueio da sua conta de milhas. O motor apenas mostra a opção
@@ -90,8 +94,16 @@
       <div class="field">
         <label for="whatsapp">WhatsApp para alertas</label>
         <input type="text" id="whatsapp" placeholder="+5511999999999" />
-        <div class="status-line">Requer configurar o CallMeBot (mais simples, sem cadastro) ou Twilio nas
-        <a href="/settings.html">Configurações</a>.</div>
+        <div class="status-line">Requer CallMeBot ou Twilio nas <a href="/settings.html">Configurações</a>.</div>
+      </div>
+      <div class="field">
+        <label for="telegramChatId">Telegram Chat ID para alertas</label>
+        <input type="text" id="telegramChatId" placeholder="123456789" />
+        <div class="status-line">
+          Requer bot configurado nas <a href="/settings.html">Configurações</a>.
+          <button type="button" class="secondary" style="margin:6px 0 0; padding:4px 10px; font-size:0.8rem;" onclick="findTelegramChatId()">Descobrir meu Chat ID</button>
+          <div id="telegramChatIdResult"></div>
+        </div>
       </div>
     </div>
 
@@ -111,8 +123,9 @@
 
   <section class="card">
     <h2>Feed de promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
-    <p class="status-line">Últimos posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre
-    das Milhas). Se mencionarem a origem/destino de uma busca sua, você recebe um alerta automaticamente.</p>
+    <p class="status-line">Últimos posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira,
+    Mestre das Milhas, Flip Milhas). Se mencionarem a origem/destino de uma busca sua, você recebe um alerta
+    automaticamente.</p>
     <div id="dealFeedList">Carregando...</div>
   </section>
 

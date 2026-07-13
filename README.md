@@ -12,10 +12,13 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
   para promoções relâmpago — ver raciocínio em `src/scheduler.js`).
 - Detecta anomalias de preço (possíveis erros de tarifa) e novos mínimos históricos (possíveis promoções
   relâmpago) comparando cada oferta com o histórico da rota.
-- Monitora RSS de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre das Milhas) a cada
-  30min e alerta quando um post menciona a origem/destino de uma busca sua — é onde erro de tarifa e bônus de
-  transferência de pontos costumam aparecer primeiro, antes de qualquer agregador de preço.
-- Envia alertas por e-mail (qualquer SMTP) e WhatsApp (Twilio).
+- Monitora RSS de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre das Milhas, Flip
+  Milhas) a cada 10min e alerta quando um post menciona a origem/destino de uma busca sua — é onde erro de tarifa
+  e bônus de transferência de pontos costumam aparecer primeiro, antes de qualquer agregador de preço.
+- Compara **quebra de bilhete** (opt-in por busca): quando há data de ida e volta, busca as duas pernas separadas
+  nas mesmas fontes de preço real e avisa se sai mais barato que o pacote redondo.
+- Envia alertas por e-mail (qualquer SMTP), WhatsApp (CallMeBot sem cadastro, ou Twilio) e Telegram (bot próprio,
+  provavelmente o canal mais simples de configurar).
 
 ## O que este projeto **não** faz (e por quê)
 
@@ -57,6 +60,16 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
    Termos do WhatsApp com risco real de banimento da conta pessoal usada. O que o projeto monitora em vez disso —
    blogs de promoção via RSS — cobre o mesmo tipo de conteúdo (erro de tarifa, promoção, bônus de milhas) sem
    nenhum desses riscos, porque RSS é feito justamente para consumo automatizado.
+7. **Não usa Selenium/Playwright/undetected-chromedriver com proxies rotativos pra "simular um usuário" nos sites
+   das companhias, nem intercepta chamadas internas de API copiando cookies/headers de autenticação.** Isso foi
+   pedido explicitamente durante o desenvolvimento e recusado de propósito: é evasão de detecção antibot (é
+   literalmente pra isso que existe o `undetected-chromedriver`), e interceptar chamadas autenticadas com cookies
+   copiados é abuso de sessão, não "automação". O risco não é só bloqueio de IP — é a conta de milhas suspensa. As
+   3 fontes de preço reais (Amadeus/SerpApi/Kiwi) e o feed de blogs cobrem o mesmo objetivo (preço real + alerta
+   rápido de promoção) sem esse risco.
+8. **Skyscanner não está integrado.** A API pública deles foi descontinuada em 2016; hoje só dá acesso via
+   parceria comercial aprovada (processo parecido com o que já existe pros programas de milhas). Se você
+   conseguir esse acesso, dá pra plugar como mais uma fonte `CASH_*` seguindo o mesmo padrão de `src/providers/`.
 
 ## Estratégias de economia aplicadas
 
@@ -64,7 +77,11 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
   busca para facilitar a comparação.
 - Janela de compra: doméstico 30–60 dias, internacional 60–150 dias antes (documentar no seu processo de busca).
 - Flexibilidade de datas (campo "± dias") — meio de semana costuma ser mais barato.
-- Stopover como filtro (geralmente mais barato que voo direto).
+- Stopover como filtro (geralmente mais barato que voo direto) — algumas companhias oferecem stopover **gratuito**
+  de propósito (TAP em Lisboa/Porto, Turkish Airlines em Istambul, Icelandair em Reykjavik, Emirates em Dubai,
+  Singapore Airlines em Cingapura); vale marcar "aceitar stopover" pra não descartar essas rotas.
+- Quebra de bilhete (ida/volta separadas) — às vezes sai mais barato que o pacote redondo; o app compara os dois
+  quando você ativa a opção numa busca.
 - Alertas de queda de preço e de novos mínimos históricos (promoção relâmpago).
 
 ## Setup
@@ -73,6 +90,10 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 npm install
 npm start
 ```
+
+**Você não precisa configurar tudo.** O feed de blogs de promoção já funciona sem nenhuma chave. Se quiser
+detecção de erro de tarifa com preço real, basta **uma** das três fontes de dinheiro (Amadeus, SerpApi ou
+Kiwi.com) — não precisa das três. Para alertas, e-mail ou Telegram costumam ser os mais rápidos de configurar.
 
 Acesse `http://localhost:3000` e depois `http://localhost:3000/settings.html` para colar suas chaves de API — cada
 seção da tela de Configurações tem o passo a passo de onde conseguir a chave. Também dá pra usar variáveis de
@@ -86,14 +107,16 @@ ambiente (`.env`, veja `.env.example`) se preferir; o que estiver salvo na tela 
 | Comparação em dinheiro real (Google Flights) | [serpapi.com](https://serpapi.com) | Grátis até 100 buscas/mês |
 | Comparação em dinheiro real (agregador low-cost) | [tequila.kiwi.com](https://tequila.kiwi.com) | Grátis |
 | E-mail | Brevo, Resend, ou Gmail (senha de app) | Grátis (limite diário/mensal) |
-| WhatsApp | [Twilio WhatsApp Sandbox](https://www.twilio.com/docs/whatsapp/sandbox) | Grátis para testar, pago em produção |
+| WhatsApp (opção simples) | [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/) — sem cadastro em site | Grátis |
+| WhatsApp (opção avançada) | [Twilio WhatsApp Sandbox](https://www.twilio.com/docs/whatsapp/sandbox) | Grátis para testar, pago em produção |
+| Telegram | [@BotFather](https://t.me/BotFather) — ~2 minutos, sem verificação de telefone | Grátis |
 | Milhas (AA/LATAM/Smiles/Azul) | Parceria oficial ou integração própria que você administre | Depende |
 
-### E-mail e/ou WhatsApp — como escolher
+### E-mail, WhatsApp e/ou Telegram — como escolher
 
-Cada busca tem os dois campos (e-mail e WhatsApp) opcionais e independentes: preencha só o e-mail, só o WhatsApp,
-ou os dois — o alerta é enviado para **todo canal que tiver um valor preenchido** naquela busca específica. Não
-precisa de nenhuma opção extra de "canal preferido".
+Cada busca tem os três campos (e-mail, WhatsApp, Telegram) opcionais e independentes: preencha qualquer combinação
+— o alerta é enviado para **todo canal que tiver um valor preenchido** naquela busca específica. Não precisa de
+nenhuma opção extra de "canal preferido".
 
 ## Deploy no Render
 
@@ -120,8 +143,9 @@ src/
     runSearch.js        orquestra os provedores, grava histórico, dispara alertas
     anomaly.js           detecção de erro de tarifa / promoção relâmpago
     checkDealFeeds.js     casa posts de blog com buscas salvas, dispara alertas
+    splitTicketCompare.js  compara ida-e-volta vs quebra de bilhete
   notify/
-    email.js, whatsapp.js
+    email.js, whatsapp.js, telegram.js
 public/
   index.html, app.js      formulário + dashboard
   settings.html, settings.js  tela de Configurações (chaves de API, e-mail, WhatsApp)

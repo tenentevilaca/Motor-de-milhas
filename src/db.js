@@ -46,11 +46,13 @@ function createSearch(input) {
     flexDays: Number(input.flexDays || 0),
     programs: input.programs || [], // subset of ['AA','LATAM','SMILES','AZUL']
     allowStopover: Boolean(input.allowStopover),
+    compareSplitTickets: Boolean(input.compareSplitTickets),
     allowHiddenCity: Boolean(input.allowHiddenCity),
     hiddenCityRiskAcknowledged: Boolean(input.hiddenCityRiskAcknowledged),
     targetPrice: input.targetPrice != null ? Number(input.targetPrice) : null,
     email: input.email || null,
     whatsapp: input.whatsapp || null,
+    telegramChatId: input.telegramChatId || null,
     active: true,
     createdAt: now,
     updatedAt: now,
