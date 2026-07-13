@@ -66,6 +66,14 @@
     <div class="row">
       <div class="field"><label for="FROM_EMAIL">E-mail de envio (From)</label><input type="text" id="FROM_EMAIL" placeholder="alertas@seudominio.com" /></div>
     </div>
+    <div class="test-box">
+      <label for="testTo-EMAIL">Testar (salve as configurações acima primeiro): mandar para</label>
+      <div class="row">
+        <div class="field"><input type="email" id="testTo-EMAIL" placeholder="voce@exemplo.com" /></div>
+        <button type="button" class="secondary" style="margin-top:0;" onclick="sendTest('EMAIL')">Enviar e-mail de teste</button>
+      </div>
+      <div class="status-line" id="testResult-EMAIL"></div>
+    </div>
   </section>
 
   <section class="card">
@@ -80,6 +88,14 @@
     </p>
     <div class="row">
       <div class="field"><label for="CALLMEBOT_API_KEY">API Key do CallMeBot</label><input type="password" id="CALLMEBOT_API_KEY" placeholder="já configurado" /></div>
+    </div>
+    <div class="test-box">
+      <label for="testTo-WHATSAPP">Testar (salve as configurações acima primeiro): número com código do país</label>
+      <div class="row">
+        <div class="field"><input type="text" id="testTo-WHATSAPP" placeholder="+5511999999999" /></div>
+        <button type="button" class="secondary" style="margin-top:0;" onclick="sendTest('WHATSAPP')">Enviar WhatsApp de teste</button>
+      </div>
+      <div class="status-line" id="testResult-WHATSAPP"></div>
     </div>
   </section>
 
@@ -114,6 +130,16 @@
     </p>
     <div class="row">
       <div class="field"><label for="TELEGRAM_BOT_TOKEN">Bot Token</label><input type="password" id="TELEGRAM_BOT_TOKEN" placeholder="já configurado" /></div>
+    </div>
+    <div class="test-box">
+      <label for="testTo-TELEGRAM">Testar (salve o token acima primeiro): Chat ID</label>
+      <div class="row">
+        <div class="field"><input type="text" id="testTo-TELEGRAM" placeholder="123456789" /></div>
+        <button type="button" class="secondary" style="margin-top:0;" onclick="findTelegramChatId()">Descobrir meu Chat ID</button>
+        <button type="button" class="secondary" style="margin-top:0;" onclick="sendTest('TELEGRAM')">Enviar Telegram de teste</button>
+      </div>
+      <div id="telegramChatIdResult"></div>
+      <div class="status-line" id="testResult-TELEGRAM"></div>
     </div>
   </section>
 

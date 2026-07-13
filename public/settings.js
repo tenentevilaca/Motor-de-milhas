@@ -99,4 +99,49 @@ async function saveSettings() {
   }
 }
 
+async function sendTest(channel) {
+  const resultEl = document.getElementById(`testResult-${channel}`);
+  const to = document.getElementById(`testTo-${channel}`).value.trim();
+  if (!to) {
+    resultEl.textContent = 'Preencha o destino do teste.';
+    resultEl.style.color = 'var(--danger-text)';
+    return;
+  }
+  resultEl.textContent = 'Enviando...';
+  resultEl.style.color = 'var(--muted)';
+  try {
+    const result = await api('/api/notify/test', { method: 'POST', body: JSON.stringify({ channel, to }) });
+    if (result.status === 'sent') {
+      resultEl.textContent = 'Enviado! Confira se chegou (pode levar alguns segundos).';
+      resultEl.style.color = '#16a34a';
+    } else {
+      resultEl.textContent = result.message || 'Canal não configurado — salve as configurações acima primeiro.';
+      resultEl.style.color = 'var(--danger-text)';
+    }
+  } catch (err) {
+    resultEl.textContent = 'Erro: ' + err.message;
+    resultEl.style.color = 'var(--danger-text)';
+  }
+}
+
+async function findTelegramChatId() {
+  const el = document.getElementById('telegramChatIdResult');
+  el.textContent = 'Buscando...';
+  try {
+    const chats = await api('/api/notify/telegram/chats');
+    if (chats.length === 0) {
+      el.textContent = 'Nenhuma conversa encontrada — mande uma mensagem pro seu bot no Telegram primeiro (ex: /start) e tente de novo.';
+      return;
+    }
+    el.innerHTML = chats
+      .map(
+        (c) =>
+          `<div>${c.name}: <b>${c.chatId}</b> <button type="button" class="secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="document.getElementById('testTo-TELEGRAM').value='${c.chatId}'">usar</button></div>`
+      )
+      .join('');
+  } catch (err) {
+    el.textContent = 'Erro: ' + err.message + ' (salve o Bot Token acima primeiro)';
+  }
+}
+
 loadStatus();

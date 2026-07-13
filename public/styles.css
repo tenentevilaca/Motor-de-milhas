@@ -232,6 +232,17 @@ th { color: var(--muted); font-weight: 600; }
 .guide-panel ol { margin: 6px 0 0; padding-left: 20px; }
 .guide-panel a { color: var(--accent); }
 
+.test-box {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: #f7fbfe;
+  border: 1px dashed var(--card-border);
+  border-radius: 10px;
+}
+.test-box label { margin-top: 0; }
+.test-box .row { align-items: flex-end; }
+.test-box button { flex: 0 0 auto; }
+
 .search-item {
   background: #fbfeff;
   border: 1px solid var(--card-border);

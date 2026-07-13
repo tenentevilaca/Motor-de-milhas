@@ -8,8 +8,11 @@ const { searchAirports, nearestAirports } = require('./airports');
 const { geocodePlace } = require('./geocode');
 const scheduler = require('./scheduler');
 const email = require('./notify/email');
+const { sendEmailAlert } = require('./notify/email');
 const whatsapp = require('./notify/whatsapp');
+const { sendWhatsAppAlert } = require('./notify/whatsapp');
 const telegram = require('./notify/telegram');
+const { sendTelegramAlert } = require('./notify/telegram');
 const config = require('./config');
 const { fetchAllPosts } = require('./dealFeeds');
 const { checkDealFeedsForAllSearches } = require('./search/checkDealFeeds');
@@ -58,6 +61,28 @@ app.get('/api/providers', (req, res) => {
 app.get('/api/notify/telegram/chats', async (req, res) => {
   try {
     res.json(await telegram.getRecentChats());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/notify/test', async (req, res) => {
+  const { channel, to } = req.body || {};
+  if (!to) return res.status(400).json({ error: 'Preencha o destino do teste.' });
+
+  const testMessage = 'Teste do Motor de Milhas — se você recebeu isso, esse canal está configurado corretamente!';
+  try {
+    let result;
+    if (channel === 'EMAIL') {
+      result = await sendEmailAlert({ to, subject: '✈️ Teste — Motor de Milhas', html: `<p>${testMessage}</p>` });
+    } else if (channel === 'WHATSAPP') {
+      result = await sendWhatsAppAlert({ to, message: testMessage });
+    } else if (channel === 'TELEGRAM') {
+      result = await sendTelegramAlert({ chatId: to, message: testMessage });
+    } else {
+      return res.status(400).json({ error: 'channel inválido — use EMAIL, WHATSAPP ou TELEGRAM' });
+    }
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
