@@ -434,10 +434,23 @@ async function createSearch() {
   }
 }
 
+function dealFeedMatchesHtml(result) {
+  if (!result.dealFeedMatches || result.dealFeedMatches.length === 0) return '';
+  return `
+    <div class="best-deal" style="background:#fef9c3; border-color:#fde047; color:#713f12;">
+      📰 <b>${result.dealFeedMatches.length} post(s) de blog de promoção mencionando essa rota agora:</b>
+      <ul style="margin:6px 0 0; padding-left:20px;">
+        ${result.dealFeedMatches
+          .map((p) => `<li><a href="${p.link}" target="_blank" rel="noopener">${p.title}</a> — ${p.source}</li>`)
+          .join('')}
+      </ul>
+    </div>`;
+}
+
 async function runNow(id) {
   const el = document.getElementById(`result-${id}`);
   const meta = document.getElementById(`meta-${id}`);
-  el.innerHTML = '<div class="status-line">Buscando nas fontes configuradas…</div>';
+  el.innerHTML = '<div class="status-line">Buscando nas fontes configuradas e nos blogs de promoção…</div>';
   try {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
     const sorted = result.allOffersSorted || [];
@@ -450,12 +463,14 @@ async function runNow(id) {
     const pending = result.providerResults.filter((r) => r.status === 'not_configured');
     const errored = result.providerResults.filter((r) => r.status === 'error');
     const allUnusable = pending.length + errored.length === result.providerResults.length;
+    const dealHtml = dealFeedMatchesHtml(result);
 
     if (allUnusable && errored.length === 0) {
       el.innerHTML = `
+        ${dealHtml}
         <div class="warning">Busca executada em ${new Date(result.checkedAt).toLocaleTimeString('pt-BR')}, mas nenhuma
         fonte de preço está configurada ainda (${pending.map((p) => p.programId).join(', ')}) — por isso não há oferta
-        para mostrar. Veja "Configurações" (link no topo) para ativar o Amadeus/SerpApi/Kiwi/e-mail/WhatsApp.</div>`;
+        de preço pra mostrar. Veja "Configurações" (link no topo) para ativar o Amadeus/SerpApi/Kiwi/e-mail/WhatsApp.</div>`;
     } else {
       const bestDealHtml =
         result.bestDeal
@@ -464,6 +479,7 @@ async function runNow(id) {
             }</div>`
           : '';
       el.innerHTML = `
+        ${dealHtml}
         ${bestDealHtml}
         <table>
           <tr><th>Programa</th><th>Preço</th><th>Milhas</th><th>Paradas</th></tr>

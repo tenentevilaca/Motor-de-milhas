@@ -15,7 +15,7 @@ const telegram = require('./notify/telegram');
 const { sendTelegramAlert } = require('./notify/telegram');
 const config = require('./config');
 const { fetchAllPosts } = require('./dealFeeds');
-const { checkDealFeedsForAllSearches } = require('./search/checkDealFeeds');
+const { checkDealFeedsForAllSearches, checkDealFeedsForSearch } = require('./search/checkDealFeeds');
 const { getBestTimeAdvice } = require('./search/bestTimeToBuy');
 
 const app = express();
@@ -154,8 +154,11 @@ app.post('/api/searches/:id/run', async (req, res) => {
   const search = db.getSearch(req.params.id);
   if (!search) return res.status(404).json({ error: 'busca não encontrada' });
   try {
-    const result = await runSearch(search);
-    res.json(result);
+    const [result, dealFeed] = await Promise.all([
+      runSearch(search),
+      checkDealFeedsForSearch(search).catch((err) => ({ matches: [], newMatchCount: 0, error: err.message })),
+    ]);
+    res.json({ ...result, dealFeedMatches: dealFeed.matches, dealFeedError: dealFeed.error || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -17,6 +17,38 @@ function buildEmailHtml(search, posts) {
   `;
 }
 
+function findMatchesForSearch(search, posts) {
+  const originAirport = getAirportByIata(search.origin);
+  const destAirport = getAirportByIata(search.destination);
+  return posts.filter(
+    (post) => (destAirport && postMatchesPlace(post, destAirport)) || (originAirport && postMatchesPlace(post, originAirport))
+  );
+}
+
+async function notifySearchOfMatches(search, matches) {
+  if (matches.length === 0) return;
+  if (search.email) {
+    await sendEmailAlert({
+      to: search.email,
+      subject: `📰 Promoção encontrada em blog: ${search.origin} → ${search.destination}`,
+      html: buildEmailHtml(search, matches),
+    });
+  }
+  const text = matches.map((p) => `${p.title} (${p.source}): ${p.link}`).join('\n');
+  if (search.whatsapp) {
+    await sendWhatsAppAlert({
+      to: search.whatsapp,
+      message: `Motor de Milhas — promoção para ${search.origin}->${search.destination}:\n${text}`,
+    });
+  }
+  if (search.telegramChatId) {
+    await sendTelegramAlert({
+      chatId: search.telegramChatId,
+      message: `Motor de Milhas — promoção para ${search.origin}->${search.destination}:\n${text}`,
+    });
+  }
+}
+
 async function checkDealFeedsForAllSearches() {
   const searches = db.listSearches().filter((s) => s.active);
 
@@ -33,33 +65,9 @@ async function checkDealFeedsForAllSearches() {
   const alertsSent = [];
 
   for (const search of searches) {
-    const originAirport = getAirportByIata(search.origin);
-    const destAirport = getAirportByIata(search.destination);
-    const matches = newPosts.filter(
-      (post) => (destAirport && postMatchesPlace(post, destAirport)) || (originAirport && postMatchesPlace(post, originAirport))
-    );
+    const matches = findMatchesForSearch(search, newPosts);
     if (matches.length === 0) continue;
-
-    if (search.email) {
-      await sendEmailAlert({
-        to: search.email,
-        subject: `📰 Promoção encontrada em blog: ${search.origin} → ${search.destination}`,
-        html: buildEmailHtml(search, matches),
-      });
-    }
-    const text = matches.map((p) => `${p.title} (${p.source}): ${p.link}`).join('\n');
-    if (search.whatsapp) {
-      await sendWhatsAppAlert({
-        to: search.whatsapp,
-        message: `Motor de Milhas — promoção para ${search.origin}->${search.destination}:\n${text}`,
-      });
-    }
-    if (search.telegramChatId) {
-      await sendTelegramAlert({
-        chatId: search.telegramChatId,
-        message: `Motor de Milhas — promoção para ${search.origin}->${search.destination}:\n${text}`,
-      });
-    }
+    await notifySearchOfMatches(search, matches);
     alertsSent.push({ searchId: search.id, matchCount: matches.length });
   }
 
@@ -68,4 +76,24 @@ async function checkDealFeedsForAllSearches() {
   return { checkedAt: new Date().toISOString(), postsFound: posts.length, newPosts: newPosts.length, alertsSent };
 }
 
-module.exports = { checkDealFeedsForAllSearches };
+// Checagem sob demanda pra UMA busca (usada pelo botão "Rodar agora"), pra
+// mostrar na hora o que os blogs de promoção têm sobre essa rota — mesmo
+// que nenhuma API de preço esteja configurada. Mostra TODOS os posts que
+// batem com a rota (não só os "novos"), mas só dispara notificação e marca
+// como visto pra quem realmente ainda não tinha sido alertado — clicar
+// várias vezes não manda o mesmo alerta de novo.
+async function checkDealFeedsForSearch(search) {
+  const posts = await fetchAllPosts();
+  const matches = findMatchesForSearch(search, posts);
+
+  const seen = new Set(db.getSeenDealLinks());
+  const newMatches = matches.filter((p) => p.link && !seen.has(p.link));
+  if (newMatches.length > 0) {
+    await notifySearchOfMatches(search, newMatches);
+    db.markDealLinksSeen(newMatches.map((p) => p.link));
+  }
+
+  return { matches, newMatchCount: newMatches.length };
+}
+
+module.exports = { checkDealFeedsForAllSearches, checkDealFeedsForSearch };

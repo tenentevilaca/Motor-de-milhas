@@ -14,7 +14,9 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
   relâmpago) comparando cada oferta com o histórico da rota.
 - Monitora RSS de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre das Milhas, Flip
   Milhas) a cada 10min e alerta quando um post menciona a origem/destino de uma busca sua — é onde erro de tarifa
-  e bônus de transferência de pontos costumam aparecer primeiro, antes de qualquer agregador de preço.
+  e bônus de transferência de pontos costumam aparecer primeiro, antes de qualquer agregador de preço. Clicar em
+  "Rodar agora" também checa os blogs na hora pra aquela rota (não só a varredura agendada) — mostra o que tiver
+  disponível mesmo sem nenhuma fonte de preço configurada, sem duplicar alerta se você já tinha sido notificado.
 - Compara **quebra de bilhete** (opt-in por busca): quando há data de ida e volta, busca as duas pernas separadas
   nas mesmas fontes de preço real e avisa se sai mais barato que o pacote redondo.
 - Envia alertas por e-mail (qualquer SMTP), WhatsApp (CallMeBot sem cadastro, ou Twilio) e Telegram (bot próprio,
