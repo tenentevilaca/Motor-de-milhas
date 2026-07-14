@@ -10,8 +10,6 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 const KNOWN_KEYS = [
-  'AMADEUS_CLIENT_ID',
-  'AMADEUS_CLIENT_SECRET',
   'SERPAPI_KEY',
   'KIWI_TEQUILA_API_KEY',
   'TRAVELPAYOUTS_TOKEN',

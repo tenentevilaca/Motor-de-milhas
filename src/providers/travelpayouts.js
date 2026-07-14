@@ -2,9 +2,9 @@ const axios = require('axios');
 const config = require('../config');
 
 // Travelpayouts (Aviasales) Data API: mais uma fonte de preço real,
-// independente do Amadeus/SerpApi/Kiwi. Cadastro em travelpayouts.com não
-// costuma pedir verificação de telefone (só e-mail) — boa alternativa
-// quando outro provedor bloqueia por antifraude.
+// independente do SerpApi/Kiwi. Cadastro em travelpayouts.com não costuma
+// pedir verificação de telefone (só e-mail) — boa alternativa quando outro
+// provedor bloqueia por antifraude.
 // Atenção: esse endpoint (/v2/prices/latest) devolve o menor preço já
 // observado em cache recente pra rota, não necessariamente uma busca ao
 // vivo pra data exata — ainda assim é um preço real, útil pra comparar

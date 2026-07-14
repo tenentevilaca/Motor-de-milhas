@@ -160,21 +160,6 @@ async function updateBestTimeCard() {
 // (esta sandbox de desenvolvimento bloqueia acesso a esses domínios). Se
 // algum passo estiver desatualizado, me avise que corrijo na hora.
 const INTEGRATION_GUIDES = {
-  CASH_AMADEUS: {
-    title: 'Amadeus for Developers — portal self-service sendo desativado',
-    warning:
-      '⚠️ O portal de autoatendimento (self-service) da Amadeus for Developers será desativado em <b>17/07/2026</b>. ' +
-      'Depois dessa data, provavelmente não vai dar mais pra criar conta nova por aqui (as APIs corporativas ' +
-      'continuam, mas exigem contrato empresarial). Recomendo focar no SerpApi e no Kiwi.com abaixo — se você já ' +
-      'tem uma conta Amadeus antiga, ela deve continuar funcionando até ser desativada.',
-    steps: [
-      'Acesse <a href="https://developers.amadeus.com/register" target="_blank" rel="noopener">developers.amadeus.com/register</a> e crie a conta (sem cartão) — só funciona até 17/07/2026.',
-      'Confirme seu e-mail.',
-      'Faça login e abra "My Self-Service Workspace".',
-      'Clique em "Create New App", dê qualquer nome.',
-      'Copie o "API Key" e o "API Secret" e cole na tela de Configurações, seção 1.',
-    ],
-  },
   CASH_SERPAPI: {
     title: 'SerpApi / Google Flights (100 buscas/mês grátis)',
     steps: [
@@ -335,7 +320,7 @@ function formatBRL(v) {
 
 // Links diretos pros maiores buscadores, prontos com origem/destino/data —
 // funcionam sem nenhuma API configurada, então dão valor imediato mesmo
-// antes (ou sem nunca) configurar Amadeus/SerpApi/Kiwi.
+// antes (ou sem nunca) configurar SerpApi/Kiwi/Travelpayouts.
 function buildManualLinks(s) {
   const o = s.origin;
   const d = s.destination;
@@ -470,7 +455,7 @@ async function runNow(id) {
         ${dealHtml}
         <div class="warning">Busca executada em ${new Date(result.checkedAt).toLocaleTimeString('pt-BR')}, mas nenhuma
         fonte de preço está configurada ainda (${pending.map((p) => p.programId).join(', ')}) — por isso não há oferta
-        de preço pra mostrar. Veja "Configurações" (link no topo) para ativar o Amadeus/SerpApi/Kiwi/e-mail/WhatsApp.</div>`;
+        de preço pra mostrar. Veja "Configurações" (link no topo) para ativar o SerpApi/Kiwi/Travelpayouts/e-mail/WhatsApp.</div>`;
     } else {
       const bestDealHtml =
         result.bestDeal

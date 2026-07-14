@@ -1,4 +1,3 @@
-const amadeus = require('./amadeus');
 const serpapi = require('./serpapi');
 const kiwi = require('./kiwi');
 const travelpayouts = require('./travelpayouts');
@@ -9,7 +8,7 @@ const azul = require('./azul');
 
 // Offer shape returned by every provider's search():
 // {
-//   program: 'AA' | 'LATAM' | 'SMILES' | 'AZUL' | 'CASH_AMADEUS' | 'CASH_SERPAPI' | 'CASH_KIWI',
+//   program: 'AA' | 'LATAM' | 'SMILES' | 'AZUL' | 'CASH_SERPAPI' | 'CASH_KIWI' | 'CASH_TRAVELPAYOUTS',
 //   priceBRL: number | null,       // cash price, when applicable
 //   milesRequired: number | null,  // miles/points price, when applicable
 //   taxesBRL: number | null,       // taxes/fees on top of miles redemption
@@ -19,8 +18,10 @@ const azul = require('./azul');
 //   source: string,
 // }
 
+// Nota: Amadeus for Developers foi removido — o portal self-service deles
+// não funcionou no uso real (e será desativado em 17/07/2026 de qualquer
+// forma). SerpApi, Kiwi.com e Travelpayouts cobrem o mesmo papel.
 const ALL_PROVIDERS = {
-  CASH_AMADEUS: amadeus,
   CASH_SERPAPI: serpapi,
   CASH_KIWI: kiwi,
   CASH_TRAVELPAYOUTS: travelpayouts,
@@ -34,7 +35,7 @@ const ALL_PROVIDERS = {
 // dos programas de milhas escolhidos — são a fonte real de dados usada pelo
 // detector de anomalia (src/search/anomaly.js) sem depender de scraping dos
 // sites das companhias.
-const CASH_PROVIDER_IDS = ['CASH_AMADEUS', 'CASH_SERPAPI', 'CASH_KIWI', 'CASH_TRAVELPAYOUTS'];
+const CASH_PROVIDER_IDS = ['CASH_SERPAPI', 'CASH_KIWI', 'CASH_TRAVELPAYOUTS'];
 
 const MILE_PROGRAM_IDS = ['AA', 'LATAM', 'SMILES', 'AZUL'];
 

@@ -3,8 +3,8 @@ const config = require('../config');
 
 // Kiwi.com Tequila API: outro grande agregador (forte em companhias
 // low-cost e combinações que buscadores tradicionais não juntam), somando
-// cobertura ao Amadeus e ao SerpApi/Google Flights. Cadastro gratuito em
-// https://tequila.kiwi.com — gera uma API key sem precisar de parceria.
+// cobertura ao SerpApi/Google Flights e ao Travelpayouts. Cadastro gratuito
+// em https://tequila.kiwi.com — gera uma API key sem precisar de parceria.
 const BASE_URL = 'https://api.tequila.kiwi.com/v2/search';
 
 function enabled() {

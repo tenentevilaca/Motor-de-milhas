@@ -18,10 +18,6 @@ services:
         value: "*/10 * * * *"
       - key: DEAL_FEED_URLS
         sync: false
-      - key: AMADEUS_CLIENT_ID
-        sync: false
-      - key: AMADEUS_CLIENT_SECRET
-        sync: false
       - key: SERPAPI_KEY
         sync: false
       - key: KIWI_TEQUILA_API_KEY
