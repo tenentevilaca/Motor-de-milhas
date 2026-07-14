@@ -95,6 +95,11 @@ function getHistoryForSearch(searchId, limit = 200) {
   return history.filter((h) => h.searchId === searchId).slice(-limit);
 }
 
+function getHistoryForRoute(origin, destination) {
+  const history = readJson(HISTORY_FILE);
+  return history.filter((h) => h.origin === origin && h.destination === destination);
+}
+
 function getRouteBaseline(origin, destination, program) {
   const history = readJson(HISTORY_FILE);
   const relevant = history.filter(
@@ -130,6 +135,7 @@ module.exports = {
   deleteSearch,
   addHistoryEntries,
   getHistoryForSearch,
+  getHistoryForRoute,
   getRouteBaseline,
   getSeenDealLinks,
   markDealLinksSeen,

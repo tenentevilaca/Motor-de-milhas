@@ -16,6 +16,7 @@ const { sendTelegramAlert } = require('./notify/telegram');
 const config = require('./config');
 const { fetchAllPosts } = require('./dealFeeds');
 const { checkDealFeedsForAllSearches } = require('./search/checkDealFeeds');
+const { getBestTimeAdvice } = require('./search/bestTimeToBuy');
 
 const app = express();
 app.use(express.json());
@@ -38,6 +39,12 @@ app.get('/api/airports', async (req, res) => {
 
   const nearby = nearestAirports(place.lat, place.lon, 6);
   res.json({ airports: nearby, nearby: true, place: place.displayName });
+});
+
+app.get('/api/best-time', (req, res) => {
+  const { origin, destination, departDate } = req.query;
+  if (!origin || !destination) return res.status(400).json({ error: 'origin e destination são obrigatórios' });
+  res.json(getBestTimeAdvice({ origin: String(origin).toUpperCase(), destination: String(destination).toUpperCase(), departDate: departDate || null }));
 });
 
 app.get('/api/providers', (req, res) => {

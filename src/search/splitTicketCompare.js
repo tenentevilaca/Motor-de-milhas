@@ -1,4 +1,7 @@
 const { ALL_PROVIDERS, CASH_PROVIDER_IDS } = require('../providers');
+const { cached } = require('../cache');
+
+const ONE_WAY_CACHE_TTL_MS = 15 * 60 * 1000;
 
 // "Quebra de bilhete": comparar o preço da passagem ida-e-volta com a soma
 // de duas passagens só de ida (uma em cada sentido). É uma prática 100%
@@ -13,8 +16,11 @@ function minPrice(offers) {
 async function searchOneWay(programId, origin, destination, date, allowStopover) {
   const provider = ALL_PROVIDERS[programId];
   if (!provider) return [];
+  const cacheKey = `oneway|${programId}|${origin}|${destination}|${date}|${allowStopover}`;
   try {
-    const result = await provider.search({ origin, destination, departDate: date, returnDate: null, allowStopover });
+    const result = await cached(cacheKey, ONE_WAY_CACHE_TTL_MS, () =>
+      provider.search({ origin, destination, departDate: date, returnDate: null, allowStopover })
+    );
     return result.offers || [];
   } catch {
     return [];

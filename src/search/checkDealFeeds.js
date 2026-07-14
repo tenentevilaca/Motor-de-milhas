@@ -18,11 +18,18 @@ function buildEmailHtml(search, posts) {
 }
 
 async function checkDealFeedsForAllSearches() {
+  const searches = db.listSearches().filter((s) => s.active);
+
+  // Sem nenhuma busca ativa não tem quem alertar — pula a leitura dos feeds
+  // pra não gerar tráfego à toa nos blogs (e economizar o ciclo do agendador).
+  if (searches.length === 0) {
+    return { checkedAt: new Date().toISOString(), postsFound: 0, newPosts: 0, alertsSent: [], skipped: true };
+  }
+
   const posts = await fetchAllPosts();
   const seen = new Set(db.getSeenDealLinks());
   const newPosts = posts.filter((p) => p.link && !seen.has(p.link));
 
-  const searches = db.listSearches().filter((s) => s.active);
   const alertsSent = [];
 
   for (const search of searches) {

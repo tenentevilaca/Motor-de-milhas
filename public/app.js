@@ -32,7 +32,7 @@ async function api(path, options) {
 }
 
 // --- Combobox de aeroporto: digita cidade/país/código, escolhe da lista ---
-function setupAirportCombobox({ queryInputId, hiddenInputId, listId }) {
+function setupAirportCombobox({ queryInputId, hiddenInputId, listId, onSelect }) {
   const queryInput = document.getElementById(queryInputId);
   const hiddenInput = document.getElementById(hiddenInputId);
   const list = document.getElementById(listId);
@@ -76,6 +76,7 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId }) {
     hiddenInput.value = o.iata;
     queryInput.value = `${o.iata} — ${o.city}, ${o.country}`;
     closeList();
+    if (onSelect) onSelect();
   }
 
   queryInput.addEventListener('input', () => {
@@ -117,8 +118,42 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId }) {
   });
 }
 
-setupAirportCombobox({ queryInputId: 'originQuery', hiddenInputId: 'origin', listId: 'originList' });
-setupAirportCombobox({ queryInputId: 'destinationQuery', hiddenInputId: 'destination', listId: 'destinationList' });
+setupAirportCombobox({ queryInputId: 'originQuery', hiddenInputId: 'origin', listId: 'originList', onSelect: () => updateBestTimeCard() });
+setupAirportCombobox({ queryInputId: 'destinationQuery', hiddenInputId: 'destination', listId: 'destinationList', onSelect: () => updateBestTimeCard() });
+document.getElementById('departDate').addEventListener('change', () => updateBestTimeCard());
+
+async function updateBestTimeCard() {
+  const origin = document.getElementById('origin').value;
+  const destination = document.getElementById('destination').value;
+  const card = document.getElementById('bestTimeCard');
+  if (!origin || !destination) {
+    card.hidden = true;
+    return;
+  }
+  const departDate = document.getElementById('departDate').value;
+  card.hidden = false;
+  const body = document.getElementById('bestTimeBody');
+  body.textContent = 'Calculando...';
+  try {
+    const params = new URLSearchParams({ origin, destination });
+    if (departDate) params.set('departDate', departDate);
+    const advice = await api(`/api/best-time?${params}`);
+    const statusColor = { ideal: '#16a34a', urgent: '#16a34a', late: '#c2410c', early: 'var(--muted)', no_date: 'var(--muted)', past: 'var(--danger-text)' };
+    const historicalHtml = advice.historical?.available
+      ? `<div class="status-line"><b>Com base no seu próprio histórico:</b> meses mais baratos observados nessa rota: ${advice.historical.cheapestMonths
+          .map((m) => `${m.monthName} (${formatBRL(m.avgPriceBRL)} em média, ${m.samples} amostra(s))`)
+          .join(', ')}.</div>`
+      : `<div class="status-line">Ainda sem histórico próprio suficiente nessa rota pra estatística por mês (precisa de pelo menos ${advice.historical?.samplesNeeded ?? 3} checagens no mesmo mês) — vai aparecer aqui conforme o motor for rodando.</div>`;
+    body.innerHTML = `
+      <div style="color:${statusColor[advice.buyingWindow.status] || 'inherit'};"><b>Quando comprar:</b> ${advice.buyingWindow.message}</div>
+      <div class="status-line" style="margin-top:8px;"><b>Época mais cara pra viajar essa rota:</b> ${advice.seasonal.highSeasonMonths.join(', ')}.
+      <b>Mais barata costuma ser:</b> ${advice.seasonal.lowSeasonMonths.join(', ')}. ${advice.seasonal.note}</div>
+      ${historicalHtml}
+    `;
+  } catch (err) {
+    body.textContent = 'Erro ao calcular: ' + err.message;
+  }
+}
 
 // Passo a passo de cadastro — só serviços com opção gratuita. Baseado no
 // fluxo mais recente que conheço; não consegui testar ao vivo nesta sessão
@@ -405,12 +440,11 @@ async function runNow(id) {
   el.innerHTML = '<div class="status-line">Buscando nas fontes configuradas…</div>';
   try {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
-    const rows = result.providerResults
-      .flatMap((r) =>
-        r.offers.map(
-          (o) =>
-            `<tr><td>${o.program}</td><td>${formatBRL(o.priceBRL)}</td><td>${o.milesRequired ?? '-'}</td><td>${o.stops}</td></tr>`
-        )
+    const sorted = result.allOffersSorted || [];
+    const rows = sorted
+      .map(
+        (o, i) =>
+          `<tr${i === 0 ? ' style="font-weight:600;"' : ''}><td>${i === 0 ? '🏆 ' : ''}${o.program}</td><td>${formatBRL(o.priceBRL)}</td><td>${o.milesRequired ?? '-'}</td><td>${o.stops === 0 ? 'direto' : o.stops + ' parada(s)'}</td></tr>`
       )
       .join('');
     const pending = result.providerResults.filter((r) => r.status === 'not_configured');
@@ -423,7 +457,14 @@ async function runNow(id) {
         fonte de preço está configurada ainda (${pending.map((p) => p.programId).join(', ')}) — por isso não há oferta
         para mostrar. Veja "Configurações" (link no topo) para ativar o Amadeus/SerpApi/Kiwi/e-mail/WhatsApp.</div>`;
     } else {
+      const bestDealHtml =
+        result.bestDeal
+          ? `<div class="best-deal">🏆 <b>Menor preço encontrado: ${formatBRL(result.bestDeal.priceBRL)}</b>${
+              result.bestDeal.type === 'split' ? ` (quebra de bilhete via ${result.bestDeal.program})` : ` via ${result.bestDeal.program}`
+            }</div>`
+          : '';
       el.innerHTML = `
+        ${bestDealHtml}
         <table>
           <tr><th>Programa</th><th>Preço</th><th>Milhas</th><th>Paradas</th></tr>
           ${rows || '<tr><td colspan="4">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>'}

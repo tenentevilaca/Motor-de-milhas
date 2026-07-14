@@ -19,6 +19,15 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
   nas mesmas fontes de preço real e avisa se sai mais barato que o pacote redondo.
 - Envia alertas por e-mail (qualquer SMTP), WhatsApp (CallMeBot sem cadastro, ou Twilio) e Telegram (bot próprio,
   provavelmente o canal mais simples de configurar).
+- **Card "Melhor época para essa rota"**: aparece assim que você escolhe origem e destino (e melhora quando você
+  preenche a data). Mostra (1) se a data escolhida está dentro da janela ideal de compra pra rota doméstica
+  (30–60 dias antes) ou internacional (60–150 dias antes), (2) os meses de alta/baixa temporada considerando o
+  calendário de férias do Brasil e o hemisfério do destino, e (3) — assim que o motor acumular histórico
+  suficiente — o mês com menor preço médio já observado nessa rota específica, calculado a partir dos seus
+  próprios dados (`src/search/bestTimeToBuy.js`).
+- **Resultado como motor de busca de verdade**: ao rodar uma busca, todas as ofertas de todas as fontes
+  configuradas (e a quebra de bilhete, se ativada) são comparadas e a mais barata de todas aparece destacada no
+  topo ("🏆 Menor preço encontrado"), com a tabela completa ordenada da mais barata pra mais cara.
 
 ## O que este projeto **não** faz (e por quê)
 
@@ -143,6 +152,14 @@ perdidos a cada deploy/restart nesse plano. Por isso, no free tier, prefira pree
 variáveis de ambiente do Render (persistem de verdade) em vez da tela `/settings.html`. Se quiser usar a tela de
 Configurações em produção, migre para um plano pago com disco persistente.
 
+## Eficiência e custo das chamadas de API
+
+Pra não estourar a cota gratuita das APIs de preço (ex: SerpApi tem só 100 buscas/mês), toda chamada a um provedor
+passa por um cache de 15 minutos por rota+data (`src/cache.js`): se a mesma combinação for checada de novo nesse
+intervalo (múltiplas buscas salvas pra mesma rota, cliques repetidos em "Rodar agora", a varredura de promoção
+relâmpago rodando a cada 2h), reaproveita o resultado em vez de gastar mais uma chamada. A checagem do feed de
+blogs também pula a leitura por completo quando não há nenhuma busca ativa pra alertar.
+
 ## Estrutura
 
 ```
@@ -150,6 +167,7 @@ src/
   server.js          API Express + serve o frontend
   config.js            configurações salvas via tela de Configurações (data/settings.json) + fallback a .env
   db.js               storage em JSON (buscas + histórico de preços)
+  cache.js              cache TTL das chamadas aos provedores de preço
   scheduler.js         node-cron com os horários de busca
   airports.js           busca/proximidade de aeroportos
   geocode.js            geocodificação (Nominatim) para aeroportos mais próximos
@@ -160,6 +178,7 @@ src/
     anomaly.js           detecção de erro de tarifa / promoção relâmpago
     checkDealFeeds.js     casa posts de blog com buscas salvas, dispara alertas
     splitTicketCompare.js  compara ida-e-volta vs quebra de bilhete
+    bestTimeToBuy.js       janela ideal de compra + sazonalidade + histórico por mês
   notify/
     email.js, whatsapp.js, telegram.js
 public/

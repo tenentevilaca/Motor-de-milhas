@@ -1,7 +1,14 @@
 const { ALL_PROVIDERS, MILE_PROGRAM_IDS, CASH_PROVIDER_IDS } = require('../providers');
 const { evaluateOffer } = require('./anomaly');
 const { compareSplitTickets } = require('./splitTicketCompare');
+const { cached } = require('../cache');
 const db = require('../db');
+
+// Janela de cache pras chamadas de preço: protege a cota gratuita das APIs
+// quando a mesma rota+data é checada de novo em pouco tempo (buscas
+// duplicadas, cliques repetidos em "Rodar agora"). 15min é curto o
+// suficiente pra não atrapalhar a detecção de promoção relâmpago.
+const PROVIDER_CACHE_TTL_MS = 15 * 60 * 1000;
 const { sendEmailAlert } = require('../notify/email');
 const { sendWhatsAppAlert } = require('../notify/whatsapp');
 const { sendTelegramAlert } = require('../notify/telegram');
@@ -71,16 +78,19 @@ async function runSearch(search) {
   for (const programId of programsToQuery) {
     const provider = ALL_PROVIDERS[programId];
     if (!provider) continue;
+    const cacheKey = `${programId}|${search.origin}|${search.destination}|${search.departDate}|${search.returnDate}|${search.allowStopover}`;
     let result;
     try {
-      result = await provider.search({
-        origin: search.origin,
-        destination: search.destination,
-        departDate: search.departDate,
-        returnDate: search.returnDate,
-        allowStopover: search.allowStopover,
-        allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
-      });
+      result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
+        provider.search({
+          origin: search.origin,
+          destination: search.destination,
+          departDate: search.departDate,
+          returnDate: search.returnDate,
+          allowStopover: search.allowStopover,
+          allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
+        })
+      );
     } catch (err) {
       result = { status: 'error', message: err.message, offers: [] };
     }
@@ -100,6 +110,7 @@ async function runSearch(search) {
         searchId: search.id,
         origin: search.origin,
         destination: search.destination,
+        departDate: search.departDate,
         program: offer.program,
         priceBRL: offer.priceBRL,
         milesRequired: offer.milesRequired,
@@ -141,6 +152,26 @@ async function runSearch(search) {
     }
   }
 
+  // Apresenta como um motor de busca de verdade: todas as ofertas com preço
+  // em dinheiro, de todas as fontes configuradas, ordenadas da mais barata
+  // pra mais cara — e destaca a melhor de todas (considerando também a
+  // quebra de bilhete, se for mais barata que qualquer oferta redonda).
+  const allOffersSorted = results
+    .flatMap((r) => r.offers.map((o) => ({ ...o })))
+    .filter((o) => o.priceBRL != null)
+    .sort((a, b) => a.priceBRL - b.priceBRL);
+
+  let bestDeal = allOffersSorted[0]
+    ? { type: 'offer', priceBRL: allOffersSorted[0].priceBRL, program: allOffersSorted[0].program, stops: allOffersSorted[0].stops }
+    : null;
+  const cheapestSplit = splitSuggestions.reduce(
+    (min, s) => (min == null || s.splitPriceBRL < min.splitPriceBRL ? s : min),
+    null
+  );
+  if (cheapestSplit && (!bestDeal || cheapestSplit.splitPriceBRL < bestDeal.priceBRL)) {
+    bestDeal = { type: 'split', priceBRL: cheapestSplit.splitPriceBRL, program: cheapestSplit.program };
+  }
+
   const notifications = { email: null, whatsapp: null, telegram: null };
   if (alertOffers.length > 0 || splitSuggestions.length > 0) {
     const html = buildAlertHtml(search, alertOffers, splitSuggestions);
@@ -176,6 +207,8 @@ async function runSearch(search) {
     providerResults: results,
     alertCount: alertOffers.length,
     splitSuggestions,
+    allOffersSorted,
+    bestDeal,
     notifications,
   };
 }
