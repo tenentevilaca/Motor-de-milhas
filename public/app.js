@@ -31,8 +31,34 @@ async function api(path, options) {
   return data;
 }
 
+// Continentes/regiões que podem ser escolhidos como destino (espelha
+// src/data/continents.js) — usado só pra exibição no front, a validação de
+// verdade é sempre feita no backend.
+const REGION_LABELS = {
+  SA: 'América do Sul',
+  CA: 'América Central e Caribe',
+  NA: 'América do Norte',
+  EU: 'Europa',
+  ME: 'Oriente Médio',
+  AF: 'África',
+  AS: 'Ásia',
+  OC: 'Oceania',
+};
+
+function isRegionDestination(d) {
+  return /^REGION:[A-Z]{2}$/.test(d || '');
+}
+
+function regionLabelFor(d) {
+  const m = /^REGION:([A-Z]{2})$/.exec(d || '');
+  return m ? REGION_LABELS[m[1]] || d : d;
+}
+
 // --- Combobox de aeroporto: digita cidade/país/código, escolhe da lista ---
-function setupAirportCombobox({ queryInputId, hiddenInputId, listId, onSelect }) {
+// (allowRegions: também aceita digitar um continente, tipo "América do Sul",
+// pra buscar o menor preço em qualquer hub daquela região — só faz sentido
+// no campo de destino.)
+function setupAirportCombobox({ queryInputId, hiddenInputId, listId, onSelect, allowRegions }) {
   const queryInput = document.getElementById(queryInputId);
   const hiddenInput = document.getElementById(hiddenInputId);
   const list = document.getElementById(listId);
@@ -59,9 +85,10 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId, onSelect })
     list.innerHTML =
       header +
       airports
-        .map(
-          (o, i) =>
-            `<div class="combobox-option" data-index="${i}"><span class="iata">${o.iata}</span><span class="place">${o.name} — ${o.city}, ${o.country}${o.distanceKm != null ? ` · ~${o.distanceKm} km` : ''}</span></div>`
+        .map((o, i) =>
+          o.isRegion
+            ? `<div class="combobox-option" data-index="${i}"><span class="iata">🌎</span><span class="place">${o.label_full}</span></div>`
+            : `<div class="combobox-option" data-index="${i}"><span class="iata">${o.iata}</span><span class="place">${o.name} — ${o.city}, ${o.country}${o.distanceKm != null ? ` · ~${o.distanceKm} km` : ''}</span></div>`
         )
         .join('');
     list.classList.add('open');
@@ -73,8 +100,13 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId, onSelect })
   function selectOption(index) {
     const o = currentOptions[index];
     if (!o) return;
-    hiddenInput.value = o.iata;
-    queryInput.value = `${o.iata} — ${o.city}, ${o.country}`;
+    if (o.isRegion) {
+      hiddenInput.value = o.value;
+      queryInput.value = `🌎 ${o.label}`;
+    } else {
+      hiddenInput.value = o.iata;
+      queryInput.value = `${o.iata} — ${o.city}, ${o.country}`;
+    }
     closeList();
     if (onSelect) onSelect();
   }
@@ -86,7 +118,7 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId, onSelect })
     if (q.length < 2) { closeList(); return; }
     debounceTimer = setTimeout(async () => {
       try {
-        const options = await api(`/api/airports?q=${encodeURIComponent(q)}`);
+        const options = await api(`/api/airports?q=${encodeURIComponent(q)}${allowRegions ? '&allowRegions=1' : ''}`);
         renderOptions(options);
       } catch {
         closeList();
@@ -119,7 +151,26 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId, onSelect })
 }
 
 setupAirportCombobox({ queryInputId: 'originQuery', hiddenInputId: 'origin', listId: 'originList', onSelect: () => updateBestTimeCard() });
-setupAirportCombobox({ queryInputId: 'destinationQuery', hiddenInputId: 'destination', listId: 'destinationList', onSelect: () => updateBestTimeCard() });
+setupAirportCombobox({
+  queryInputId: 'destinationQuery',
+  hiddenInputId: 'destination',
+  listId: 'destinationList',
+  allowRegions: true,
+  onSelect: () => {
+    updateBestTimeCard();
+    toggleSplitTicketForRegion();
+  },
+});
+
+// Quebra de bilhete compara ida/volta com dois trechos só de ida pra um
+// destino específico — não existe "quebra de bilhete" pra uma região inteira.
+function toggleSplitTicketForRegion() {
+  const destination = document.getElementById('destination').value;
+  const checkbox = document.getElementById('compareSplitTickets');
+  const isRegion = isRegionDestination(destination);
+  checkbox.disabled = isRegion;
+  if (isRegion) checkbox.checked = false;
+}
 document.getElementById('departDate').addEventListener('change', () => updateBestTimeCard());
 
 async function updateBestTimeCard() {
@@ -324,6 +375,16 @@ function formatBRL(v) {
 function buildManualLinks(s) {
   const o = s.origin;
   const d = s.destination;
+
+  // Destino = região: os buscadores não têm uma URL pronta pra "qualquer
+  // lugar no continente X" com origem/data preenchidas — usa busca em texto
+  // livre do Google Flights, que entende o continente pelo nome.
+  if (isRegionDestination(d)) {
+    const label = regionLabelFor(d);
+    const gfQuery = `Flights from ${o} to ${label}` + (s.departDate ? ` on ${s.departDate}` : '') + (s.returnDate ? ` through ${s.returnDate}` : '');
+    return [{ label: 'Google Flights (explorar região)', url: `https://www.google.com/travel/flights?q=${encodeURIComponent(gfQuery)}` }];
+  }
+
   const toSkyDate = (iso) => iso.replace(/-/g, '').slice(2); // "2026-09-10" -> "260910"
 
   const links = [];
@@ -358,7 +419,7 @@ async function loadSearches() {
       .map(
         (s) => `
       <div class="search-item">
-        <span class="route">${s.origin} → ${s.destination}</span>
+        <span class="route">${s.origin} → ${isRegionDestination(s.destination) ? '🌎 ' + regionLabelFor(s.destination) : s.destination}</span>
         ${s.departDate ? ' · ida ' + s.departDate : ''}${s.returnDate ? ' · volta ' + s.returnDate : ''}
         <div class="status-line">
           Programas: ${s.programs.join(', ') || '-'} · Stopover: ${s.allowStopover ? 'sim' : 'não'} ·
@@ -439,15 +500,20 @@ async function runNow(id) {
   try {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
     const sorted = result.allOffersSorted || [];
+    const showDestinationColumn = sorted.some((o) => o.destination) && new Set(sorted.map((o) => o.destination)).size > 1;
     const rows = sorted
       .map(
         (o, i) =>
-          `<tr${i === 0 ? ' style="font-weight:600;"' : ''}><td>${i === 0 ? '🏆 ' : ''}${o.program}</td><td>${formatBRL(o.priceBRL)}</td><td>${o.milesRequired ?? '-'}</td><td>${o.stops === 0 ? 'direto' : o.stops + ' parada(s)'}</td></tr>`
+          `<tr${i === 0 ? ' style="font-weight:600;"' : ''}><td>${i === 0 ? '🏆 ' : ''}${o.program}</td>${
+            showDestinationColumn ? `<td>${o.destination || '-'}</td>` : ''
+          }<td>${formatBRL(o.priceBRL)}</td><td>${o.milesRequired ?? '-'}</td><td>${o.stops === 0 ? 'direto' : o.stops + ' parada(s)'}</td></tr>`
       )
       .join('');
-    const pending = result.providerResults.filter((r) => r.status === 'not_configured');
-    const errored = result.providerResults.filter((r) => r.status === 'error');
-    const allUnusable = pending.length + errored.length === result.providerResults.length;
+    // Busca por região consulta os mesmos provedores em vários hubs — deduplica
+    // por programId aqui pra não repetir "CASH_SERPAPI, CASH_SERPAPI, ..." N vezes.
+    const pending = [...new Map(result.providerResults.filter((r) => r.status === 'not_configured').map((r) => [r.programId, r])).values()];
+    const errored = [...new Map(result.providerResults.filter((r) => r.status === 'error').map((r) => [r.programId, r])).values()];
+    const allUnusable = pending.length + errored.length === new Set(result.providerResults.map((r) => r.programId)).size;
     const dealHtml = dealFeedMatchesHtml(result);
 
     if (allUnusable && errored.length === 0) {
@@ -461,14 +527,14 @@ async function runNow(id) {
         result.bestDeal
           ? `<div class="best-deal">🏆 <b>Menor preço encontrado: ${formatBRL(result.bestDeal.priceBRL)}</b>${
               result.bestDeal.type === 'split' ? ` (quebra de bilhete via ${result.bestDeal.program})` : ` via ${result.bestDeal.program}`
-            }</div>`
+            }${result.bestDeal.destination && showDestinationColumn ? ` — destino: <b>${result.bestDeal.destination}</b>` : ''}</div>`
           : '';
       el.innerHTML = `
         ${dealHtml}
         ${bestDealHtml}
         <table>
-          <tr><th>Programa</th><th>Preço</th><th>Milhas</th><th>Paradas</th></tr>
-          ${rows || '<tr><td colspan="4">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>'}
+          <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}<th>Preço</th><th>Milhas</th><th>Paradas</th></tr>
+          ${rows || `<tr><td colspan="${showDestinationColumn ? 5 : 4}">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>`}
         </table>
         ${result.alertCount > 0 ? `<div class="warning">${result.alertCount} alerta(s) disparado(s) e enviado(s).</div>` : ''}
         ${

@@ -2,6 +2,7 @@ const { ALL_PROVIDERS, MILE_PROGRAM_IDS, CASH_PROVIDER_IDS } = require('../provi
 const { evaluateOffer } = require('./anomaly');
 const { compareSplitTickets } = require('./splitTicketCompare');
 const { cached } = require('../cache');
+const { regionCodeFromValue, getHubAirportsForRegion, listRegions } = require('../airports');
 const db = require('../db');
 
 // Janela de cache pras chamadas de preço: protege a cota gratuita das APIs
@@ -23,6 +24,7 @@ function buildAlertHtml(search, alertOffers, splitSuggestions) {
     .map(
       ({ offer, evaluation }) => `
       <tr>
+        <td>${offer.destination || '-'}</td>
         <td>${offer.program}</td>
         <td>${formatBRL(offer.priceBRL)}</td>
         <td>${offer.milesRequired ?? '-'}</td>
@@ -51,7 +53,7 @@ function buildAlertHtml(search, alertOffers, splitSuggestions) {
       rows
         ? `<p>Oferta(s) que merecem sua atenção:</p>
     <table border="1" cellpadding="6" cellspacing="0">
-      <tr><th>Programa</th><th>Preço</th><th>Milhas</th><th>Paradas</th><th>Hidden-city</th><th>Motivo do alerta</th></tr>
+      <tr><th>Destino</th><th>Programa</th><th>Preço</th><th>Milhas</th><th>Paradas</th><th>Hidden-city</th><th>Motivo do alerta</th></tr>
       ${rows}
     </table>`
         : ''
@@ -71,30 +73,47 @@ function buildAlertHtml(search, alertOffers, splitSuggestions) {
   `;
 }
 
+function regionLabel(code) {
+  return listRegions().find((r) => r.code === code)?.label || code;
+}
+
 async function runSearch(search) {
   const programsToQuery = [...CASH_PROVIDER_IDS, ...search.programs.filter((p) => MILE_PROGRAM_IDS.includes(p))];
-  const results = [];
 
-  for (const programId of programsToQuery) {
-    const provider = ALL_PROVIDERS[programId];
-    if (!provider) continue;
-    const cacheKey = `${programId}|${search.origin}|${search.destination}|${search.departDate}|${search.returnDate}|${search.allowStopover}`;
-    let result;
-    try {
-      result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
-        provider.search({
-          origin: search.origin,
-          destination: search.destination,
-          departDate: search.departDate,
-          returnDate: search.returnDate,
-          allowStopover: search.allowStopover,
-          allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
-        })
-      );
-    } catch (err) {
-      result = { status: 'error', message: err.message, offers: [] };
+  // Destino = região inteira (ex: "REGION:SA"): em vez de um único aeroporto,
+  // consulta uma lista enxuta de hubs representativos daquele continente, pra
+  // achar o mais barato sem estourar a cota das APIs gratuitas consultando
+  // milhares de aeroportos.
+  const regionCode = regionCodeFromValue(search.destination);
+  const destinations = regionCode
+    ? getHubAirportsForRegion(regionCode)
+        .map((a) => a.iata)
+        .filter((iata) => iata !== search.origin.toUpperCase())
+    : [search.destination];
+
+  const results = [];
+  for (const destination of destinations) {
+    for (const programId of programsToQuery) {
+      const provider = ALL_PROVIDERS[programId];
+      if (!provider) continue;
+      const cacheKey = `${programId}|${search.origin}|${destination}|${search.departDate}|${search.returnDate}|${search.allowStopover}`;
+      let result;
+      try {
+        result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
+          provider.search({
+            origin: search.origin,
+            destination,
+            departDate: search.departDate,
+            returnDate: search.returnDate,
+            allowStopover: search.allowStopover,
+            allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
+          })
+        );
+      } catch (err) {
+        result = { status: 'error', message: err.message, offers: [] };
+      }
+      results.push({ programId, destination, ...result, offers: (result.offers || []).map((o) => ({ ...o, destination })) });
     }
-    results.push({ programId, ...result });
   }
 
   const now = new Date().toISOString();
@@ -103,13 +122,13 @@ async function runSearch(search) {
 
   for (const r of results) {
     for (const offer of r.offers) {
-      const baseline = db.getRouteBaseline(search.origin, search.destination, offer.program);
+      const baseline = db.getRouteBaseline(search.origin, r.destination, offer.program);
       const evaluation = evaluateOffer(offer, baseline);
 
       historyEntries.push({
         searchId: search.id,
         origin: search.origin,
-        destination: search.destination,
+        destination: r.destination,
         departDate: search.departDate,
         program: offer.program,
         priceBRL: offer.priceBRL,
@@ -132,9 +151,9 @@ async function runSearch(search) {
   if (historyEntries.length > 0) db.addHistoryEntries(historyEntries);
   db.updateSearch(search.id, { lastRunAt: now });
 
-  // Quebra de bilhete: só roda se a busca pediu explicitamente (consome
-  // chamadas extras nas APIs de preço, então é opt-in por busca).
-  const splitComparisons = await compareSplitTickets(search);
+  // Quebra de bilhete exige um destino específico — não roda pra busca por
+  // região (ver validação em server.js, que já bloqueia essa combinação).
+  const splitComparisons = regionCode ? [] : await compareSplitTickets(search);
   const splitSuggestions = [];
   for (const cmp of splitComparisons) {
     const roundTripOffers = results.find((r) => r.programId === cmp.program)?.offers || [];
@@ -162,7 +181,13 @@ async function runSearch(search) {
     .sort((a, b) => a.priceBRL - b.priceBRL);
 
   let bestDeal = allOffersSorted[0]
-    ? { type: 'offer', priceBRL: allOffersSorted[0].priceBRL, program: allOffersSorted[0].program, stops: allOffersSorted[0].stops }
+    ? {
+        type: 'offer',
+        priceBRL: allOffersSorted[0].priceBRL,
+        program: allOffersSorted[0].program,
+        stops: allOffersSorted[0].stops,
+        destination: allOffersSorted[0].destination,
+      }
     : null;
   const cheapestSplit = splitSuggestions.reduce(
     (min, s) => (min == null || s.splitPriceBRL < min.splitPriceBRL ? s : min),
@@ -172,31 +197,33 @@ async function runSearch(search) {
     bestDeal = { type: 'split', priceBRL: cheapestSplit.splitPriceBRL, program: cheapestSplit.program };
   }
 
+  const destinationDisplay = regionCode ? regionLabel(regionCode) : search.destination;
+
   const notifications = { email: null, whatsapp: null, telegram: null };
   if (alertOffers.length > 0 || splitSuggestions.length > 0) {
-    const html = buildAlertHtml(search, alertOffers, splitSuggestions);
+    const html = buildAlertHtml({ ...search, destination: destinationDisplay }, alertOffers, splitSuggestions);
     const textLines = [
-      ...alertOffers.map((a) => `${a.offer.program}: ${formatBRL(a.offer.priceBRL)} (${a.evaluation.reason || 'abaixo do alvo'})`),
+      ...alertOffers.map((a) => `${a.offer.program} (${a.offer.destination}): ${formatBRL(a.offer.priceBRL)} (${a.evaluation.reason || 'abaixo do alvo'})`),
       ...splitSuggestions.map((s) => `Quebra de bilhete ${s.program}: economize ${formatBRL(s.savingsBRL)} comprando separado`),
     ];
 
     if (search.email) {
       notifications.email = await sendEmailAlert({
         to: search.email,
-        subject: `✈️ Alerta de preço: ${search.origin} → ${search.destination}`,
+        subject: `✈️ Alerta de preço: ${search.origin} → ${destinationDisplay}`,
         html,
       });
     }
     if (search.whatsapp) {
       notifications.whatsapp = await sendWhatsAppAlert({
         to: search.whatsapp,
-        message: `Motor de Milhas ${search.origin}->${search.destination}:\n${textLines.join('\n')}`,
+        message: `Motor de Milhas ${search.origin}->${destinationDisplay}:\n${textLines.join('\n')}`,
       });
     }
     if (search.telegramChatId) {
       notifications.telegram = await sendTelegramAlert({
         chatId: search.telegramChatId,
-        message: `Motor de Milhas ${search.origin}->${search.destination}:\n${textLines.join('\n')}`,
+        message: `Motor de Milhas ${search.origin}->${destinationDisplay}:\n${textLines.join('\n')}`,
       });
     }
   }

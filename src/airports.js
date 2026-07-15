@@ -1,6 +1,7 @@
 const airports = require('./data/airports.json');
 const countryAliases = require('./data/countryAliases');
 const cityAliases = require('./data/cityAliases');
+const { REGIONS, getRegionForCountry, listRegions } = require('./data/continents');
 
 // Base de ~6000 aeroportos (OpenFlights, ODbL) para permitir buscar por
 // cidade ou país e não só por código IATA — nem todo mundo sabe de cor que
@@ -101,4 +102,63 @@ function getAirportByIata(iata) {
   return byIata.get(String(iata).toUpperCase()) || null;
 }
 
-module.exports = { searchAirports, nearestAirports, getAirportByIata };
+// Busca por continente/região (ex: "américa do sul", "europa") pra permitir
+// destino = "qualquer lugar dessa região" em vez de um aeroporto específico.
+const normalizedRegions = listRegions().map((r) => ({ ...r, _label: normalize(r.label) }));
+
+function searchRegions(query, limit = 6) {
+  const q = normalize(query);
+  if (!q || q.length < 3) return [];
+  return normalizedRegions
+    .filter((r) => r._label.includes(q) || q.includes(r._label))
+    .slice(0, limit)
+    .map((r) => ({
+      code: r.code,
+      label: r.label,
+      value: `REGION:${r.code}`,
+      isRegion: true,
+      label_full: `${r.label} (qualquer destino na região)`,
+    }));
+}
+
+function isRegionValue(value) {
+  const m = /^REGION:([A-Z]{2})$/.exec(String(value || '').toUpperCase());
+  return Boolean(m && REGIONS[m[1]]);
+}
+
+function regionCodeFromValue(value) {
+  const m = /^REGION:([A-Z]{2})$/.exec(String(value || '').toUpperCase());
+  return m && REGIONS[m[1]] ? m[1] : null;
+}
+
+// Retorna uma lista enxuta de aeroportos-hub representativos da região, pra
+// manter o custo de chamadas às APIs de preço sob controle — em vez de
+// consultar todos os ~6000 aeroportos, olha só os grandes hubs (MAJOR_HUBS)
+// que ficam naquele continente. Limita a 1 hub por país (na ordem em que
+// MAJOR_HUBS já lista os mais relevantes) pra não desperdiçar o limite todo
+// em várias cidades do mesmo país (ex: só aeroportos do Brasil) e de fato
+// cobrir a região inteira.
+function getHubAirportsForRegion(regionCode, limit = 8) {
+  if (!REGIONS[regionCode]) return [];
+  const seenCountries = new Set();
+  const hubs = [];
+  for (const iata of MAJOR_HUBS) {
+    const a = byIata.get(iata);
+    if (!a || getRegionForCountry(a.country) !== regionCode || seenCountries.has(a.country)) continue;
+    seenCountries.add(a.country);
+    hubs.push({ iata: a.iata, name: a.name, city: a.city, country: a.country });
+    if (hubs.length >= limit) break;
+  }
+  return hubs;
+}
+
+module.exports = {
+  searchAirports,
+  nearestAirports,
+  getAirportByIata,
+  searchRegions,
+  isRegionValue,
+  regionCodeFromValue,
+  getHubAirportsForRegion,
+  listRegions,
+};

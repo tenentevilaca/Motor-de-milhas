@@ -1,6 +1,13 @@
 const db = require('../db');
 const { fetchAllPosts, postMatchesPlace } = require('../dealFeeds');
-const { getAirportByIata } = require('../airports');
+const { getAirportByIata, regionCodeFromValue, listRegions } = require('../airports');
+const { REGIONS } = require('../data/continents');
+
+function destinationLabel(search) {
+  const regionCode = regionCodeFromValue(search.destination);
+  if (!regionCode) return search.destination;
+  return listRegions().find((r) => r.code === regionCode)?.label || search.destination;
+}
 const { sendEmailAlert } = require('../notify/email');
 const { sendWhatsAppAlert } = require('../notify/whatsapp');
 const { sendTelegramAlert } = require('../notify/telegram');
@@ -10,18 +17,29 @@ function buildEmailHtml(search, posts) {
     .map((p) => `<li><a href="${p.link}">${p.title}</a> — ${p.source}${p.publishedAt ? ` (${new Date(p.publishedAt).toLocaleDateString('pt-BR')})` : ''}</li>`)
     .join('');
   return `
-    <h2>Motor de Milhas — Promoção encontrada para ${search.origin} → ${search.destination}</h2>
+    <h2>Motor de Milhas — Promoção encontrada para ${search.origin} → ${destinationLabel(search)}</h2>
     <p>Post(s) publicado(s) em blogs de promoção mencionando essa rota:</p>
     <ul>${rows}</ul>
     <p style="color:#666">Confira os detalhes e condições diretamente no link antes de comprar.</p>
   `;
 }
 
+// Busca por região não tem um único aeroporto de destino — considera match
+// se o post mencionar QUALQUER país daquele continente (ex: destino "Europa"
+// casa com um post sobre promoção pra Portugal, França, etc).
+function postMatchesRegion(post, regionCode) {
+  return REGIONS[regionCode].countries.some((country) => postMatchesPlace(post, { country }));
+}
+
 function findMatchesForSearch(search, posts) {
   const originAirport = getAirportByIata(search.origin);
-  const destAirport = getAirportByIata(search.destination);
+  const regionCode = regionCodeFromValue(search.destination);
+  const destAirport = regionCode ? null : getAirportByIata(search.destination);
   return posts.filter(
-    (post) => (destAirport && postMatchesPlace(post, destAirport)) || (originAirport && postMatchesPlace(post, originAirport))
+    (post) =>
+      (destAirport && postMatchesPlace(post, destAirport)) ||
+      (regionCode && postMatchesRegion(post, regionCode)) ||
+      (originAirport && postMatchesPlace(post, originAirport))
   );
 }
 
@@ -30,7 +48,7 @@ async function notifySearchOfMatches(search, matches) {
   if (search.email) {
     await sendEmailAlert({
       to: search.email,
-      subject: `📰 Promoção encontrada em blog: ${search.origin} → ${search.destination}`,
+      subject: `📰 Promoção encontrada em blog: ${search.origin} → ${destinationLabel(search)}`,
       html: buildEmailHtml(search, matches),
     });
   }
@@ -38,13 +56,13 @@ async function notifySearchOfMatches(search, matches) {
   if (search.whatsapp) {
     await sendWhatsAppAlert({
       to: search.whatsapp,
-      message: `Motor de Milhas — promoção para ${search.origin}->${search.destination}:\n${text}`,
+      message: `Motor de Milhas — promoção para ${search.origin}->${destinationLabel(search)}:\n${text}`,
     });
   }
   if (search.telegramChatId) {
     await sendTelegramAlert({
       chatId: search.telegramChatId,
-      message: `Motor de Milhas — promoção para ${search.origin}->${search.destination}:\n${text}`,
+      message: `Motor de Milhas — promoção para ${search.origin}->${destinationLabel(search)}:\n${text}`,
     });
   }
 }

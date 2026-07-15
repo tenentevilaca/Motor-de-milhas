@@ -8,6 +8,11 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 - Formulário de busca: origem e destino por **cidade, país ou código IATA** (autocomplete com ~6.000 aeroportos —
   não é preciso saber o código de cor), datas (+ flexibilidade em dias), **múltiplos** programas de milhas,
   stopover e hidden-city/skiplagged como filtros opcionais.
+- **Destino por continente/região** (América do Sul, América Central e Caribe, América do Norte, Europa, Oriente
+  Médio, África, Ásia, Oceania): em vez de escolher um aeroporto específico, digite o continente no campo Destino
+  e o motor consulta um conjunto enxuto de hubs relevantes daquela região (1 por país, priorizando os principais)
+  e destaca o mais barato — um "pra onde for mais barato dentro desse continente" (`src/data/continents.js`,
+  `src/airports.js#getHubAirportsForRegion`). Não é compatível com quebra de bilhete (que exige um destino único).
 - Roda automaticamente todos os dias, em horários configuráveis (padrão: 06h, 13h, 21h + varredura a cada 2h
   para promoções relâmpago — ver raciocínio em `src/scheduler.js`).
 - Detecta anomalias de preço (possíveis erros de tarifa) e novos mínimos históricos (possíveis promoções
@@ -169,7 +174,8 @@ src/
   db.js               storage em JSON (buscas + histórico de preços)
   cache.js              cache TTL das chamadas aos provedores de preço
   scheduler.js         node-cron com os horários de busca
-  airports.js           busca/proximidade de aeroportos
+  airports.js           busca/proximidade de aeroportos + hubs por continente
+  data/continents.js      mapa país → continente/região (destino "qualquer lugar da Europa" etc.)
   geocode.js            geocodificação (Nominatim) para aeroportos mais próximos
   dealFeeds.js            lê RSS de blogs de promoção/milhas
   providers/            um adaptador por programa/fonte de dados

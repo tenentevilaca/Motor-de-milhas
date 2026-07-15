@@ -4,7 +4,7 @@ const express = require('express');
 const db = require('./db');
 const { runSearch } = require('./search/runSearch');
 const { listProviderStatus } = require('./providers');
-const { searchAirports, nearestAirports } = require('./airports');
+const { searchAirports, nearestAirports, searchRegions, isRegionValue } = require('./airports');
 const { geocodePlace } = require('./geocode');
 const scheduler = require('./scheduler');
 const email = require('./notify/email');
@@ -28,8 +28,12 @@ app.get('/api/airports', async (req, res) => {
   const q = String(req.query.q || '');
   if (q.trim().length < 2) return res.json({ airports: [], nearby: false });
 
+  // Regiões/continentes (ex: "américa do sul") só fazem sentido como destino
+  // — o front só manda allowRegions=1 pro campo de destino.
+  const regions = req.query.allowRegions ? searchRegions(q) : [];
+
   const direct = searchAirports(q);
-  if (direct.length > 0) return res.json({ airports: direct, nearby: false });
+  if (direct.length > 0 || regions.length > 0) return res.json({ airports: [...regions, ...direct], nearby: false });
 
   // Nenhum aeroporto bate diretamente com a busca (ex: cidade pequena sem
   // aeroporto próprio) — tenta geocodificar o texto e sugerir os aeroportos
@@ -119,11 +123,18 @@ app.post('/api/searches', (req, res) => {
   if (!body.origin || !body.destination) {
     return res.status(400).json({ error: 'origin e destination são obrigatórios' });
   }
-  if (!/^[A-Za-z]{3}$/.test(body.origin) || !/^[A-Za-z]{3}$/.test(body.destination)) {
-    return res.status(400).json({ error: 'origin e destination devem ser códigos IATA de 3 letras — escolha um aeroporto na lista sugerida' });
+  const destinationIsRegion = isRegionValue(body.destination);
+  if (!/^[A-Za-z]{3}$/.test(body.origin)) {
+    return res.status(400).json({ error: 'origin deve ser um código IATA de 3 letras — escolha um aeroporto na lista sugerida' });
   }
-  if (body.origin.toUpperCase() === body.destination.toUpperCase()) {
+  if (!destinationIsRegion && !/^[A-Za-z]{3}$/.test(body.destination)) {
+    return res.status(400).json({ error: 'destination deve ser um código IATA de 3 letras ou uma região — escolha uma opção na lista sugerida' });
+  }
+  if (!destinationIsRegion && body.origin.toUpperCase() === body.destination.toUpperCase()) {
     return res.status(400).json({ error: 'origem e destino não podem ser iguais' });
+  }
+  if (destinationIsRegion && body.compareSplitTickets) {
+    return res.status(400).json({ error: 'Comparar quebra de bilhete exige um destino específico (não é possível com busca por região).' });
   }
   const programs = (body.programs || []).filter((p) => MILE_PROGRAMS.includes(p));
   if (body.allowHiddenCity && !body.hiddenCityRiskAcknowledged) {
