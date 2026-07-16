@@ -27,13 +27,21 @@ function enabled() {
 }
 
 async function sendViaCallMeBot({ to, message }) {
-  await axios.get('https://api.callmebot.com/whatsapp.php', {
+  const response = await axios.get('https://api.callmebot.com/whatsapp.php', {
     params: {
       phone: to.replace(/[^\d+]/g, ''),
       text: message,
       apikey: config.get('CALLMEBOT_API_KEY'),
     },
   });
+  // CallMeBot responde HTTP 200 mesmo quando a apikey/telefone estão errados
+  // ou o número nunca fez o opt-in — o erro só aparece no texto da resposta
+  // (ex: "API Key is invalid", "The phone number is not registered..."). Sem
+  // checar isso, o app reportava "enviado" mesmo quando nada chegava.
+  const body = String(response.data || '');
+  if (!/message queued/i.test(body)) {
+    throw new Error(`CallMeBot não confirmou o envio: ${body.slice(0, 200) || 'resposta vazia'}`);
+  }
   return { status: 'sent', method: 'callmebot' };
 }
 
@@ -53,7 +61,17 @@ async function sendViaTwilio({ to, message }) {
 }
 
 async function sendWhatsAppAlert({ to, message }) {
-  if (callMeBotEnabled()) return sendViaCallMeBot({ to, message });
+  if (callMeBotEnabled()) {
+    try {
+      return await sendViaCallMeBot({ to, message });
+    } catch (err) {
+      // Se o Twilio também estiver configurado, tenta por ele antes de
+      // desistir — assim o usuário não precisa remover uma chave pra testar
+      // a outra manualmente toda vez que o CallMeBot falhar.
+      if (twilioEnabled()) return sendViaTwilio({ to, message });
+      throw err;
+    }
+  }
   if (twilioEnabled()) return sendViaTwilio({ to, message });
   return {
     status: 'not_configured',

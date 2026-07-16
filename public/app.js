@@ -305,6 +305,13 @@ function badgeRow(id, label, enabledFlag, note) {
   }${note ? `<div class="status-line">${note}</div>` : ''}${guideHtml(id)}</div>`;
 }
 
+function toggleIntegrationsCard() {
+  const body = document.getElementById('integrationsBody');
+  const icon = document.getElementById('integrationsToggleIcon');
+  body.hidden = !body.hidden;
+  icon.classList.toggle('open', !body.hidden);
+}
+
 async function loadProviderStatus() {
   const el = document.getElementById('providerStatus');
   try {
@@ -345,9 +352,13 @@ async function loadDealFeed() {
   const el = document.getElementById('dealFeedList');
   el.textContent = 'Carregando...';
   try {
-    const posts = await api('/api/deal-feed/latest');
+    const { posts, hasActiveSearches } = await api('/api/deal-feed/latest');
+    if (!hasActiveSearches) {
+      el.innerHTML = '<p class="status-line">Crie uma busca ativa acima pra ver aqui os posts de blog relacionados a ela.</p>';
+      return;
+    }
     if (posts.length === 0) {
-      el.innerHTML = '<p class="status-line">Nenhum post encontrado (feeds podem estar indisponíveis).</p>';
+      el.innerHTML = '<p class="status-line">Nenhum post relacionado às suas buscas ativas por enquanto (feeds podem estar indisponíveis, ou nenhum post recente menciona sua rota).</p>';
       return;
     }
     el.innerHTML = posts

@@ -25,7 +25,9 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 - Compara **quebra de bilhete** (opt-in por busca): quando há data de ida e volta, busca as duas pernas separadas
   nas mesmas fontes de preço real e avisa se sai mais barato que o pacote redondo.
 - Envia alertas por e-mail (qualquer SMTP), WhatsApp (CallMeBot sem cadastro, ou Twilio) e Telegram (bot próprio,
-  provavelmente o canal mais simples de configurar).
+  provavelmente o canal mais simples de configurar). Se os dois estiverem configurados e o CallMeBot falhar (ele
+  responde HTTP 200 mesmo em erro — o app checa o texto da resposta pra saber se realmente enviou), cai automaticamente
+  pro Twilio em vez de simplesmente reportar sucesso sem ter enviado nada.
 - **Card "Melhor época para essa rota"**: aparece assim que você escolhe origem e destino (e melhora quando você
   preenche a data). Mostra (1) se a data escolhida está dentro da janela ideal de compra pra rota doméstica
   (30–60 dias antes) ou internacional (60–150 dias antes), (2) os meses de alta/baixa temporada considerando o

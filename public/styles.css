@@ -81,6 +81,17 @@ body {
   font-size: 1.1rem;
   color: var(--accent-dark);
 }
+.card h2.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+}
+.card h2.collapsible-header:hover { color: var(--accent); }
+#integrationsToggleIcon {
+  display: inline-block;
+  font-size: 0.75rem;
+  transition: transform 0.15s ease;
+}
+#integrationsToggleIcon.open { transform: rotate(90deg); }
 .card h3 {
   margin: 22px 0 4px;
   font-size: 0.95rem;

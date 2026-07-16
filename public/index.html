@@ -134,9 +134,9 @@
 
   <section class="card">
     <h2>Feed de promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
-    <p class="status-line">Últimos posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira,
-    Mestre das Milhas, Flip Milhas) — já funciona sem nenhuma conta. Se mencionarem a origem/destino de uma busca
-    sua, você recebe um alerta automaticamente.</p>
+    <p class="status-line">Posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre das
+    Milhas, Flip Milhas) que mencionam a origem ou o destino de alguma das suas buscas ativas — já funciona sem
+    nenhuma conta. Se aparecer um post aqui, você também recebe o alerta automaticamente por e-mail/WhatsApp/Telegram.</p>
     <div id="dealFeedList">Carregando...</div>
   </section>
 
@@ -146,11 +146,16 @@
   </section>
 
   <section class="card">
-    <h2>Status das integrações <span class="status-line" style="display:inline; margin:0;">(opcional)</span></h2>
-    <p class="status-line">Tudo abaixo é opcional — só ative se quiser alertas automáticos de erro de tarifa numa
-    rota específica. Cada item tem um botão "como configurar" com o passo a passo (todas as opções aqui são
-    gratuitas).</p>
-    <div id="providerStatus" class="provider-list">Carregando...</div>
+    <h2 class="collapsible-header" onclick="toggleIntegrationsCard()">
+      <span id="integrationsToggleIcon">▶</span> Status das integrações
+      <span class="status-line" style="display:inline; margin:0;">(opcional)</span>
+    </h2>
+    <div id="integrationsBody" hidden>
+      <p class="status-line">Tudo abaixo é opcional — só ative se quiser alertas automáticos de erro de tarifa numa
+      rota específica. Cada item tem um botão "como configurar" com o passo a passo (todas as opções aqui são
+      gratuitas).</p>
+      <div id="providerStatus" class="provider-list">Carregando...</div>
+    </div>
   </section>
 
 </main>

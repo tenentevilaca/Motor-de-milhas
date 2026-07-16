@@ -114,4 +114,19 @@ async function checkDealFeedsForSearch(search) {
   return { matches, newMatchCount: newMatches.length };
 }
 
-module.exports = { checkDealFeedsForAllSearches, checkDealFeedsForSearch };
+// Usado pela seção "Feed de promoções" do dashboard: em vez de despejar TODO
+// post dos blogs monitorados (a maioria sem relação nenhuma com o que o
+// usuário procura), mostra só os que batem com origem/destino de alguma
+// busca ativa — deduplicado (o mesmo post pode bater com mais de uma busca).
+function findMatchesForAllActiveSearches(posts) {
+  const searches = db.listSearches().filter((s) => s.active);
+  const matched = new Map();
+  for (const search of searches) {
+    for (const post of findMatchesForSearch(search, posts)) {
+      if (post.link) matched.set(post.link, post);
+    }
+  }
+  return [...matched.values()];
+}
+
+module.exports = { checkDealFeedsForAllSearches, checkDealFeedsForSearch, findMatchesForAllActiveSearches };

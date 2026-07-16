@@ -15,7 +15,7 @@ const telegram = require('./notify/telegram');
 const { sendTelegramAlert } = require('./notify/telegram');
 const config = require('./config');
 const { fetchAllPosts } = require('./dealFeeds');
-const { checkDealFeedsForAllSearches, checkDealFeedsForSearch } = require('./search/checkDealFeeds');
+const { checkDealFeedsForAllSearches, checkDealFeedsForSearch, findMatchesForAllActiveSearches } = require('./search/checkDealFeeds');
 const { getBestTimeAdvice } = require('./search/bestTimeToBuy');
 
 const app = express();
@@ -183,12 +183,15 @@ app.get('/api/searches/:id/history', (req, res) => {
 
 app.get('/api/deal-feed/latest', async (req, res) => {
   try {
+    const hasActiveSearches = db.listSearches().some((s) => s.active);
+    if (!hasActiveSearches) return res.json({ posts: [], hasActiveSearches: false });
+
     const posts = await fetchAllPosts();
-    const sorted = posts
+    const sorted = findMatchesForAllActiveSearches(posts)
       .filter((p) => p.publishedAt)
       .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
       .slice(0, 20);
-    res.json(sorted);
+    res.json({ posts: sorted, hasActiveSearches: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
