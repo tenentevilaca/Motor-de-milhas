@@ -47,123 +47,111 @@
 
   <section class="card card-narrow">
     <h2>Nova busca</h2>
-    <div class="row">
-      <div class="field combobox-field">
-        <label for="originQuery">Origem</label>
-        <input type="text" id="originQuery" placeholder="Cidade, país ou código (ex: Lisboa, Brasil, GRU)" autocomplete="off" />
-        <input type="hidden" id="origin" />
-        <div class="combobox-list" id="originList"></div>
+
+    <div class="form-section form-section--route">
+      <div class="form-section-label">✈️ Rota</div>
+      <div class="row">
+        <div class="field combobox-field">
+          <label for="originQuery">Origem</label>
+          <input type="text" id="originQuery" placeholder="Cidade, país ou código (ex: Lisboa, Brasil, GRU)" autocomplete="off" />
+          <input type="hidden" id="origin" />
+          <div class="combobox-list" id="originList"></div>
+        </div>
+        <div class="field combobox-field">
+          <label for="destinationQuery">Destino</label>
+          <input type="text" id="destinationQuery" placeholder="Cidade, país, código (JFK) ou continente (ex: América do Sul)" autocomplete="off" />
+          <input type="hidden" id="destination" />
+          <div class="combobox-list" id="destinationList"></div>
+          <div class="status-line">Também aceita um continente inteiro (América do Sul, Europa, Ásia etc.) — o motor
+          busca nos principais hubs da região e mostra o mais barato.</div>
+        </div>
       </div>
-      <div class="field combobox-field">
-        <label for="destinationQuery">Destino</label>
-        <input type="text" id="destinationQuery" placeholder="Cidade, país, código (JFK) ou continente (ex: América do Sul)" autocomplete="off" />
-        <input type="hidden" id="destination" />
-        <div class="combobox-list" id="destinationList"></div>
-        <div class="status-line">Também aceita um continente inteiro (América do Sul, América Central e Caribe, América do Norte,
-        Europa, Oriente Médio, África, Ásia, Oceania) — o motor busca nos principais hubs da região e mostra o mais barato.</div>
-      </div>
+      <div class="route-shortcuts" id="routeShortcuts"></div>
     </div>
-    <div class="route-shortcuts" id="routeShortcuts"></div>
-    <div class="row">
-      <div class="field">
-        <label for="departDate">Data de ida</label>
-        <input type="date" id="departDate" />
+
+    <div class="form-section form-section--dates">
+      <div class="form-section-label">📅 Datas &amp; preço-alvo</div>
+      <div class="row">
+        <div class="field">
+          <label for="departDate">Data de ida</label>
+          <input type="date" id="departDate" />
+        </div>
+        <div class="field">
+          <label for="returnDate">Data de volta (opcional)</label>
+          <input type="date" id="returnDate" />
+        </div>
+        <div class="field field-narrow">
+          <label for="flexDays">Flexibilidade (± dias)</label>
+          <input type="number" id="flexDays" min="0" max="7" value="0" />
+        </div>
+        <div class="field field-narrow">
+          <label for="targetPrice">Preço-alvo (R$)</label>
+          <input type="number" id="targetPrice" placeholder="1500" />
+        </div>
       </div>
-      <div class="field">
-        <label for="returnDate">Data de volta (opcional)</label>
-        <input type="date" id="returnDate" />
-      </div>
-      <div class="field field-narrow">
-        <label for="flexDays">Flexibilidade (± dias)</label>
-        <input type="number" id="flexDays" min="0" max="7" value="0" />
-      </div>
-      <div class="field field-narrow">
-        <label for="targetPrice">Preço-alvo (R$)</label>
-        <input type="number" id="targetPrice" placeholder="1500" />
+      <div class="best-time-card" id="bestTimeCard" hidden>
+        <b>📅 Melhor época para essa rota</b>
+        <div id="bestTimeBody"></div>
       </div>
     </div>
 
-    <div class="best-time-card" id="bestTimeCard" hidden>
-      <b>📅 Melhor época para essa rota</b>
-      <div id="bestTimeBody"></div>
-    </div>
-
-    <label>Programas de milhas</label>
-    <div class="checkbox-group" id="programs">
-      <label><input type="checkbox" value="AA" /> American Airlines</label>
-      <label><input type="checkbox" value="LATAM" /> LATAM Pass</label>
-      <label><input type="checkbox" value="SMILES" /> Smiles</label>
-      <label><input type="checkbox" value="AZUL" /> TudoAzul</label>
-    </div>
-
-    <div class="checkbox-group">
-      <label><input type="checkbox" id="allowStopover" /> Aceitar stopover</label>
-      <label><input type="checkbox" id="compareSplitTickets" /> Comparar quebra de bilhete (ida/volta separadas)</label>
-      <label><input type="checkbox" id="allowHiddenCity" /> Buscar opções hidden-city / skiplagged</label>
-    </div>
-    <div class="status-line">Stopover: algumas companhias oferecem parada estendida <b>gratuita</b> de propósito —
-    TAP (Lisboa/Porto), Turkish Airlines (Istambul), Icelandair (Reykjavik), Emirates (Dubai), Singapore Airlines
-    (Cingapura). Marque "aceitar stopover" pra não descartar essas rotas na busca.</div>
-    <div class="warning" id="hiddenCityWarning" hidden>
-      <b>Risco:</b> hidden-city/skiplagged viola o contrato de transporte da maioria das companhias e pode causar
-      cancelamento do restante do itinerário ou bloqueio da sua conta de milhas. O motor apenas mostra a opção
-      quando existir — a compra é sempre uma decisão sua.
-      <label class="ack"><input type="checkbox" id="hiddenCityAck" /> Estou ciente dos riscos acima</label>
-    </div>
-
-    <div class="row">
-      <div class="field">
-        <label for="email">E-mail para alertas</label>
-        <input type="email" id="email" placeholder="voce@exemplo.com" />
+    <div class="form-section form-section--programs">
+      <div class="form-section-label">🎯 Programas de milhas</div>
+      <div class="checkbox-group" id="programs">
+        <label><input type="checkbox" value="AA" /> American Airlines</label>
+        <label><input type="checkbox" value="LATAM" /> LATAM Pass</label>
+        <label><input type="checkbox" value="SMILES" /> Smiles</label>
+        <label><input type="checkbox" value="AZUL" /> TudoAzul</label>
       </div>
-      <div class="field">
-        <label for="whatsapp">WhatsApp para alertas</label>
-        <input type="text" id="whatsapp" placeholder="+5511999999999" />
-        <div class="status-line">Requer CallMeBot ou Twilio nas <a href="/settings.html">Configurações</a>.</div>
-      </div>
-      <div class="field">
-        <label for="telegramChatId">Telegram Chat ID para alertas</label>
-        <input type="text" id="telegramChatId" placeholder="123456789" />
-        <div class="status-line">
-          Requer bot configurado nas <a href="/settings.html">Configurações</a>.
-          <button type="button" class="secondary" style="margin:6px 0 0; padding:4px 10px; font-size:0.8rem;" onclick="findTelegramChatId()">Descobrir meu Chat ID</button>
-          <div id="telegramChatIdResult"></div>
+      <button type="button" class="advanced-toggle" onclick="toggleAdvancedOptions()">⚙️ Opções avançadas (stopover, quebra de bilhete, hidden-city)</button>
+      <div class="advanced-body" id="advancedOptionsBody" hidden>
+        <div class="checkbox-group">
+          <label><input type="checkbox" id="allowStopover" /> Aceitar stopover</label>
+          <label><input type="checkbox" id="compareSplitTickets" /> Comparar quebra de bilhete (ida/volta separadas)</label>
+          <label><input type="checkbox" id="allowHiddenCity" /> Buscar opções hidden-city / skiplagged</label>
+        </div>
+        <div class="status-line">Stopover: algumas companhias oferecem parada estendida <b>gratuita</b> de propósito —
+        TAP (Lisboa/Porto), Turkish Airlines (Istambul), Icelandair (Reykjavik), Emirates (Dubai), Singapore Airlines
+        (Cingapura). Marque "aceitar stopover" pra não descartar essas rotas na busca.</div>
+        <div class="warning" id="hiddenCityWarning" hidden>
+          <b>Risco:</b> hidden-city/skiplagged viola o contrato de transporte da maioria das companhias e pode causar
+          cancelamento do restante do itinerário ou bloqueio da sua conta de milhas. O motor apenas mostra a opção
+          quando existir — a compra é sempre uma decisão sua.
+          <label class="ack"><input type="checkbox" id="hiddenCityAck" /> Estou ciente dos riscos acima</label>
         </div>
       </div>
     </div>
 
-    <button id="createBtn" onclick="createSearch()">Criar busca</button>
-    <div class="status-line" id="createStatus">Depois de criar, acompanhe e rode a busca na página <a href="/buscas.html">Buscas ativas</a>.</div>
-  </section>
+    <div class="form-section form-section--alerts">
+      <div class="form-section-label">🔔 Alertas (opcional)</div>
+      <div class="row">
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" placeholder="voce@exemplo.com" />
+        </div>
+        <div class="field">
+          <label for="whatsapp">WhatsApp</label>
+          <input type="text" id="whatsapp" placeholder="+5511999999999" />
+          <div class="status-line">Requer CallMeBot ou Twilio nas <a href="/settings.html">Configurações</a>.</div>
+        </div>
+        <div class="field">
+          <label for="telegramChatId">Telegram Chat ID</label>
+          <input type="text" id="telegramChatId" placeholder="123456789" />
+          <div class="status-line">
+            Requer bot configurado nas <a href="/settings.html">Configurações</a>.
+            <button type="button" class="secondary" style="margin:6px 0 0; padding:4px 10px; font-size:0.8rem;" onclick="findTelegramChatId()">Descobrir meu Chat ID</button>
+            <div id="telegramChatIdResult"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  <section class="card card-narrow">
-    <h2>💱 Milhas ou dinheiro? Calculadora</h2>
-    <p class="status-line">Compare o preço à vista com o custo efetivo de usar (ou comprar) as milhas necessárias.
-    Conta simples, sem precisar de nenhuma API — só preencher com o que você já sabe (o preço que achou, quantas
-    milhas a passagem pede, e quanto custam 1.000 milhas do seu programa hoje).</p>
-    <div class="row">
-      <div class="field">
-        <label for="arbCashPrice">Preço à vista (R$)</label>
-        <input type="number" id="arbCashPrice" placeholder="2500" />
-      </div>
-      <div class="field">
-        <label for="arbMiles">Milhas necessárias</label>
-        <input type="number" id="arbMiles" placeholder="45000" />
-      </div>
+    <button id="createBtn" onclick="createSearch()">Buscar</button>
+    <div class="status-line" id="createStatus">Cria a busca, roda na hora e mostra o resultado logo abaixo.</div>
+
+    <div id="searchResultBlock" hidden>
+      <div id="searchResult"></div>
     </div>
-    <div class="row">
-      <div class="field">
-        <label for="arbCostPer1000">Custo de 1.000 milhas (R$)</label>
-        <input type="number" id="arbCostPer1000" placeholder="18" />
-        <div class="status-line">O que você pagaria (ou o valor de mercado) por 1.000 milhas — consulte no site do programa ou em marketplaces de milhas.</div>
-      </div>
-      <div class="field">
-        <label for="arbBonus">Bônus de transferência (%, opcional)</label>
-        <input type="number" id="arbBonus" placeholder="0" />
-      </div>
-    </div>
-    <button type="button" class="secondary" onclick="calculateArbitrage()">Calcular</button>
-    <div class="arbitrage-result neutral" id="arbitrageResult">Preencha os campos acima e clique em Calcular.</div>
   </section>
 
 </main>

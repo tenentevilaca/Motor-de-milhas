@@ -10,7 +10,9 @@ const ONE_WAY_CACHE_TTL_MS = 15 * 60 * 1000;
 // emitido. Às vezes sai mais barato por causa de regras de tarifação
 // diferentes entre ida-e-volta e apenas ida.
 function minPrice(offers) {
-  return offers.reduce((min, o) => (o.priceBRL != null && (min == null || o.priceBRL < min) ? o.priceBRL : min), null);
+  // Number.isFinite (não "!= null"): um NaN vindo de um provider com bug
+  // "envenenaria" o mínimo pra sempre (NaN < qualquer coisa é sempre false).
+  return offers.reduce((min, o) => (Number.isFinite(o.priceBRL) && (min == null || o.priceBRL < min) ? o.priceBRL : min), null);
 }
 
 async function searchOneWay(programId, origin, destination, date, allowStopover) {

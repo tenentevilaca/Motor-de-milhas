@@ -42,9 +42,13 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
   página com grid de cards. "Promoções" mostra o feed completo de blogs por padrão (busca por texto + filtro por
   fonte + filtro "relacionado às minhas buscas"), e o formulário de busca tem atalhos de "rotas populares" (1
   clique preenche origem/destino).
-- **Calculadora "milhas ou dinheiro?"**: compara o preço à vista com o custo efetivo de resgatar as milhas
-  necessárias (considerando bônus de transferência opcional), 100% client-side — não depende de nenhuma API,
-  só do que você já sabe sobre a passagem e o valor da milha do seu programa.
+- **Buscar já roda a busca e mostra o resultado ali mesmo** (primeira aba, sem precisar navegar pra "Buscas
+  ativas") — a busca também fica salva pra rodar de novo depois. O formulário é dividido em blocos com cor própria
+  (rota, datas, programas, alertas) e "stopover/quebra de bilhete/hidden-city" viram uma seção avançada recolhida
+  por padrão, pra não poluir a tela.
+- **Calculadora "milhas ou dinheiro?" embutida no resultado**: assim que a busca encontra um preço em dinheiro (ou
+  milhas, se algum provedor de milhas retornar isso), o valor já aparece preenchido — você só completa o que o
+  app não tem como saber sozinho (quanto custam 1.000 milhas do seu programa hoje). 100% client-side, sem API.
 
 ## O que este projeto **não** faz (e por quê)
 

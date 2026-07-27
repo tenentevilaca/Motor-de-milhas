@@ -140,7 +140,7 @@ async function runSearch(search) {
         isFlashSale: evaluation.isFlashSale,
       });
 
-      const belowTarget = search.targetPrice != null && offer.priceBRL != null && offer.priceBRL <= search.targetPrice;
+      const belowTarget = search.targetPrice != null && Number.isFinite(offer.priceBRL) && offer.priceBRL <= search.targetPrice;
 
       if (evaluation.isAnomaly || evaluation.isFlashSale || belowTarget) {
         alertOffers.push({ offer, evaluation, belowTarget });
@@ -175,9 +175,13 @@ async function runSearch(search) {
   // em dinheiro, de todas as fontes configuradas, ordenadas da mais barata
   // pra mais cara — e destaca a melhor de todas (considerando também a
   // quebra de bilhete, se for mais barata que qualquer oferta redonda).
+  // Number.isFinite (não só "!= null") é intencional: um provider com bug
+  // pode devolver NaN, que passa num filtro "!= null" mas vira `null` na
+  // serialização JSON — resultando em várias "ofertas fantasma" idênticas
+  // sem preço nenhum (bug real já visto com o Travelpayouts).
   const allOffersSorted = results
     .flatMap((r) => r.offers.map((o) => ({ ...o })))
-    .filter((o) => o.priceBRL != null)
+    .filter((o) => Number.isFinite(o.priceBRL))
     .sort((a, b) => a.priceBRL - b.priceBRL);
 
   let bestDeal = allOffersSorted[0]

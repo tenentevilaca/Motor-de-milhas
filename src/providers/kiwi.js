@@ -46,16 +46,18 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
     params,
   });
 
-  const offers = (data.data || []).map((offer) => ({
-    program: 'CASH_KIWI',
-    priceBRL: Number(offer.price),
-    milesRequired: null,
-    taxesBRL: null,
-    stops: Math.max(0, (offer.route || []).length - 1),
-    isHiddenCity: false,
-    deepLink: offer.deep_link || null,
-    source: 'Kiwi.com (dados reais)',
-  }));
+  const offers = (data.data || [])
+    .map((offer) => ({
+      program: 'CASH_KIWI',
+      priceBRL: Number(offer.price),
+      milesRequired: null,
+      taxesBRL: null,
+      stops: Math.max(0, (offer.route || []).length - 1),
+      isHiddenCity: false,
+      deepLink: offer.deep_link || null,
+      source: 'Kiwi.com (dados reais)',
+    }))
+    .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);
 
   return { status: 'ok', message: null, offers };
 }

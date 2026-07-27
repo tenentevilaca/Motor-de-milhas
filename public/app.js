@@ -226,39 +226,12 @@ function renderRouteShortcuts() {
 }
 renderRouteShortcuts();
 
-// --- Calculadora "milhas ou dinheiro?": pura conta client-side, sem depender
-// de nenhuma API — compara o preço à vista com o custo efetivo de resgatar
-// (ou comprar) as milhas necessárias, considerando um bônus de transferência
-// opcional (ex: transferir pontos de banco pro programa aéreo).
-function calculateArbitrage() {
-  const el = document.getElementById('arbitrageResult');
-  const cashPrice = Number(document.getElementById('arbCashPrice').value);
-  const milesNeeded = Number(document.getElementById('arbMiles').value);
-  const costPer1000 = Number(document.getElementById('arbCostPer1000').value);
-  const bonusPct = Number(document.getElementById('arbBonus').value || 0);
-
-  if (!cashPrice || !milesNeeded || !costPer1000) {
-    el.className = 'arbitrage-result neutral';
-    el.textContent = 'Preencha preço à vista, milhas necessárias e custo de 1.000 milhas pra calcular.';
-    return;
-  }
-
-  const effectiveCostPer1000 = costPer1000 / (1 + bonusPct / 100);
-  const milesCostBRL = (milesNeeded / 1000) * effectiveCostPer1000;
-  const diff = cashPrice - milesCostBRL;
-
-  if (Math.abs(diff) < 1) {
-    el.className = 'arbitrage-result neutral';
-    el.textContent = `Empate técnico: pagar em dinheiro (${formatBRL(cashPrice)}) e usar milhas (equivalente a ${formatBRL(milesCostBRL)}) saem praticamente no mesmo preço.`;
-    return;
-  }
-  if (diff > 0) {
-    el.className = 'arbitrage-result miles';
-    el.innerHTML = `<b>Vale mais usar milhas.</b> ${milesNeeded.toLocaleString('pt-BR')} milhas custam o equivalente a ${formatBRL(milesCostBRL)} (a ${formatBRL(effectiveCostPer1000)}/1.000${bonusPct ? ` já considerando ${bonusPct}% de bônus` : ''}) — ${formatBRL(diff)} mais barato que pagar os ${formatBRL(cashPrice)} à vista.`;
-    return;
-  }
-  el.className = 'arbitrage-result cash';
-  el.innerHTML = `<b>Vale mais pagar em dinheiro.</b> As ${milesNeeded.toLocaleString('pt-BR')} milhas necessárias equivaleriam a ${formatBRL(milesCostBRL)} (a ${formatBRL(effectiveCostPer1000)}/1.000${bonusPct ? ` já considerando ${bonusPct}% de bônus` : ''}) — ${formatBRL(-diff)} mais caro que o preço à vista de ${formatBRL(cashPrice)}.`;
+// "Opções avançadas" (stopover/quebra de bilhete/hidden-city) ficam
+// recolhidas por padrão — são coisas que a maioria das buscas não precisa,
+// e deixá-las sempre visíveis é o que tornava a página "Buscar" poluída.
+function toggleAdvancedOptions() {
+  const body = document.getElementById('advancedOptionsBody');
+  body.hidden = !body.hidden;
 }
 
 async function updateBestTimeCard() {
@@ -623,10 +596,15 @@ async function createSearch() {
     telegramChatId: document.getElementById('telegramChatId').value.trim() || null,
   };
   try {
-    await api('/api/searches', { method: 'POST', body: JSON.stringify(body) });
-    status.textContent = 'Busca criada com sucesso.';
+    const created = await api('/api/searches', { method: 'POST', body: JSON.stringify(body) });
+    status.textContent = 'Busca criada — rodando agora...';
     status.style.color = '#16a34a';
-    loadSearches();
+    const resultBlock = document.getElementById('searchResultBlock');
+    if (resultBlock) {
+      resultBlock.hidden = false;
+      await runNow(created.id, 'searchResult', null);
+      status.textContent = 'Busca criada e resultado abaixo. Ela também fica salva em "Buscas ativas" pra rodar de novo depois.';
+    }
   } catch (err) {
     status.textContent = 'Erro: ' + err.message;
     status.style.color = 'var(--danger-text)';
@@ -646,9 +624,67 @@ function dealFeedMatchesHtml(result) {
     </div>`;
 }
 
-async function runNow(id) {
-  const el = document.getElementById(`result-${id}`);
-  const meta = document.getElementById(`meta-${id}`);
+// Calculadora "milhas ou dinheiro?" embutida no próprio resultado da busca:
+// já vem preenchida com o preço em dinheiro (e milhas, se algum provedor de
+// milhas retornou) que a busca encontrou — o usuário só completa o que a
+// gente não tem como saber sozinho (quanto custam 1.000 milhas pra ele hoje).
+function arbitrageBlockHtml(id, bestDeal) {
+  if (!bestDeal) return '';
+  const cashValue = bestDeal.priceBRL != null ? bestDeal.priceBRL : '';
+  const milesValue = bestDeal.milesRequired != null ? bestDeal.milesRequired : '';
+  return `
+    <div class="arb-inline">
+      <b>💱 Vale mais pagar em dinheiro ou usar milhas?</b>
+      <div class="row">
+        <div class="field"><label for="arbCash-${id}">Preço em dinheiro encontrado (R$)</label>
+          <input type="number" id="arbCash-${id}" value="${cashValue}" oninput="calcArbInline('${id}')" /></div>
+        <div class="field"><label for="arbMiles-${id}">Milhas necessárias</label>
+          <input type="number" id="arbMiles-${id}" value="${milesValue}" placeholder="ex: 45000" oninput="calcArbInline('${id}')" /></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="arbCost-${id}">Custo de 1.000 milhas hoje (R$)</label>
+          <input type="number" id="arbCost-${id}" placeholder="18" oninput="calcArbInline('${id}')" /></div>
+        <div class="field"><label for="arbBonus-${id}">Bônus de transferência (%, opcional)</label>
+          <input type="number" id="arbBonus-${id}" placeholder="0" oninput="calcArbInline('${id}')" /></div>
+      </div>
+      <div class="arbitrage-result neutral" id="arbResult-${id}">Preencha "milhas necessárias" e "custo de 1.000 milhas" pra ver a comparação.</div>
+    </div>`;
+}
+
+function calcArbInline(id) {
+  const el = document.getElementById(`arbResult-${id}`);
+  const cashPrice = Number(document.getElementById(`arbCash-${id}`).value);
+  const milesNeeded = Number(document.getElementById(`arbMiles-${id}`).value);
+  const costPer1000 = Number(document.getElementById(`arbCost-${id}`).value);
+  const bonusPct = Number(document.getElementById(`arbBonus-${id}`).value || 0);
+
+  if (!cashPrice || !milesNeeded || !costPer1000) {
+    el.className = 'arbitrage-result neutral';
+    el.textContent = 'Preencha "milhas necessárias" e "custo de 1.000 milhas" pra ver a comparação.';
+    return;
+  }
+
+  const effectiveCostPer1000 = costPer1000 / (1 + bonusPct / 100);
+  const milesCostBRL = (milesNeeded / 1000) * effectiveCostPer1000;
+  const diff = cashPrice - milesCostBRL;
+
+  if (Math.abs(diff) < 1) {
+    el.className = 'arbitrage-result neutral';
+    el.textContent = `Empate técnico: dinheiro (${formatBRL(cashPrice)}) e milhas (equivalente a ${formatBRL(milesCostBRL)}) saem no mesmo preço.`;
+    return;
+  }
+  if (diff > 0) {
+    el.className = 'arbitrage-result miles';
+    el.innerHTML = `<b>Vale mais usar milhas.</b> ${milesNeeded.toLocaleString('pt-BR')} milhas custam o equivalente a ${formatBRL(milesCostBRL)} — ${formatBRL(diff)} mais barato que os ${formatBRL(cashPrice)} em dinheiro.`;
+    return;
+  }
+  el.className = 'arbitrage-result cash';
+  el.innerHTML = `<b>Vale mais pagar em dinheiro.</b> As ${milesNeeded.toLocaleString('pt-BR')} milhas equivaleriam a ${formatBRL(milesCostBRL)} — ${formatBRL(-diff)} mais caro que o preço em dinheiro de ${formatBRL(cashPrice)}.`;
+}
+
+async function runNow(id, resultElId, metaElId) {
+  const el = document.getElementById(resultElId || `result-${id}`);
+  const meta = metaElId === null ? null : document.getElementById(metaElId || `meta-${id}`);
   el.innerHTML = '<div class="status-line">Buscando nas fontes configuradas e nos blogs de promoção…</div>';
   try {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
@@ -697,6 +733,7 @@ async function runNow(id) {
                 .join('')}</table>`
             : ''
         }
+        ${arbitrageBlockHtml(id, result.bestDeal)}
         ${pending.length > 0 ? `<div class="status-line">Pendentes de configuração: ${pending.map((p) => p.programId).join(', ')}</div>` : ''}
         ${errored.map((r) => `<div class="warning">${r.programId}: ${r.message}</div>`).join('')}
       `;

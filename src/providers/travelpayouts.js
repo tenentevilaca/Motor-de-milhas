@@ -40,16 +40,22 @@ async function search({ origin, destination, departDate, returnDate }) {
     },
   });
 
-  const offers = (data.data || []).map((offer) => ({
-    program: 'CASH_TRAVELPAYOUTS',
-    priceBRL: Number(offer.price),
-    milesRequired: null,
-    taxesBRL: null,
-    stops: offer.transfers ?? 0,
-    isHiddenCity: false,
-    deepLink: null,
-    source: 'Travelpayouts (dados reais, cache recente)',
-  }));
+  // Alguns registros do cache vêm sem preço válido (campo ausente ou nulo) —
+  // descarta esses aqui, senão viram ofertas fantasma com preço "NaN" que o
+  // JSON serializa como null e o front-end mostra como "-" em todas as
+  // linhas (bug real observado: 12 "ofertas" idênticas sem preço nenhum).
+  const offers = (data.data || [])
+    .map((offer) => ({
+      program: 'CASH_TRAVELPAYOUTS',
+      priceBRL: Number(offer.price),
+      milesRequired: null,
+      taxesBRL: null,
+      stops: offer.transfers ?? 0,
+      isHiddenCity: false,
+      deepLink: null,
+      source: 'Travelpayouts (dados reais, cache recente)',
+    }))
+    .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);
 
   return { status: 'ok', message: null, offers };
 }
