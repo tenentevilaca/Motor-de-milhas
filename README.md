@@ -61,15 +61,13 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
    `SMILES_PROVIDER_URL` / `AZUL_PROVIDER_URL` para uma integração própria (parceria oficial, GDS, ou um serviço
    de scraping que você mesmo administra e está autorizado a rodar). Sem isso, o app mostra um link para
    checagem manual no site oficial.
-   **Alternativa sem API oficial da companhia:** os provedores `CASH_SERPAPI`, `CASH_KIWI`, `CASH_TRAVELPAYOUTS`
-   e `CASH_RAPIDAPI_GFLIGHTS` usam Google Flights (via [SerpApi](https://serpapi.com) ou via a
-   [Google Flights Live API do RapidAPI](https://rapidapi.com)), [Kiwi.com](https://tequila.kiwi.com) e
+   **Alternativa sem API oficial da companhia:** os provedores `CASH_TRAVELPAYOUTS` e `CASH_RAPIDAPI_GFLIGHTS` usam
+   Google Flights (via [Google Flights Live API do RapidAPI](https://rapidapi.com)) e o
    [Travelpayouts](https://www.travelpayouts.com) — agregadores que já cobrem AA, LATAM, Azul, GOL e centenas de
-   outras companhias, sem que o motor precise falar diretamente com o site de cada uma. São 4 fontes reais e
-   independentes de preço em dinheiro rodando em toda busca — sem risco de bloqueio de conta. SerpApi/Kiwi/RapidAPI
-   fazem busca **ao vivo**; o Travelpayouts é um **cache** de preços já vistos (pode não achar preço pra uma data
-   exata específica mesmo em rota popular — não é bug, é limitação do tipo de dado). RapidAPI é a única paga das
-   quatro. (A Amadeus for Developers foi testada e removida do projeto — ver item 4.)
+   outras companhias, sem que o motor precise falar diretamente com o site de cada uma. RapidAPI faz busca **ao
+   vivo** de verdade (paga por uso); o Travelpayouts é um **cache** de preços já vistos, gratuito (pode não achar
+   preço pra uma data exata específica mesmo em rota popular — não é bug, é limitação do tipo de dado). (SerpApi,
+   Kiwi.com Tequila e a Amadeus for Developers foram testadas e removidas do projeto — ver item 4.)
 3. **Não automatiza a compra de tarifas com erro nem de passagens hidden-city.** O motor **detecta e avisa**
    quando encontra um preço muito abaixo do histórico (possível erro de tarifa) ou uma opção hidden-city — mas a
    decisão e a execução da compra são sempre manuais, porque:
@@ -78,15 +76,15 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
      reembolso).
    - Hidden-city/skiplagged viola o contrato de transporte da maioria das companhias e pode levar a cancelamento
      do restante do itinerário ou bloqueio de conta de milhas/status.
-4. **Comparação em dinheiro real via SerpApi, Kiwi.com e Travelpayouts, mas milhas via integração própria.** Essas
+4. **Comparação em dinheiro real via Travelpayouts e RapidAPI, mas milhas via integração própria.** Essas
    fontes dão preços reais em dinheiro (bom para comparar com o custo em milhas e para alimentar o detector de
    anomalia), mas nenhuma cobre disponibilidade de assento-prêmio das companhias citadas — isso continua
    exigindo integração própria (item 2).
-   **Sobre a Amadeus for Developers:** chegou a ser integrada, mas foi **removida do projeto** — não funcionou no
-   uso real, e o portal de autoatendimento (self-service) deles será desativado em 17/07/2026 de qualquer forma
-   (as APIs corporativas continuam, mas exigem contrato empresarial). SerpApi, Kiwi.com e Travelpayouts cobrem o
+   **Sobre Amadeus for Developers, SerpApi e Kiwi.com Tequila:** chegaram a ser integradas, mas foram **removidas
+   do projeto** — nenhuma funcionou no uso real (Amadeus: portal descontinuado; SerpApi: cadastro travou na
+   verificação de telefone por SMS; Kiwi: travou na verificação de e-mail). Travelpayouts e RapidAPI cobrem o
    mesmo papel sem esse problema.
-5. **Não vem com as chaves de API já preenchidas.** SerpApi, Kiwi.com, Travelpayouts, seu provedor de e-mail e o
+5. **Não vem com as chaves de API já preenchidas.** Travelpayouts, RapidAPI, seu provedor de e-mail e o
    Twilio exigem uma conta pessoal (identidade, e-mail/telefone verificado, aceite dos termos de uso) — isso só
    quem vai usar o serviço pode criar, não pode ser feito por automação em nome de outra pessoa. O que este
    projeto faz para reduzir o trabalho ao mínimo é a tela **Configurações** (`/settings.html`): você cola cada
@@ -103,7 +101,7 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
    pedido explicitamente durante o desenvolvimento e recusado de propósito: é evasão de detecção antibot (é
    literalmente pra isso que existe o `undetected-chromedriver`), e interceptar chamadas autenticadas com cookies
    copiados é abuso de sessão, não "automação". O risco não é só bloqueio de IP — é a conta de milhas suspensa. As
-   3 fontes de preço reais (SerpApi/Kiwi/Travelpayouts) e o feed de blogs cobrem o mesmo objetivo (preço real +
+   fontes de preço reais (Travelpayouts/RapidAPI) e o feed de blogs cobrem o mesmo objetivo (preço real +
    alerta rápido de promoção) sem esse risco.
 8. **Skyscanner não está integrado.** A API pública deles foi descontinuada em 2016; hoje só dá acesso via
    parceria comercial aprovada (processo parecido com o que já existe pros programas de milhas). Se você
@@ -130,14 +128,14 @@ npm start
 ```
 
 **Você não precisa configurar tudo.** O feed de blogs de promoção já funciona sem nenhuma chave. Se quiser
-detecção de erro de tarifa com preço real, basta **uma** das três fontes de dinheiro (SerpApi, Kiwi.com ou
-Travelpayouts) — não precisa das três. Para alertas, e-mail ou Telegram costumam ser os mais rápidos de
+detecção de erro de tarifa com preço real, basta **uma** das duas fontes de dinheiro (Travelpayouts, grátis, ou
+RapidAPI, paga) — não precisa das duas. Para alertas, e-mail ou Telegram costumam ser os mais rápidos de
 configurar.
 
 Acesse `http://localhost:3000` e depois `http://localhost:3000/settings.html` para colar suas chaves de API — cada
 seção da tela de Configurações tem o passo a passo de onde conseguir a chave. Na própria tela principal, o painel
 "Status das integrações" tem um botão "❓ como configurar" em cada item que expande o mesmo passo a passo sem
-precisar sair da página — só cobre serviços com opção gratuita de verdade (SerpApi, Kiwi.com, Travelpayouts,
+precisar sair da página — só cobre serviços com opção gratuita de verdade (Travelpayouts, RapidAPI [única paga],
 Brevo, CallMeBot, Telegram). Também dá pra usar variáveis de ambiente (`.env`, veja `.env.example`) se preferir;
 o que estiver salvo na tela de Configurações tem prioridade.
 
@@ -176,7 +174,7 @@ Configurações em produção, migre para um plano pago com disco persistente.
 
 ## Eficiência e custo das chamadas de API
 
-Pra não estourar a cota gratuita das APIs de preço (ex: SerpApi tem só 100 buscas/mês), toda chamada a um provedor
+Pra não estourar a cota das APIs de preço (o RapidAPI é pago por chamada), toda chamada a um provedor
 passa por um cache de 15 minutos por rota+data (`src/cache.js`): se a mesma combinação for checada de novo nesse
 intervalo (múltiplas buscas salvas pra mesma rota, cliques repetidos em "Rodar agora", a varredura de promoção
 relâmpago rodando a cada 2h), reaproveita o resultado em vez de gastar mais uma chamada. A checagem do feed de

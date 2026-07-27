@@ -191,40 +191,6 @@ function toggleSplitTicketForRegion() {
   if (isRegion) checkbox.checked = false;
 }
 
-// Atalhos de "rotas populares" saindo de GRU (maior hub do país) — clicar já
-// preenche origem/destino, sem precisar digitar. Só os pares de aeroporto;
-// não inventamos preço nenhum aqui (isso só aparece de verdade depois de
-// rodar a busca com uma fonte de preço configurada).
-const POPULAR_ROUTES = [
-  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'GIG', destCity: 'Rio de Janeiro', destCountry: 'Brazil' },
-  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'BSB', destCity: 'Brasília', destCountry: 'Brazil' },
-  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'SSA', destCity: 'Salvador', destCountry: 'Brazil' },
-  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'REC', destCity: 'Recife', destCountry: 'Brazil' },
-  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'MIA', destCity: 'Miami', destCountry: 'United States' },
-  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'LIS', destCity: 'Lisboa', destCountry: 'Portugal' },
-];
-
-function fillRoute(route) {
-  document.getElementById('origin').value = route.originIata;
-  document.getElementById('originQuery').value = `${route.originIata} — ${route.originCity}, ${route.originCountry}`;
-  document.getElementById('destination').value = route.destIata;
-  document.getElementById('destinationQuery').value = `${route.destIata} — ${route.destCity}, ${route.destCountry}`;
-  toggleSplitTicketForRegion();
-  updateBestTimeCard();
-}
-
-function renderRouteShortcuts() {
-  const el = document.getElementById('routeShortcuts');
-  if (!el) return;
-  el.innerHTML = POPULAR_ROUTES.map(
-    (r, i) => `
-    <button type="button" class="route-shortcut" onclick="fillRoute(POPULAR_ROUTES[${i}])">
-      <span class="route-shortcut-cities">${r.originIata} → ${r.destIata}</span>
-      <span class="route-shortcut-label">${r.originCity} → ${r.destCity}</span>
-    </button>`
-  ).join('');
-}
-renderRouteShortcuts();
 
 // "Opções avançadas" (stopover/quebra de bilhete/hidden-city) ficam
 // recolhidas por padrão — são coisas que a maioria das buscas não precisa,
@@ -272,25 +238,6 @@ async function updateBestTimeCard() {
 // (esta sandbox de desenvolvimento bloqueia acesso a esses domínios). Se
 // algum passo estiver desatualizado, me avise que corrijo na hora.
 const INTEGRATION_GUIDES = {
-  CASH_SERPAPI: {
-    title: 'SerpApi / Google Flights (100 buscas/mês grátis)',
-    steps: [
-      'Acesse <a href="https://serpapi.com/users/sign_up" target="_blank" rel="noopener">serpapi.com/users/sign_up</a> e crie a conta.',
-      'Confirme seu e-mail.',
-      'No Dashboard, copie sua "Private API Key".',
-      'Cole na tela de Configurações, seção 1.',
-      'Se o cadastro pedir telefone e bloquear como suspeito, tente outro número ou pule pro Kiwi.com abaixo.',
-    ],
-  },
-  CASH_KIWI: {
-    title: 'Kiwi.com Tequila (grátis)',
-    steps: [
-      'Acesse <a href="https://tequila.kiwi.com/portal/login" target="_blank" rel="noopener">tequila.kiwi.com/portal/login</a> e crie a conta (e-mail e senha, geralmente sem telefone).',
-      'Depois de logar, peça acesso de API se for solicitado.',
-      'Copie sua "API Key".',
-      'Cole na tela de Configurações, seção 1.',
-    ],
-  },
   CASH_TRAVELPAYOUTS: {
     title: 'Travelpayouts (grátis, sem telefone)',
     steps: [
@@ -708,7 +655,7 @@ async function runNow(id, resultElId, metaElId) {
       )
       .join('');
     // Busca por região consulta os mesmos provedores em vários hubs — deduplica
-    // por programId aqui pra não repetir "CASH_SERPAPI, CASH_SERPAPI, ..." N vezes.
+    // por programId aqui pra não repetir "CASH_TRAVELPAYOUTS, CASH_TRAVELPAYOUTS, ..." N vezes.
     const pending = [...new Map(result.providerResults.filter((r) => r.status === 'not_configured').map((r) => [r.programId, r])).values()];
     const errored = [...new Map(result.providerResults.filter((r) => r.status === 'error').map((r) => [r.programId, r])).values()];
     const allUnusable = pending.length + errored.length === new Set(result.providerResults.map((r) => r.programId)).size;

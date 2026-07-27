@@ -372,28 +372,6 @@ th { color: var(--muted); font-weight: 600; }
 .search-item .actions { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
 .search-item .actions button { margin-top: 0; }
 
-/* --- Rotas populares: atalhos que preenchem origem/destino com 1 clique --- */
-.route-shortcuts {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 10px;
-  margin: 14px 0 4px;
-}
-.route-shortcut {
-  display: block;
-  text-align: left;
-  background: #fbfeff;
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  cursor: pointer;
-  font-family: inherit;
-  color: var(--ink);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.route-shortcut:hover { border-color: var(--accent); box-shadow: 0 4px 14px -8px rgba(2, 132, 199, 0.35); }
-.route-shortcut .route-shortcut-cities { font-weight: 700; color: var(--accent-dark); font-size: 0.88rem; }
-.route-shortcut .route-shortcut-label { display: block; font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
 
 /* --- Promoções: barra de busca + pills de filtro + cards --- */
 .promo-toolbar { margin: 12px 0 16px; }

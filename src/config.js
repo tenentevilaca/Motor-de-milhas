@@ -10,8 +10,6 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 const KNOWN_KEYS = [
-  'SERPAPI_KEY',
-  'KIWI_TEQUILA_API_KEY',
   'TRAVELPAYOUTS_TOKEN',
   'RAPIDAPI_KEY',
   'USD_TO_BRL_RATE',
