@@ -21,6 +21,12 @@ async function findTelegramChatId() {
   }
 }
 
+// Título/resumo dos posts vêm de RSS de terceiros (blogs de milhas) — texto
+// não confiável, nunca deve ir direto pro innerHTML sem escapar.
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 async function api(path, options) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -172,6 +178,40 @@ function toggleSplitTicketForRegion() {
   if (isRegion) checkbox.checked = false;
 }
 document.getElementById('departDate').addEventListener('change', () => updateBestTimeCard());
+
+// Atalhos de "rotas populares" saindo de GRU (maior hub do país) — clicar já
+// preenche origem/destino, sem precisar digitar. Só os pares de aeroporto;
+// não inventamos preço nenhum aqui (isso só aparece de verdade depois de
+// rodar a busca com uma fonte de preço configurada).
+const POPULAR_ROUTES = [
+  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'GIG', destCity: 'Rio de Janeiro', destCountry: 'Brazil' },
+  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'BSB', destCity: 'Brasília', destCountry: 'Brazil' },
+  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'SSA', destCity: 'Salvador', destCountry: 'Brazil' },
+  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'REC', destCity: 'Recife', destCountry: 'Brazil' },
+  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'MIA', destCity: 'Miami', destCountry: 'United States' },
+  { originIata: 'GRU', originCity: 'São Paulo', originCountry: 'Brazil', destIata: 'LIS', destCity: 'Lisboa', destCountry: 'Portugal' },
+];
+
+function fillRoute(route) {
+  document.getElementById('origin').value = route.originIata;
+  document.getElementById('originQuery').value = `${route.originIata} — ${route.originCity}, ${route.originCountry}`;
+  document.getElementById('destination').value = route.destIata;
+  document.getElementById('destinationQuery').value = `${route.destIata} — ${route.destCity}, ${route.destCountry}`;
+  toggleSplitTicketForRegion();
+  updateBestTimeCard();
+}
+
+function renderRouteShortcuts() {
+  const el = document.getElementById('routeShortcuts');
+  el.innerHTML = POPULAR_ROUTES.map(
+    (r, i) => `
+    <button type="button" class="route-shortcut" onclick="fillRoute(POPULAR_ROUTES[${i}])">
+      <span class="route-shortcut-cities">${r.originIata} → ${r.destIata}</span>
+      <span class="route-shortcut-label">${r.originCity} → ${r.destCity}</span>
+    </button>`
+  ).join('');
+}
+renderRouteShortcuts();
 
 async function updateBestTimeCard() {
   const origin = document.getElementById('origin').value;
@@ -348,31 +388,86 @@ async function loadSchedulerStatus() {
   }
 }
 
+// Uma cor de header por fonte de blog, escolhida de forma determinística
+// (hash simples do nome) — assim funciona mesmo se o usuário trocar
+// DEAL_FEED_URLS por blogs próprios, sem precisar mapear cada nome à mão.
+const PROMO_CARD_COLORS = ['#0284c7', '#7c3aed', '#be123c', '#0f766e', '#c2410c', '#4338ca'];
+function colorForSource(source) {
+  let hash = 0;
+  for (let i = 0; i < source.length; i++) hash = (hash * 31 + source.charCodeAt(i)) >>> 0;
+  return PROMO_CARD_COLORS[hash % PROMO_CARD_COLORS.length];
+}
+
+let dealFeedPosts = [];
+let dealFeedActiveFilter = 'Todos';
+
 async function loadDealFeed() {
   const el = document.getElementById('dealFeedList');
+  const toolbar = document.getElementById('promoToolbar');
   el.textContent = 'Carregando...';
+  toolbar.hidden = true;
   try {
     const { posts, hasActiveSearches } = await api('/api/deal-feed/latest');
     if (!hasActiveSearches) {
       el.innerHTML = '<p class="status-line">Crie uma busca ativa acima pra ver aqui os posts de blog relacionados a ela.</p>';
       return;
     }
+    dealFeedPosts = posts;
+    dealFeedActiveFilter = 'Todos';
+
     if (posts.length === 0) {
       el.innerHTML = '<p class="status-line">Nenhum post relacionado às suas buscas ativas por enquanto (feeds podem estar indisponíveis, ou nenhum post recente menciona sua rota).</p>';
       return;
     }
-    el.innerHTML = posts
-      .map(
-        (p) => `
-      <div style="margin-bottom:10px;">
-        <a href="${p.link}" target="_blank" rel="noopener">${p.title}</a>
-        <div class="status-line">${p.source}${p.publishedAt ? ' · ' + new Date(p.publishedAt).toLocaleDateString('pt-BR') : ''}</div>
-      </div>`
-      )
+
+    toolbar.hidden = false;
+    document.getElementById('promoSearch').value = '';
+    const sources = ['Todos', ...new Set(posts.map((p) => p.source))];
+    document.getElementById('promoFilters').innerHTML = sources
+      .map((s) => `<button type="button" class="pill${s === 'Todos' ? ' active' : ''}" onclick="setDealFeedFilter('${s.replace(/'/g, "\\'")}')">${escapeHtml(s)}</button>`)
       .join('');
+    renderDealFeed();
   } catch (err) {
     el.textContent = 'Erro ao carregar: ' + err.message;
   }
+}
+
+function setDealFeedFilter(source) {
+  dealFeedActiveFilter = source;
+  document.querySelectorAll('#promoFilters .pill').forEach((btn) => btn.classList.toggle('active', btn.textContent === source));
+  renderDealFeed();
+}
+
+function renderDealFeed() {
+  const el = document.getElementById('dealFeedList');
+  const query = document.getElementById('promoSearch').value.trim().toLowerCase();
+  const filtered = dealFeedPosts.filter((p) => {
+    if (dealFeedActiveFilter !== 'Todos' && p.source !== dealFeedActiveFilter) return false;
+    if (query && !`${p.title} ${p.summary || ''}`.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    el.innerHTML = '<p class="status-line">Nenhuma promoção bate com esse filtro/busca.</p>';
+    return;
+  }
+
+  el.innerHTML = filtered
+    .map(
+      (p) => `
+    <div class="promo-card">
+      <div class="promo-card-header" style="background:${colorForSource(p.source)};">${escapeHtml(p.source)}</div>
+      <div class="promo-card-body">
+        <a class="promo-card-title" href="${escapeHtml(p.link)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a>
+        ${p.summary ? `<p class="promo-card-summary">${escapeHtml(p.summary)}</p>` : ''}
+        <div class="promo-card-footer">
+          <span>${p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('pt-BR') : ''}</span>
+          <a href="${escapeHtml(p.link)}" target="_blank" rel="noopener">Ver promoção ↗</a>
+        </div>
+      </div>
+    </div>`
+    )
+    .join('');
 }
 
 function formatBRL(v) {
@@ -498,7 +593,7 @@ function dealFeedMatchesHtml(result) {
       📰 <b>${result.dealFeedMatches.length} post(s) de blog de promoção mencionando essa rota agora:</b>
       <ul style="margin:6px 0 0; padding-left:20px;">
         ${result.dealFeedMatches
-          .map((p) => `<li><a href="${p.link}" target="_blank" rel="noopener">${p.title}</a> — ${p.source}</li>`)
+          .map((p) => `<li><a href="${escapeHtml(p.link)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a> — ${escapeHtml(p.source)}</li>`)
           .join('')}
       </ul>
     </div>`;

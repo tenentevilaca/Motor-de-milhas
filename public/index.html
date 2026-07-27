@@ -21,6 +21,7 @@
       <path d="M0 0 L 16 -6 L 4 0 L 16 6 Z" fill="currentColor" />
     </g>
   </svg>
+  <span class="hero-badge">✨ Passagens com milhas e em dinheiro, lado a lado</span>
   <h1>✈️ Motor de Milhas</h1>
   <p class="subtitle">Busca e monitoramento diário de passagens com milhas — AA, LATAM Pass, Smiles e TudoAzul</p>
   <p class="subtitle"><a href="/settings.html">⚙️ Configurações (chaves de API, e-mail, WhatsApp)</a></p>
@@ -35,7 +36,7 @@
     tarifa pra uma rota específica; sem isso, o motor continua útil do jeito que está.
   </div>
 
-  <section class="card">
+  <section class="card card-narrow">
     <h2>Nova busca</h2>
     <div class="row">
       <div class="field combobox-field">
@@ -53,6 +54,7 @@
         Europa, Oriente Médio, África, Ásia, Oceania) — o motor busca nos principais hubs da região e mostra o mais barato.</div>
       </div>
     </div>
+    <div class="route-shortcuts" id="routeShortcuts"></div>
     <div class="row">
       <div class="field">
         <label for="departDate">Data de ida</label>
@@ -129,23 +131,27 @@
     <h2>Buscas ativas</h2>
     <p class="status-line">Cada busca já vem com links de comparação manual (Google Flights, Skyscanner, Kayak) —
     funcionam na hora, sem nenhuma configuração.</p>
-    <div id="searchList">Carregando...</div>
+    <div id="searchList" class="grid-cards">Carregando...</div>
   </section>
 
   <section class="card">
-    <h2>Feed de promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
+    <h2>⚡ Promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
     <p class="status-line">Posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre das
     Milhas, Flip Milhas) que mencionam a origem ou o destino de alguma das suas buscas ativas — já funciona sem
     nenhuma conta. Se aparecer um post aqui, você também recebe o alerta automaticamente por e-mail/WhatsApp/Telegram.</p>
-    <div id="dealFeedList">Carregando...</div>
+    <div class="promo-toolbar" id="promoToolbar" hidden>
+      <input type="text" id="promoSearch" placeholder="Buscar nas promoções..." oninput="renderDealFeed()" />
+      <div class="pill-row" id="promoFilters"></div>
+    </div>
+    <div id="dealFeedList" class="grid-cards">Carregando...</div>
   </section>
 
-  <section class="card">
+  <section class="card card-narrow">
     <h2>Agendador — quando a busca roda</h2>
     <div id="schedulerStatus" class="provider-list">Carregando...</div>
   </section>
 
-  <section class="card">
+  <section class="card card-narrow">
     <h2 class="collapsible-header" onclick="toggleIntegrationsCard()">
       <span id="integrationsToggleIcon">▶</span> Status das integrações
       <span class="status-line" style="display:inline; margin:0;">(opcional)</span>

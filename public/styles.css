@@ -54,6 +54,17 @@ body {
 .hero a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .hero a:hover { text-decoration: underline; }
 .hero .subtitle { margin: 0; color: var(--muted); font-size: 0.95rem; }
+.hero-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--accent-dark);
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
 .flight-path {
   width: 220px;
   height: 34px;
@@ -62,10 +73,21 @@ body {
 }
 
 .container {
-  max-width: 880px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 0 20px 60px;
 }
+.container.container-narrow { max-width: 880px; }
+
+/* Cards de formulário/texto (busca, agendador, integrações) ficam numa
+   coluna mais legível; os cards com grid (buscas ativas, promoções) usam
+   a largura toda do container. */
+.card-narrow {
+  max-width: 880px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 
 .card {
   background: var(--card-bg);
@@ -288,16 +310,115 @@ th { color: var(--muted); font-weight: 600; }
 .test-box .row { align-items: flex-end; }
 .test-box button { flex: 0 0 auto; }
 
+/* Grid genérico usado por "Buscas ativas" e "Promoções" — cards lado a
+   lado em telas largas, uma coluna só em telas estreitas. Um único
+   parágrafo de status (ex: "carregando"/"nenhum resultado") ocupa a
+   largura toda do grid em vez de virar uma coluna estreita e feia. */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.grid-cards > p { grid-column: 1 / -1; }
+
 .search-item {
   background: #fbfeff;
   border: 1px solid var(--card-border);
   border-radius: 12px;
   padding: 16px 18px;
-  margin-bottom: 14px;
 }
 .search-item .route { font-weight: 700; color: var(--accent-dark); }
 .search-item .actions { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
 .search-item .actions button { margin-top: 0; }
+
+/* --- Rotas populares: atalhos que preenchem origem/destino com 1 clique --- */
+.route-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+.route-shortcut {
+  display: block;
+  text-align: left;
+  background: #fbfeff;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.route-shortcut:hover { border-color: var(--accent); box-shadow: 0 4px 14px -8px rgba(2, 132, 199, 0.35); }
+.route-shortcut .route-shortcut-cities { font-weight: 700; color: var(--accent-dark); font-size: 0.88rem; }
+.route-shortcut .route-shortcut-label { display: block; font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+
+/* --- Promoções: barra de busca + pills de filtro + cards --- */
+.promo-toolbar { margin: 12px 0 16px; }
+.promo-toolbar input[type=text] { max-width: 340px; margin-bottom: 10px; }
+.pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill {
+  border: 1px solid var(--card-border);
+  background: #fff;
+  color: var(--muted);
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0;
+}
+.pill:hover { border-color: var(--accent); color: var(--accent-dark); background: #fff; }
+.pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.promo-card {
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fbfeff;
+  display: flex;
+  flex-direction: column;
+}
+.promo-card-header {
+  padding: 8px 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.promo-card-body { padding: 12px 14px 14px; flex: 1; display: flex; flex-direction: column; }
+.promo-card-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+  line-height: 1.35;
+}
+.promo-card-title:hover { text-decoration: underline; }
+.promo-card-summary {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 6px 0 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.promo-card-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #eef5fa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.promo-card-footer a { font-weight: 700; }
 
 @media (max-width: 560px) {
   .hero h1 { font-size: 1.5rem; }

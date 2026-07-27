@@ -37,6 +37,9 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 - **Resultado como motor de busca de verdade**: ao rodar uma busca, todas as ofertas de todas as fontes
   configuradas (e a quebra de bilhete, se ativada) são comparadas e a mais barata de todas aparece destacada no
   topo ("🏆 Menor preço encontrado"), com a tabela completa ordenada da mais barata pra mais cara.
+- **Layout em cards, usando a página inteira**: "Buscas ativas" e "Promoções" aparecem em grid de cards (não mais
+  lista empilhada), a seção de promoções tem busca por texto e filtro por fonte do blog, e o formulário de busca
+  tem atalhos de "rotas populares" (1 clique preenche origem/destino).
 
 ## O que este projeto **não** faz (e por quê)
 
