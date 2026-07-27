@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Buscas ativas — Motor de Milhas</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="buscas">
+
+<div class="sky" aria-hidden="true">
+  <svg class="cloud cloud-1" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+  <svg class="cloud cloud-2" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+  <svg class="cloud cloud-3" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+</div>
+
+<nav class="topnav">
+  <a class="topnav-logo" href="/index.html">✈️ Motor de Milhas</a>
+  <div class="topnav-links">
+    <a href="/index.html" data-page="buscar">Buscar</a>
+    <a href="/buscas.html" data-page="buscas">Buscas ativas</a>
+    <a href="/promocoes.html" data-page="promocoes">Promoções</a>
+    <a href="/settings.html" data-page="config">Configurações</a>
+  </div>
+</nav>
+
+<header class="page-header">
+  <h1>📋 Buscas ativas</h1>
+  <p class="subtitle">Cada busca já vem com links de comparação manual (Google Flights, Skyscanner, Kayak) —
+  funcionam na hora, sem nenhuma configuração. <a href="/index.html">Criar nova busca</a>.</p>
+</header>
+
+<main class="container">
+  <section class="card">
+    <div id="searchList" class="grid-cards">Carregando...</div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -37,9 +37,14 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 - **Resultado como motor de busca de verdade**: ao rodar uma busca, todas as ofertas de todas as fontes
   configuradas (e a quebra de bilhete, se ativada) são comparadas e a mais barata de todas aparece destacada no
   topo ("🏆 Menor preço encontrado"), com a tabela completa ordenada da mais barata pra mais cara.
-- **Layout em cards, usando a página inteira**: "Buscas ativas" e "Promoções" aparecem em grid de cards (não mais
-  lista empilhada), a seção de promoções tem busca por texto e filtro por fonte do blog, e o formulário de busca
-  tem atalhos de "rotas populares" (1 clique preenche origem/destino).
+- **Site com abas** (`index.html` Buscar, `buscas.html` Buscas ativas, `promocoes.html` Promoções,
+  `settings.html` Configurações — nav compartilhado, link ativo destacado), cada uma usando a largura inteira da
+  página com grid de cards. "Promoções" mostra o feed completo de blogs por padrão (busca por texto + filtro por
+  fonte + filtro "relacionado às minhas buscas"), e o formulário de busca tem atalhos de "rotas populares" (1
+  clique preenche origem/destino).
+- **Calculadora "milhas ou dinheiro?"**: compara o preço à vista com o custo efetivo de resgatar as milhas
+  necessárias (considerando bônus de transferência opcional), 100% client-side — não depende de nenhuma API,
+  só do que você já sabe sobre a passagem e o valor da milha do seu programa.
 
 ## O que este projeto **não** faz (e por quê)
 
@@ -193,8 +198,11 @@ src/
   notify/
     email.js, whatsapp.js, telegram.js
 public/
-  index.html, app.js      formulário + dashboard
-  settings.html, settings.js  tela de Configurações (chaves de API, e-mail, WhatsApp)
+  index.html            página "Buscar" (formulário + calculadora milhas/dinheiro)
+  buscas.html             página "Buscas ativas" (grid de cards)
+  promocoes.html          página "Promoções" (feed de blogs em cards, com filtro)
+  settings.html, settings.js  página "Configurações" (chaves de API, e-mail, WhatsApp, agendador, status)
+  app.js                único script compartilhado pelas 4 páginas
 ```
 
 ## Créditos de dados

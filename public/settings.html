@@ -6,17 +6,26 @@
 <title>Configurações — Motor de Milhas</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-page="config">
 
 <div class="sky" aria-hidden="true">
   <svg class="cloud cloud-1" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
   <svg class="cloud cloud-2" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
 </div>
 
+<nav class="topnav">
+  <a class="topnav-logo" href="/index.html">✈️ Motor de Milhas</a>
+  <div class="topnav-links">
+    <a href="/index.html" data-page="buscar">Buscar</a>
+    <a href="/buscas.html" data-page="buscas">Buscas ativas</a>
+    <a href="/promocoes.html" data-page="promocoes">Promoções</a>
+    <a href="/settings.html" data-page="config">Configurações</a>
+  </div>
+</nav>
+
 <header class="hero">
   <h1>⚙️ Configurações</h1>
   <p class="subtitle">Cole aqui as chaves de cada serviço — nada disso vai para o código ou pro GitHub</p>
-  <p class="subtitle"><a href="/index.html">← Voltar para o Motor de Milhas</a></p>
 </header>
 
 <main class="container container-narrow">
@@ -203,8 +212,24 @@
   <button id="saveBtn" onclick="saveSettings()">Salvar configurações</button>
   <div class="status-line" id="saveStatus"></div>
 
+  <section class="card">
+    <h2>Agendador — quando a busca roda</h2>
+    <div id="schedulerStatus" class="provider-list">Carregando...</div>
+  </section>
+
+  <section class="card">
+    <h2 class="collapsible-header" onclick="toggleIntegrationsCard()">
+      <span id="integrationsToggleIcon">▶</span> Status das integrações
+    </h2>
+    <div id="integrationsBody" hidden>
+      <p class="status-line">Resumo do que já está ativo em cada fonte/canal configurado acima.</p>
+      <div id="providerStatus" class="provider-list">Carregando...</div>
+    </div>
+  </section>
+
 </main>
 
+<script src="app.js"></script>
 <script src="settings.js"></script>
 </body>
 </html>

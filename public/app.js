@@ -1,8 +1,18 @@
+// app.js é compartilhado por todas as páginas (Buscar, Buscas ativas,
+// Promoções, Configurações) — cada bloco abaixo só mexe em elementos que
+// existem na página atual, então guardas com "if (el)" são necessárias.
+
+document.querySelectorAll('.topnav-links a').forEach((a) => {
+  if (a.dataset.page === document.body.dataset.page) a.classList.add('active');
+});
+
 const hiddenCityCheckbox = document.getElementById('allowHiddenCity');
 const hiddenCityWarning = document.getElementById('hiddenCityWarning');
-hiddenCityCheckbox.addEventListener('change', () => {
-  hiddenCityWarning.hidden = !hiddenCityCheckbox.checked;
-});
+if (hiddenCityCheckbox) {
+  hiddenCityCheckbox.addEventListener('change', () => {
+    hiddenCityWarning.hidden = !hiddenCityCheckbox.checked;
+  });
+}
 
 async function findTelegramChatId() {
   const el = document.getElementById('telegramChatIdResult');
@@ -156,17 +166,20 @@ function setupAirportCombobox({ queryInputId, hiddenInputId, listId, onSelect, a
   });
 }
 
-setupAirportCombobox({ queryInputId: 'originQuery', hiddenInputId: 'origin', listId: 'originList', onSelect: () => updateBestTimeCard() });
-setupAirportCombobox({
-  queryInputId: 'destinationQuery',
-  hiddenInputId: 'destination',
-  listId: 'destinationList',
-  allowRegions: true,
-  onSelect: () => {
-    updateBestTimeCard();
-    toggleSplitTicketForRegion();
-  },
-});
+if (document.getElementById('originQuery')) {
+  setupAirportCombobox({ queryInputId: 'originQuery', hiddenInputId: 'origin', listId: 'originList', onSelect: () => updateBestTimeCard() });
+  setupAirportCombobox({
+    queryInputId: 'destinationQuery',
+    hiddenInputId: 'destination',
+    listId: 'destinationList',
+    allowRegions: true,
+    onSelect: () => {
+      updateBestTimeCard();
+      toggleSplitTicketForRegion();
+    },
+  });
+  document.getElementById('departDate').addEventListener('change', () => updateBestTimeCard());
+}
 
 // Quebra de bilhete compara ida/volta com dois trechos só de ida pra um
 // destino específico — não existe "quebra de bilhete" pra uma região inteira.
@@ -177,7 +190,6 @@ function toggleSplitTicketForRegion() {
   checkbox.disabled = isRegion;
   if (isRegion) checkbox.checked = false;
 }
-document.getElementById('departDate').addEventListener('change', () => updateBestTimeCard());
 
 // Atalhos de "rotas populares" saindo de GRU (maior hub do país) — clicar já
 // preenche origem/destino, sem precisar digitar. Só os pares de aeroporto;
@@ -203,6 +215,7 @@ function fillRoute(route) {
 
 function renderRouteShortcuts() {
   const el = document.getElementById('routeShortcuts');
+  if (!el) return;
   el.innerHTML = POPULAR_ROUTES.map(
     (r, i) => `
     <button type="button" class="route-shortcut" onclick="fillRoute(POPULAR_ROUTES[${i}])">
@@ -212,6 +225,41 @@ function renderRouteShortcuts() {
   ).join('');
 }
 renderRouteShortcuts();
+
+// --- Calculadora "milhas ou dinheiro?": pura conta client-side, sem depender
+// de nenhuma API — compara o preço à vista com o custo efetivo de resgatar
+// (ou comprar) as milhas necessárias, considerando um bônus de transferência
+// opcional (ex: transferir pontos de banco pro programa aéreo).
+function calculateArbitrage() {
+  const el = document.getElementById('arbitrageResult');
+  const cashPrice = Number(document.getElementById('arbCashPrice').value);
+  const milesNeeded = Number(document.getElementById('arbMiles').value);
+  const costPer1000 = Number(document.getElementById('arbCostPer1000').value);
+  const bonusPct = Number(document.getElementById('arbBonus').value || 0);
+
+  if (!cashPrice || !milesNeeded || !costPer1000) {
+    el.className = 'arbitrage-result neutral';
+    el.textContent = 'Preencha preço à vista, milhas necessárias e custo de 1.000 milhas pra calcular.';
+    return;
+  }
+
+  const effectiveCostPer1000 = costPer1000 / (1 + bonusPct / 100);
+  const milesCostBRL = (milesNeeded / 1000) * effectiveCostPer1000;
+  const diff = cashPrice - milesCostBRL;
+
+  if (Math.abs(diff) < 1) {
+    el.className = 'arbitrage-result neutral';
+    el.textContent = `Empate técnico: pagar em dinheiro (${formatBRL(cashPrice)}) e usar milhas (equivalente a ${formatBRL(milesCostBRL)}) saem praticamente no mesmo preço.`;
+    return;
+  }
+  if (diff > 0) {
+    el.className = 'arbitrage-result miles';
+    el.innerHTML = `<b>Vale mais usar milhas.</b> ${milesNeeded.toLocaleString('pt-BR')} milhas custam o equivalente a ${formatBRL(milesCostBRL)} (a ${formatBRL(effectiveCostPer1000)}/1.000${bonusPct ? ` já considerando ${bonusPct}% de bônus` : ''}) — ${formatBRL(diff)} mais barato que pagar os ${formatBRL(cashPrice)} à vista.`;
+    return;
+  }
+  el.className = 'arbitrage-result cash';
+  el.innerHTML = `<b>Vale mais pagar em dinheiro.</b> As ${milesNeeded.toLocaleString('pt-BR')} milhas necessárias equivaleriam a ${formatBRL(milesCostBRL)} (a ${formatBRL(effectiveCostPer1000)}/1.000${bonusPct ? ` já considerando ${bonusPct}% de bônus` : ''}) — ${formatBRL(-diff)} mais caro que o preço à vista de ${formatBRL(cashPrice)}.`;
+}
 
 async function updateBestTimeCard() {
   const origin = document.getElementById('origin').value;
@@ -400,6 +448,7 @@ function colorForSource(source) {
 
 let dealFeedPosts = [];
 let dealFeedActiveFilter = 'Todos';
+const RELATED_FILTER = 'Relacionado às minhas buscas';
 
 async function loadDealFeed() {
   const el = document.getElementById('dealFeedList');
@@ -408,21 +457,17 @@ async function loadDealFeed() {
   toolbar.hidden = true;
   try {
     const { posts, hasActiveSearches } = await api('/api/deal-feed/latest');
-    if (!hasActiveSearches) {
-      el.innerHTML = '<p class="status-line">Crie uma busca ativa acima pra ver aqui os posts de blog relacionados a ela.</p>';
-      return;
-    }
     dealFeedPosts = posts;
     dealFeedActiveFilter = 'Todos';
 
     if (posts.length === 0) {
-      el.innerHTML = '<p class="status-line">Nenhum post relacionado às suas buscas ativas por enquanto (feeds podem estar indisponíveis, ou nenhum post recente menciona sua rota).</p>';
+      el.innerHTML = '<p class="status-line">Nenhum post encontrado agora (feeds podem estar indisponíveis) — tenta "Atualizar" de novo em alguns minutos.</p>';
       return;
     }
 
     toolbar.hidden = false;
     document.getElementById('promoSearch').value = '';
-    const sources = ['Todos', ...new Set(posts.map((p) => p.source))];
+    const sources = ['Todos', ...(hasActiveSearches ? [RELATED_FILTER] : []), ...new Set(posts.map((p) => p.source))];
     document.getElementById('promoFilters').innerHTML = sources
       .map((s) => `<button type="button" class="pill${s === 'Todos' ? ' active' : ''}" onclick="setDealFeedFilter('${s.replace(/'/g, "\\'")}')">${escapeHtml(s)}</button>`)
       .join('');
@@ -442,7 +487,8 @@ function renderDealFeed() {
   const el = document.getElementById('dealFeedList');
   const query = document.getElementById('promoSearch').value.trim().toLowerCase();
   const filtered = dealFeedPosts.filter((p) => {
-    if (dealFeedActiveFilter !== 'Todos' && p.source !== dealFeedActiveFilter) return false;
+    if (dealFeedActiveFilter === RELATED_FILTER && !p.related) return false;
+    if (dealFeedActiveFilter !== 'Todos' && dealFeedActiveFilter !== RELATED_FILTER && p.source !== dealFeedActiveFilter) return false;
     if (query && !`${p.title} ${p.summary || ''}`.toLowerCase().includes(query)) return false;
     return true;
   });
@@ -458,6 +504,7 @@ function renderDealFeed() {
     <div class="promo-card">
       <div class="promo-card-header" style="background:${colorForSource(p.source)};">${escapeHtml(p.source)}</div>
       <div class="promo-card-body">
+        ${p.related ? '<span class="promo-card-related">🔗 combina com sua busca</span>' : ''}
         <a class="promo-card-title" href="${escapeHtml(p.link)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a>
         ${p.summary ? `<p class="promo-card-summary">${escapeHtml(p.summary)}</p>` : ''}
         <div class="promo-card-footer">
@@ -698,7 +745,7 @@ async function removeSearch(id) {
   }
 }
 
-loadProviderStatus();
-loadSchedulerStatus();
-loadDealFeed();
-loadSearches();
+if (document.getElementById('providerStatus')) loadProviderStatus();
+if (document.getElementById('schedulerStatus')) loadSchedulerStatus();
+if (document.getElementById('dealFeedList')) loadDealFeed();
+if (document.getElementById('searchList')) loadSearches();

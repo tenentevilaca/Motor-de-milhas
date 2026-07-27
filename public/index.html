@@ -6,13 +6,23 @@
 <title>Motor de Milhas</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-page="buscar">
 
 <div class="sky" aria-hidden="true">
   <svg class="cloud cloud-1" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
   <svg class="cloud cloud-2" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
   <svg class="cloud cloud-3" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
 </div>
+
+<nav class="topnav">
+  <a class="topnav-logo" href="/index.html">✈️ Motor de Milhas</a>
+  <div class="topnav-links">
+    <a href="/index.html" data-page="buscar">Buscar</a>
+    <a href="/buscas.html" data-page="buscas">Buscas ativas</a>
+    <a href="/promocoes.html" data-page="promocoes">Promoções</a>
+    <a href="/settings.html" data-page="config">Configurações</a>
+  </div>
+</nav>
 
 <header class="hero">
   <svg class="flight-path" viewBox="0 0 400 60" aria-hidden="true">
@@ -24,16 +34,15 @@
   <span class="hero-badge">✨ Passagens com milhas e em dinheiro, lado a lado</span>
   <h1>✈️ Motor de Milhas</h1>
   <p class="subtitle">Busca e monitoramento diário de passagens com milhas — AA, LATAM Pass, Smiles e TudoAzul</p>
-  <p class="subtitle"><a href="/settings.html">⚙️ Configurações (chaves de API, e-mail, WhatsApp)</a></p>
 </header>
 
 <main class="container">
 
   <div class="callout">
-    <b>✅ Isso já funciona sem você criar conta em lugar nenhum:</b> o feed de promoções (blogs de milhas) e os
-    links de comparação manual (Google Flights, Skyscanner, Kayak) em cada busca. O painel "Status das
-    integrações" lá embaixo é <b>opcional</b> — só ative alguma fonte ali se quiser alertas automáticos de erro de
-    tarifa pra uma rota específica; sem isso, o motor continua útil do jeito que está.
+    <b>✅ Isso já funciona sem você criar conta em lugar nenhum:</b> a página de <a href="/promocoes.html">Promoções</a>
+    (blogs de milhas) e os links de comparação manual (Google Flights, Skyscanner, Kayak) em cada busca, na página
+    <a href="/buscas.html">Buscas ativas</a>. As fontes de preço em dinheiro/notificações nas
+    <a href="/settings.html">Configurações</a> são <b>opcionais</b> — sem elas o motor continua útil do jeito que está.
   </div>
 
   <section class="card card-narrow">
@@ -124,44 +133,37 @@
     </div>
 
     <button id="createBtn" onclick="createSearch()">Criar busca</button>
-    <div class="status-line" id="createStatus"></div>
-  </section>
-
-  <section class="card">
-    <h2>Buscas ativas</h2>
-    <p class="status-line">Cada busca já vem com links de comparação manual (Google Flights, Skyscanner, Kayak) —
-    funcionam na hora, sem nenhuma configuração.</p>
-    <div id="searchList" class="grid-cards">Carregando...</div>
-  </section>
-
-  <section class="card">
-    <h2>⚡ Promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
-    <p class="status-line">Posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre das
-    Milhas, Flip Milhas) que mencionam a origem ou o destino de alguma das suas buscas ativas — já funciona sem
-    nenhuma conta. Se aparecer um post aqui, você também recebe o alerta automaticamente por e-mail/WhatsApp/Telegram.</p>
-    <div class="promo-toolbar" id="promoToolbar" hidden>
-      <input type="text" id="promoSearch" placeholder="Buscar nas promoções..." oninput="renderDealFeed()" />
-      <div class="pill-row" id="promoFilters"></div>
-    </div>
-    <div id="dealFeedList" class="grid-cards">Carregando...</div>
+    <div class="status-line" id="createStatus">Depois de criar, acompanhe e rode a busca na página <a href="/buscas.html">Buscas ativas</a>.</div>
   </section>
 
   <section class="card card-narrow">
-    <h2>Agendador — quando a busca roda</h2>
-    <div id="schedulerStatus" class="provider-list">Carregando...</div>
-  </section>
-
-  <section class="card card-narrow">
-    <h2 class="collapsible-header" onclick="toggleIntegrationsCard()">
-      <span id="integrationsToggleIcon">▶</span> Status das integrações
-      <span class="status-line" style="display:inline; margin:0;">(opcional)</span>
-    </h2>
-    <div id="integrationsBody" hidden>
-      <p class="status-line">Tudo abaixo é opcional — só ative se quiser alertas automáticos de erro de tarifa numa
-      rota específica. Cada item tem um botão "como configurar" com o passo a passo (todas as opções aqui são
-      gratuitas).</p>
-      <div id="providerStatus" class="provider-list">Carregando...</div>
+    <h2>💱 Milhas ou dinheiro? Calculadora</h2>
+    <p class="status-line">Compare o preço à vista com o custo efetivo de usar (ou comprar) as milhas necessárias.
+    Conta simples, sem precisar de nenhuma API — só preencher com o que você já sabe (o preço que achou, quantas
+    milhas a passagem pede, e quanto custam 1.000 milhas do seu programa hoje).</p>
+    <div class="row">
+      <div class="field">
+        <label for="arbCashPrice">Preço à vista (R$)</label>
+        <input type="number" id="arbCashPrice" placeholder="2500" />
+      </div>
+      <div class="field">
+        <label for="arbMiles">Milhas necessárias</label>
+        <input type="number" id="arbMiles" placeholder="45000" />
+      </div>
     </div>
+    <div class="row">
+      <div class="field">
+        <label for="arbCostPer1000">Custo de 1.000 milhas (R$)</label>
+        <input type="number" id="arbCostPer1000" placeholder="18" />
+        <div class="status-line">O que você pagaria (ou o valor de mercado) por 1.000 milhas — consulte no site do programa ou em marketplaces de milhas.</div>
+      </div>
+      <div class="field">
+        <label for="arbBonus">Bônus de transferência (%, opcional)</label>
+        <input type="number" id="arbBonus" placeholder="0" />
+      </div>
+    </div>
+    <button type="button" class="secondary" onclick="calculateArbitrage()">Calcular</button>
+    <div class="arbitrage-result neutral" id="arbitrageResult">Preencha os campos acima e clique em Calcular.</div>
   </section>
 
 </main>

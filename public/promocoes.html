@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Promoções — Motor de Milhas</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="promocoes">
+
+<div class="sky" aria-hidden="true">
+  <svg class="cloud cloud-1" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+  <svg class="cloud cloud-2" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+  <svg class="cloud cloud-3" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+</div>
+
+<nav class="topnav">
+  <a class="topnav-logo" href="/index.html">✈️ Motor de Milhas</a>
+  <div class="topnav-links">
+    <a href="/index.html" data-page="buscar">Buscar</a>
+    <a href="/buscas.html" data-page="buscas">Buscas ativas</a>
+    <a href="/promocoes.html" data-page="promocoes">Promoções</a>
+    <a href="/settings.html" data-page="config">Configurações</a>
+  </div>
+</nav>
+
+<header class="hero-promo">
+  <span class="hero-badge">🔄 Monitorado continuamente</span>
+  <h1>⚡ Promoções de Milhas</h1>
+  <p class="subtitle">Posts de blogs de promoção/milhas (Melhores Destinos, Passageiro de Primeira, Mestre das Milhas,
+  Flip Milhas) — atualizado a cada checagem, sem precisar de nenhuma conta ou API configurada.</p>
+</header>
+
+<main class="container">
+  <section class="card">
+    <h2>Todas as promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
+    <p class="status-line">Se uma dessas mencionar a origem/destino de uma busca sua, você também recebe o alerta
+    automaticamente por e-mail/WhatsApp/Telegram (configurável em <a href="/settings.html">Configurações</a>).</p>
+    <div class="promo-toolbar" id="promoToolbar" hidden>
+      <input type="text" id="promoSearch" placeholder="Buscar nas promoções..." oninput="renderDealFeed()" />
+      <div class="pill-row" id="promoFilters"></div>
+    </div>
+    <div id="dealFeedList" class="grid-cards">Carregando...</div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

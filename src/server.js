@@ -183,15 +183,14 @@ app.get('/api/searches/:id/history', (req, res) => {
 
 app.get('/api/deal-feed/latest', async (req, res) => {
   try {
-    const hasActiveSearches = db.listSearches().some((s) => s.active);
-    if (!hasActiveSearches) return res.json({ posts: [], hasActiveSearches: false });
-
     const posts = await fetchAllPosts();
-    const sorted = findMatchesForAllActiveSearches(posts)
+    const relatedLinks = new Set(findMatchesForAllActiveSearches(posts).map((p) => p.link));
+    const sorted = posts
       .filter((p) => p.publishedAt)
       .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
-      .slice(0, 20);
-    res.json({ posts: sorted, hasActiveSearches: true });
+      .slice(0, 40)
+      .map((p) => ({ ...p, related: relatedLinks.has(p.link) }));
+    res.json({ posts: sorted, hasActiveSearches: db.listSearches().some((s) => s.active) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
