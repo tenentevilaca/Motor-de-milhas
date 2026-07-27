@@ -299,6 +299,15 @@ const INTEGRATION_GUIDES = {
       'Cole na tela de Configurações, seção 1.',
     ],
   },
+  CASH_RAPIDAPI_GFLIGHTS: {
+    title: 'Google Flights Live API via RapidAPI (busca ao vivo, paga por uso)',
+    steps: [
+      'Acesse <a href="https://rapidapi.com/auth/sign-up" target="_blank" rel="noopener">rapidapi.com/auth/sign-up</a> e crie a conta (e-mail ou Google/GitHub, sem telefone).',
+      'Procure por "Google Flights Live API" e clique em "Subscribe to Test" (tem um plano com cota grátis mensal, depois é pago por uso).',
+      'Na aba "Endpoints" da API, copie o valor de "X-RapidAPI-Key" (é o mesmo pra qualquer API que você assinar no RapidAPI).',
+      'Cole na tela de Configurações, seção 1 — e ajuste o câmbio USD→BRL aproximado ali do lado, se quiser.',
+    ],
+  },
   EMAIL: {
     title: 'Brevo — SMTP grátis (300 e-mails/dia)',
     steps: [

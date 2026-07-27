@@ -53,9 +53,21 @@
     <h3>Travelpayouts <span class="badge pending" id="badge-TRAVELPAYOUTS_TOKEN">verificando…</span></h3>
     <p class="status-line">1. Crie uma conta grátis em <a href="https://www.travelpayouts.com" target="_blank" rel="noopener">travelpayouts.com</a> (geralmente só e-mail, sem telefone) ·
     2. No painel, gere um token de API (seção "API" da conta) · 3. Cole abaixo. Retorna o menor preço já visto
-    recentemente pra rota — mais uma fonte independente pro detector de anomalia.</p>
+    recentemente pra rota (cache, não busca ao vivo) — mais uma fonte independente pro detector de anomalia.</p>
     <div class="row">
       <div class="field"><label for="TRAVELPAYOUTS_TOKEN">API Token</label><input type="password" id="TRAVELPAYOUTS_TOKEN" placeholder="já configurado" /></div>
+    </div>
+
+    <h3>Google Flights Live API (RapidAPI) <span class="badge pending" id="badge-RAPIDAPI_KEY">verificando…</span></h3>
+    <p class="status-line"><b>Essa é busca ao vivo de verdade</b> (diferente do Travelpayouts, que é cache) e <b>é paga por uso</b>
+    (a maioria tem uma cota grátis mensal limitada antes de cobrar). 1. Crie uma conta em
+    <a href="https://rapidapi.com/auth/sign-up" target="_blank" rel="noopener">rapidapi.com</a> (e-mail ou Google/GitHub, sem telefone) ·
+    2. Procure e assine (Subscribe) a API "Google Flights Live API" · 3. Na aba "Endpoints", copie o valor de
+    <code>X-RapidAPI-Key</code> (é o mesmo pra qualquer API que você assinar por lá) · 4. Cole abaixo. Os preços vêm em
+    dólar — convertidos por uma taxa aproximada (ajustável no campo de câmbio) já que não há conversão em tempo real.</p>
+    <div class="row">
+      <div class="field"><label for="RAPIDAPI_KEY">X-RapidAPI-Key</label><input type="password" id="RAPIDAPI_KEY" placeholder="já configurado" /></div>
+      <div class="field field-narrow"><label for="USD_TO_BRL_RATE">Câmbio USD→BRL aproximado</label><input type="text" id="USD_TO_BRL_RATE" placeholder="5.5" /></div>
     </div>
   </section>
 

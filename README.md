@@ -61,12 +61,15 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
    `SMILES_PROVIDER_URL` / `AZUL_PROVIDER_URL` para uma integração própria (parceria oficial, GDS, ou um serviço
    de scraping que você mesmo administra e está autorizado a rodar). Sem isso, o app mostra um link para
    checagem manual no site oficial.
-   **Alternativa sem API oficial da companhia:** os provedores `CASH_SERPAPI`, `CASH_KIWI` e `CASH_TRAVELPAYOUTS`
-   usam Google Flights (via [SerpApi](https://serpapi.com)), [Kiwi.com](https://tequila.kiwi.com) e
+   **Alternativa sem API oficial da companhia:** os provedores `CASH_SERPAPI`, `CASH_KIWI`, `CASH_TRAVELPAYOUTS`
+   e `CASH_RAPIDAPI_GFLIGHTS` usam Google Flights (via [SerpApi](https://serpapi.com) ou via a
+   [Google Flights Live API do RapidAPI](https://rapidapi.com)), [Kiwi.com](https://tequila.kiwi.com) e
    [Travelpayouts](https://www.travelpayouts.com) — agregadores que já cobrem AA, LATAM, Azul, GOL e centenas de
-   outras companhias, sem que o motor precise falar diretamente com o site de cada uma. São 3 fontes reais e
-   independentes de preço em dinheiro rodando em toda busca — sem risco de bloqueio de conta. (A Amadeus for
-   Developers foi testada e removida do projeto — ver item 4.)
+   outras companhias, sem que o motor precise falar diretamente com o site de cada uma. São 4 fontes reais e
+   independentes de preço em dinheiro rodando em toda busca — sem risco de bloqueio de conta. SerpApi/Kiwi/RapidAPI
+   fazem busca **ao vivo**; o Travelpayouts é um **cache** de preços já vistos (pode não achar preço pra uma data
+   exata específica mesmo em rota popular — não é bug, é limitação do tipo de dado). RapidAPI é a única paga das
+   quatro. (A Amadeus for Developers foi testada e removida do projeto — ver item 4.)
 3. **Não automatiza a compra de tarifas com erro nem de passagens hidden-city.** O motor **detecta e avisa**
    quando encontra um preço muito abaixo do histórico (possível erro de tarifa) ou uma opção hidden-city — mas a
    decisão e a execução da compra são sempre manuais, porque:

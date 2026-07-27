@@ -24,6 +24,10 @@ services:
         sync: false
       - key: TRAVELPAYOUTS_TOKEN
         sync: false
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: USD_TO_BRL_RATE
+        value: "5.5"
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER
