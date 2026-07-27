@@ -35,7 +35,9 @@
   <section class="card">
     <h2>Todas as promoções <button class="secondary" style="margin:0 0 0 10px; padding:4px 12px; font-size:0.8rem;" onclick="loadDealFeed()">Atualizar</button></h2>
     <p class="status-line">Se uma dessas mencionar a origem/destino de uma busca sua, você também recebe o alerta
-    automaticamente por e-mail/WhatsApp/Telegram (configurável em <a href="/settings.html">Configurações</a>).</p>
+    automaticamente por e-mail/WhatsApp/Telegram (configurável em <a href="/settings.html">Configurações</a>).
+    A cor no topo de cada card é só pra diferenciar visualmente o blog de origem (cada fonte sempre tem a mesma
+    cor) — não indica urgência, desconto ou tipo de promoção; o nome do blog aparece escrito ali mesmo.</p>
     <div class="promo-toolbar" id="promoToolbar" hidden>
       <input type="text" id="promoSearch" placeholder="Buscar nas promoções..." oninput="renderDealFeed()" />
       <div class="pill-row" id="promoFilters"></div>

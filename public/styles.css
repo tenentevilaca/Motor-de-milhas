@@ -55,7 +55,7 @@ body {
 /* --- Nav no topo, presente em todas as páginas (Buscar / Buscas ativas /
    Promoções / Configurações) --- */
 .topnav {
-  max-width: 1240px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 18px 20px 0;
   display: flex;
@@ -113,7 +113,7 @@ body {
 }
 
 .container {
-  max-width: 1240px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 20px 60px;
 }
