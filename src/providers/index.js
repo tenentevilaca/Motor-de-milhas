@@ -12,11 +12,14 @@ const azul = require('./azul');
 //   milesRequired: number | null,  // miles/points price, when applicable
 //   taxesBRL: number | null,       // taxes/fees on top of miles redemption
 //   stops: number,
+//   stopLocations: string[] | undefined,  // código IATA de cada parada, quando a fonte fornecer
+//   durationLabel: string | null | undefined,  // ex: "9h45m" — duração total do voo
 //   isHiddenCity: boolean,
 //   deepLink: string | null,   // link pra ver/comprar a oferta, quando a fonte fornecer um
 //   flightNumber: string | null,
 //   departureTime: string | null,  // ex: "18:25" — hora local de partida
 //   arrivalTime: string | null,
+//   partnerAirlines: string[] | null | undefined,  // companhias que aceitam essa milhagem, quando a fonte fornecer
 //   source: string,
 // }
 

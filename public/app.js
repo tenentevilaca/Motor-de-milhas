@@ -646,28 +646,62 @@ async function runNow(id, resultElId, metaElId) {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
     const sorted = result.allOffersSorted || [];
     const showDestinationColumn = sorted.some((o) => o.destination) && new Set(sorted.map((o) => o.destination)).size > 1;
-    // Nem toda fonte devolve número de voo/horário (ex: provider custom via
-    // URL própria pode não mandar) — só mostra a coluna se alguma oferta tiver.
-    const showFlightColumn = sorted.some((o) => o.flightNumber || o.departureTime || o.arrivalTime);
-    const columnCount = 5 + (showDestinationColumn ? 1 : 0) + (showFlightColumn ? 1 : 0);
+    // Nem toda fonte devolve número de voo/horário/duração/veredito milhas x
+    // dinheiro (ex: provider custom via URL própria pode não mandar nada
+    // disso) — cada coluna extra só aparece se pelo menos uma oferta tiver.
+    const showFlightColumn = sorted.some((o) => o.flightNumber);
+    const showTimeColumn = sorted.some((o) => o.departureTime || o.arrivalTime);
+    const showDurationColumn = sorted.some((o) => o.durationLabel);
+    const showArbitrageColumn = sorted.some((o) => o.arbitrage);
+    const columnCount =
+      4 +
+      (showDestinationColumn ? 1 : 0) +
+      (showArbitrageColumn ? 1 : 0) +
+      (showFlightColumn ? 1 : 0) +
+      (showTimeColumn ? 1 : 0) +
+      (showDurationColumn ? 1 : 0);
+
+    function arbitrageCellHtml(o) {
+      if (!showArbitrageColumn) return '';
+      if (!o.arbitrage) return '<td>-</td>';
+      const better = o.arbitrage.verdict === 'miles_better';
+      const label = better ? '🎫 Milhas' : '💰 Dinheiro';
+      const title = `Milhas: ${formatBRL(o.arbitrage.milesCostBRL)} (a R$${o.arbitrage.milesValuePer1000}/1000 milhas, sua estimativa) vs. dinheiro: ${formatBRL(
+        o.arbitrage.cashReferenceBRL
+      )}`;
+      return `<td title="${escapeHtml(title)}">${label}</td>`;
+    }
+
+    function stopsCellHtml(o) {
+      if (o.stops === 0) return 'direto';
+      const where = (o.stopLocations || []).filter(Boolean).join(', ');
+      return `${o.stops} parada(s)${where ? ` (${escapeHtml(where)})` : ''}`;
+    }
+
     const rows = sorted
       .map((o, i) => {
         // Clica no programa pra ver a oferta: link direto quando a fonte
         // fornece (ex: Azul via Apify), senão cai pro site da companhia.
         const link = o.deepLink || o.manualCheckUrl;
-        const programCell = link
+        const programLabel = link
           ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(o.program)}</a>`
           : escapeHtml(o.program);
-        const flightCell = showFlightColumn
-          ? `<td>${o.flightNumber ? escapeHtml(o.flightNumber) : '-'}${
-              o.departureTime && o.arrivalTime ? ` (${o.departureTime}–${o.arrivalTime})` : ''
-            }</td>`
+        // Parceiras que aceitam essa milhagem, quando a fonte informa (nem
+        // toda fonte tem esse dado — ver providers/index.js).
+        const partnersLine =
+          o.partnerAirlines && o.partnerAirlines.length > 0
+            ? `<div class="status-line" style="margin:2px 0 0;">Aceita em: ${escapeHtml(o.partnerAirlines.join(', '))}</div>`
+            : '';
+        const programCell = `<td>${i === 0 ? '🏆 ' : ''}${programLabel}${partnersLine}</td>`;
+        const destinationCell = showDestinationColumn ? `<td>${escapeHtml(o.destinationLabel || o.destination || '-')}</td>` : '';
+        const flightCell = showFlightColumn ? `<td>${o.flightNumber ? escapeHtml(o.flightNumber) : '-'}</td>` : '';
+        const timeCell = showTimeColumn
+          ? `<td>${o.departureTime && o.arrivalTime ? `${o.departureTime}–${o.arrivalTime}` : '-'}</td>`
           : '';
-        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}><td>${i === 0 ? '🏆 ' : ''}${programCell}</td>${
-          showDestinationColumn ? `<td>${escapeHtml(o.destination || '-')}</td>` : ''
-        }<td>${formatBRL(o.priceBRL)}</td><td>${o.milesRequired ?? '-'}</td><td>${
-          o.stops === 0 ? 'direto' : o.stops + ' parada(s)'
-        }</td>${flightCell}</tr>`;
+        const durationCell = showDurationColumn ? `<td>${o.durationLabel ? escapeHtml(o.durationLabel) : '-'}</td>` : '';
+        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}<td>${formatBRL(
+          o.priceBRL
+        )}</td><td>${o.milesRequired ?? '-'}</td>${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${flightCell}${timeCell}${durationCell}</tr>`;
       })
       .join('');
     // Busca por região consulta os mesmos provedores em vários hubs — deduplica
@@ -688,14 +722,18 @@ async function runNow(id, resultElId, metaElId) {
         result.bestDeal
           ? `<div class="best-deal">🏆 <b>Menor preço encontrado: ${formatBRL(result.bestDeal.priceBRL)}</b>${
               result.bestDeal.type === 'split' ? ` (quebra de bilhete via ${result.bestDeal.program})` : ` via ${result.bestDeal.program}`
-            }${result.bestDeal.destination && showDestinationColumn ? ` — destino: <b>${result.bestDeal.destination}</b>` : ''}</div>`
+            }${
+              result.bestDeal.destinationLabel && showDestinationColumn ? ` — destino: <b>${escapeHtml(result.bestDeal.destinationLabel)}</b>` : ''
+            }</div>`
           : '';
       el.innerHTML = `
         ${dealHtml}
         ${bestDealHtml}
         <table>
-          <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}<th>Preço</th><th>Milhas</th><th>Paradas</th>${
-            showFlightColumn ? '<th>Voo</th>' : ''
+          <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}<th>Preço</th><th>Milhas</th>${
+            showArbitrageColumn ? '<th>Vale mais</th>' : ''
+          }<th>Paradas</th>${showFlightColumn ? '<th>Voo</th>' : ''}${showTimeColumn ? '<th>Horário</th>' : ''}${
+            showDurationColumn ? '<th>Duração</th>' : ''
           }</tr>
           ${rows || `<tr><td colspan="${columnCount}">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>`}
         </table>

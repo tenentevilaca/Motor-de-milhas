@@ -2,7 +2,8 @@ const { ALL_PROVIDERS, MILE_PROGRAM_IDS, CASH_PROVIDER_IDS } = require('../provi
 const { evaluateOffer } = require('./anomaly');
 const { compareSplitTickets } = require('./splitTicketCompare');
 const { cached } = require('../cache');
-const { regionCodeFromValue, getHubAirportsForRegion, listRegions } = require('../airports');
+const { regionCodeFromValue, getHubAirportsForRegion, listRegions, getAirportByIata } = require('../airports');
+const config = require('../config');
 const db = require('../db');
 
 // Janela de cache pras chamadas de preço: protege a cota gratuita das APIs
@@ -88,6 +89,21 @@ function regionLabel(code) {
   return listRegions().find((r) => r.code === code)?.label || code;
 }
 
+// "Belo Horizonte (CNF)" em vez de só o código — mais legível na tabela de
+// resultado. Cai pro código puro se o aeroporto não estiver na nossa base.
+function destinationLabel(iata) {
+  const airport = getAirportByIata(iata);
+  return airport ? `${airport.city} (${iata})` : iata;
+}
+
+// Não existe fonte grátis/ao vivo pro "valor médio de mercado" das milhas —
+// isso é uma estimativa que o próprio usuário define (mesma lógica do
+// USD_TO_BRL_RATE pra dólar), configurável na tela de Configurações.
+function milesValuePer1000() {
+  const v = Number(config.get('MILES_VALUE_PER_1000'));
+  return Number.isFinite(v) && v > 0 ? v : 20;
+}
+
 async function runSearch(search) {
   const programsToQuery = [...CASH_PROVIDER_IDS, ...search.programs.filter((p) => MILE_PROGRAM_IDS.includes(p))];
 
@@ -130,7 +146,12 @@ async function runSearch(search) {
         programId,
         destination,
         ...result,
-        offers: (result.offers || []).map((o) => ({ ...o, destination, manualCheckUrl: result.manualCheckUrl || null })),
+        offers: (result.offers || []).map((o) => ({
+          ...o,
+          destination,
+          destinationLabel: destinationLabel(destination),
+          manualCheckUrl: result.manualCheckUrl || null,
+        })),
       });
     }
   }
@@ -215,6 +236,26 @@ async function runSearch(search) {
     });
 
   const cheapestCashOffer = allOffersSorted.find((o) => Number.isFinite(o.priceBRL));
+
+  // Compara cada oferta em milhas com o menor preço em dinheiro já achado
+  // NA MESMA BUSCA (mesma origem/destino/datas) — não é uma cotação de
+  // mercado em tempo real (não existe API grátis pra isso), é a estimativa
+  // que o próprio usuário configurou (MILES_VALUE_PER_1000) aplicada ao
+  // preço em dinheiro real que a busca encontrou agora.
+  if (cheapestCashOffer) {
+    const valuePer1000 = milesValuePer1000();
+    for (const o of allOffersSorted) {
+      if (!Number.isFinite(o.milesRequired)) continue;
+      const milesCostBRL = (o.milesRequired / 1000) * valuePer1000 + (o.taxesBRL || 0);
+      o.arbitrage = {
+        milesCostBRL,
+        cashReferenceBRL: cheapestCashOffer.priceBRL,
+        milesValuePer1000: valuePer1000,
+        verdict: milesCostBRL < cheapestCashOffer.priceBRL ? 'miles_better' : 'cash_better',
+      };
+    }
+  }
+
   let bestDeal = cheapestCashOffer
     ? {
         type: 'offer',
@@ -222,6 +263,7 @@ async function runSearch(search) {
         program: cheapestCashOffer.program,
         stops: cheapestCashOffer.stops,
         destination: cheapestCashOffer.destination,
+        destinationLabel: cheapestCashOffer.destinationLabel,
         milesRequired: cheapestCashOffer.milesRequired ?? null,
       }
     : null;

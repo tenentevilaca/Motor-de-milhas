@@ -48,17 +48,26 @@ async function searchRapidApiSmiles({ origin, destination, departDate, returnDat
       const miles = Number(out.adultPricePoints || 0) + (back ? Number(back.adultPricePoints || 0) : 0);
       const taxes = Number(out.adultBoardingTax || 0) + (back ? Number(back.adultBoardingTax || 0) : 0);
       const cash = Number(out.adultPriceCash || 0) + (back ? Number(back.adultPriceCash || 0) : 0);
+      const segments = out.segments || [];
+      // O ponto de parada é o aeroporto de chegada de cada trecho, exceto o
+      // último (que é o destino final) — só existe quando tem mais de 1 trecho.
+      const stopLocations = segments.length > 1 ? segments.slice(0, -1).map((s) => s.destinationCode).filter(Boolean) : [];
       return {
         program: 'SMILES',
         priceBRL: cash > 0 ? cash : null,
         milesRequired: miles > 0 ? miles : null,
         taxesBRL: taxes > 0 ? taxes : null,
-        stops: Math.max((out.segments || []).length, 1) - 1,
+        stops: Math.max(segments.length, 1) - 1,
+        stopLocations,
+        durationLabel: out.totalDuration || null,
         isHiddenCity: false,
         deepLink: null, // essa API não devolve link de compra — o front cai pro manualCheckUrl (site da Smiles)
         flightNumber: out.flightNumber || null,
         departureTime: out.departureTime || null,
         arrivalTime: out.arrivalTime || null,
+        // Essa API só devolveu, no teste real, voos operados pela própria Gol
+        // pro Smiles — não tem campo de companhia parceira aceitando milhas.
+        partnerAirlines: null,
         source: `Smiles — voo ${out.flightNumber || '?'} (Award Flight & Miles Search API)`,
       };
     })

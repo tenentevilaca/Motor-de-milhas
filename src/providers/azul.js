@@ -5,6 +5,13 @@ const { createProgramProvider } = require('./programProvider');
 const APIFY_ACTOR_ID = 'igolaizola~flight-award-scraper';
 const APIFY_RUN_URL = `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items`;
 
+function minutesToLabel(min) {
+  if (!Number.isFinite(min) || min <= 0) return null;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}h${String(m).padStart(2, '0')}m`;
+}
+
 // Testado com dado real (ver histórico): o ator "Flight Award & Itinerary
 // Scraper" (Apify, por igolaizola) cobre milhas reais da Azul/TudoAzul
 // (issuer "azul") — LATAM ("latam") foi testado e NÃO tem cobertura nesse
@@ -39,11 +46,18 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
         // teste real: R$31,94 numa rota VCP-CNF direta).
         taxesBRL: Number.isFinite(cabin.taxes) && cabin.taxes > 0 ? cabin.taxes / 100 : null,
         stops: itinerary ? itinerary.stops : (cabin.direct ? 0 : null),
+        stopLocations: itinerary?.connections || [],
+        durationLabel: minutesToLabel(itinerary?.totalDuration),
         isHiddenCity: false,
         deepLink: item.link || null,
         flightNumber: (itinerary?.flightNumbers || []).join(', ') || null,
         departureTime: itinerary?.departure ? itinerary.departure.slice(11, 16) : null,
         arrivalTime: itinerary?.arrival ? itinerary.arrival.slice(11, 16) : null,
+        // "airlines" nesse campo do cabin lista TODAS as companhias que
+        // aceitam essa milhagem específica pra esse trecho/cabine — em
+        // rotas internacionais pode incluir parceiras, não só a Azul (visto
+        // em teste real com outro issuer). Null quando a API não manda nada.
+        partnerAirlines: Array.isArray(cabin.airlines) && cabin.airlines.length > 0 ? cabin.airlines.map((a) => a.name) : null,
         source: `TudoAzul — ${cabin.name} (Flight Award & Itinerary Scraper via Apify)`,
       });
     }
