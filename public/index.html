@@ -72,13 +72,17 @@
 
     <div class="form-section form-section--dates">
       <div class="form-section-label">📅 Datas &amp; preço-alvo</div>
+      <div class="checkbox-group" id="tripTypeGroup">
+        <label><input type="radio" name="tripType" value="oneway" checked onchange="toggleTripType()" /> Somente ida</label>
+        <label><input type="radio" name="tripType" value="roundtrip" onchange="toggleTripType()" /> Ida e volta</label>
+      </div>
       <div class="row">
         <div class="field">
           <label for="departDate">Data de ida</label>
           <input type="date" id="departDate" />
         </div>
-        <div class="field">
-          <label for="returnDate">Data de volta (opcional)</label>
+        <div class="field" id="returnDateField" hidden>
+          <label for="returnDate">Data de volta</label>
           <input type="date" id="returnDate" />
         </div>
         <div class="field field-narrow">

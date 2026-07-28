@@ -200,6 +200,17 @@ function toggleAdvancedOptions() {
   body.hidden = !body.hidden;
 }
 
+// Seletor explícito "Somente ida" / "Ida e volta" — antes só existia um
+// campo "Data de volta (opcional)", que passava despercebido pra quem queria
+// escolher ida e volta. Escolher "Somente ida" limpa a data de volta pra não
+// mandar sobra de um valor preenchido antes de trocar de opção.
+function toggleTripType() {
+  const isRoundTrip = document.querySelector('input[name="tripType"]:checked').value === 'roundtrip';
+  const field = document.getElementById('returnDateField');
+  field.hidden = !isRoundTrip;
+  if (!isRoundTrip) document.getElementById('returnDate').value = '';
+}
+
 async function updateBestTimeCard() {
   const origin = document.getElementById('origin').value;
   const destination = document.getElementById('destination').value;
