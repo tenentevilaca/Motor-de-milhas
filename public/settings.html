@@ -44,13 +44,15 @@
       <div class="field"><label for="TRAVELPAYOUTS_TOKEN">API Token</label><input type="password" id="TRAVELPAYOUTS_TOKEN" placeholder="já configurado" /></div>
     </div>
 
-    <h3>Google Flights Live API (RapidAPI) <span class="badge pending" id="badge-RAPIDAPI_KEY">verificando…</span></h3>
-    <p class="status-line"><b>Essa é busca ao vivo de verdade</b> (diferente do Travelpayouts, que é cache) e <b>é paga por uso</b>
+    <h3>RapidAPI: Google Flights + Smiles (milhas reais) <span class="badge pending" id="badge-RAPIDAPI_KEY">verificando…</span></h3>
+    <p class="status-line"><b>Busca ao vivo de verdade</b> (diferente do Travelpayouts, que é cache) e <b>é paga por uso</b>
     (a maioria tem uma cota grátis mensal limitada antes de cobrar). 1. Crie uma conta em
     <a href="https://rapidapi.com/auth/sign-up" target="_blank" rel="noopener">rapidapi.com</a> (e-mail ou Google/GitHub, sem telefone) ·
-    2. Procure e assine (Subscribe) a API "Google Flights Live API" · 3. Na aba "Endpoints", copie o valor de
-    <code>X-RapidAPI-Key</code> (é o mesmo pra qualquer API que você assinar por lá) · 4. Cole abaixo. Os preços vêm em
-    dólar — convertidos por uma taxa aproximada (ajustável no campo de câmbio) já que não há conversão em tempo real.</p>
+    2. Assine (Subscribe, plano grátis) a API "Google Flights Live API" e também a "Award Flight & Miles Search API" · 3. Na aba
+    "Endpoints" de qualquer uma delas, copie o valor de <code>X-RapidAPI-Key</code> (é o mesmo pra qualquer API que você
+    assinar por lá) · 4. Cole abaixo. Essa única chave ativa as duas coisas: preço em dinheiro ao vivo (Google Flights —
+    vem em dólar, convertido por uma taxa aproximada abaixo) e <b>milhas reais do Smiles</b> na seção "4. Milhas" logo
+    adiante (LATAM/Azul/AA não têm fonte grátis equivalente ainda).</p>
     <div class="row">
       <div class="field"><label for="RAPIDAPI_KEY">X-RapidAPI-Key</label><input type="password" id="RAPIDAPI_KEY" placeholder="já configurado" /></div>
       <div class="field field-narrow"><label for="USD_TO_BRL_RATE">Câmbio USD→BRL aproximado</label><input type="text" id="USD_TO_BRL_RATE" placeholder="5.5" /></div>
@@ -152,10 +154,12 @@
 
   <section class="card">
     <h2>4. Milhas (AA / LATAM Pass / Smiles / TudoAzul)</h2>
-    <p class="status-line">Nenhuma dessas companhias tem parceiro público pronto pra oferecer aqui como opção —
-    por isso a lista abaixo tem só duas escolhas por programa: deixar "não configurado" (o app mostra um link
-    para checagem manual, que já é o esperado pra maioria das pessoas) ou informar a URL de uma integração que
-    você mesmo tenha (parceria oficial, GDS, ou serviço que você administre e esteja autorizado a rodar).</p>
+    <p class="status-line"><b>Smiles já tem milhas reais</b> assim que você preenche a <code>X-RapidAPI-Key</code> na seção 1
+    acima (usa a Award Flight & Miles Search API — sem precisar configurar mais nada aqui). AA, LATAM Pass e TudoAzul
+    não têm parceiro público equivalente ainda — por isso a lista abaixo tem só duas escolhas por programa: deixar
+    "não configurado" (o app mostra um link para checagem manual, que já é o esperado pra maioria das pessoas) ou
+    informar a URL de uma integração que você mesmo tenha (parceria oficial, GDS, ou serviço que você administre e
+    esteja autorizado a rodar).</p>
     <div class="row">
       <div class="field">
         <label for="AA_PROVIDER_URL_mode">American Airlines</label>
@@ -176,9 +180,9 @@
     </div>
     <div class="row">
       <div class="field">
-        <label for="SMILES_PROVIDER_URL_mode">Smiles</label>
+        <label for="SMILES_PROVIDER_URL_mode">Smiles — só se quiser substituir a fonte automática acima</label>
         <select id="SMILES_PROVIDER_URL_mode" onchange="toggleProviderUrl('SMILES_PROVIDER_URL')">
-          <option value="none">Não configurado</option>
+          <option value="none">Usar Award Flight & Miles Search API (automático)</option>
           <option value="custom">Tenho minha própria integração</option>
         </select>
         <input type="text" id="SMILES_PROVIDER_URL" placeholder="https://sua-integracao.com/smiles" style="margin-top:6px; display:none;" />

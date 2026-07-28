@@ -190,18 +190,31 @@ async function runSearch(search) {
   // pode devolver NaN, que passa num filtro "!= null" mas vira `null` na
   // serialização JSON — resultando em várias "ofertas fantasma" idênticas
   // sem preço nenhum (bug real já visto com o Travelpayouts).
+  // Ofertas só-em-milhas (sem priceBRL, ex: Smiles via Award Flight & Miles
+  // Search API) também entram na lista — só não competem pelo "menor preço
+  // encontrado" (que é sempre em R$); aparecem depois das ofertas com preço
+  // em dinheiro, ordenadas por milhas.
   const allOffersSorted = results
     .flatMap((r) => r.offers.map((o) => ({ ...o })))
-    .filter((o) => Number.isFinite(o.priceBRL))
-    .sort((a, b) => a.priceBRL - b.priceBRL);
+    .filter((o) => Number.isFinite(o.priceBRL) || Number.isFinite(o.milesRequired))
+    .sort((a, b) => {
+      const aCash = Number.isFinite(a.priceBRL);
+      const bCash = Number.isFinite(b.priceBRL);
+      if (aCash && bCash) return a.priceBRL - b.priceBRL;
+      if (aCash) return -1;
+      if (bCash) return 1;
+      return (a.milesRequired ?? Infinity) - (b.milesRequired ?? Infinity);
+    });
 
-  let bestDeal = allOffersSorted[0]
+  const cheapestCashOffer = allOffersSorted.find((o) => Number.isFinite(o.priceBRL));
+  let bestDeal = cheapestCashOffer
     ? {
         type: 'offer',
-        priceBRL: allOffersSorted[0].priceBRL,
-        program: allOffersSorted[0].program,
-        stops: allOffersSorted[0].stops,
-        destination: allOffersSorted[0].destination,
+        priceBRL: cheapestCashOffer.priceBRL,
+        program: cheapestCashOffer.program,
+        stops: cheapestCashOffer.stops,
+        destination: cheapestCashOffer.destination,
+        milesRequired: cheapestCashOffer.milesRequired ?? null,
       }
     : null;
   const cheapestSplit = splitSuggestions.reduce(

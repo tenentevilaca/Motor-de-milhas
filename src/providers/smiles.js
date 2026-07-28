@@ -1,8 +1,94 @@
+const axios = require('axios');
+const config = require('../config');
 const { createProgramProvider } = require('./programProvider');
 
-module.exports = createProgramProvider({
+const RAPIDAPI_BASE_URL = 'https://award-flight-miles-search-api.p.rapidapi.com/api/v1/search/';
+const RAPIDAPI_HOST = 'award-flight-miles-search-api.p.rapidapi.com';
+
+// Testado com dado real (ver README/histórico): o parâmetro "provider" dessa
+// API é um dropdown fixo que só oferece "smiles" como fonte de verdade (as
+// outras opções do formulário do RapidAPI eram só exemplo de documentação,
+// não fontes reais). Ou seja, essa API cobre milhas reais só do Smiles/Gol —
+// LATAM/Azul/AA continuam sem fonte grátis conhecida (ver programProvider.js).
+async function searchRapidApiSmiles({ origin, destination, departDate, returnDate }) {
+  const body = new URLSearchParams({
+    provider: 'smiles',
+    origin,
+    destination,
+    departureDate: departDate,
+    tripType: returnDate ? 'round-trip' : 'one-way',
+    adults: '1',
+    children: '0',
+    infants: '0',
+  });
+  if (returnDate) body.set('returnDate', returnDate);
+
+  const { data } = await axios.post(RAPIDAPI_BASE_URL, body, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'x-rapidapi-host': RAPIDAPI_HOST,
+      'x-rapidapi-key': config.get('RAPIDAPI_KEY'),
+    },
+    timeout: 20000,
+  });
+
+  const outbound = Array.isArray(data?.outboundFlights) ? data.outboundFlights : [];
+  const inbound = Array.isArray(data?.returnFlights) ? data.returnFlights : [];
+
+  // A API devolve ida e volta como listas separadas — soma as duas pernas só
+  // quando o usuário pediu ida e volta (senão "returnFlights" pode vir
+  // duplicando a ida, como visto no teste real).
+  return outbound
+    .map((out, i) => {
+      const back = returnDate ? inbound[i] : null;
+      const miles = Number(out.adultPricePoints || 0) + (back ? Number(back.adultPricePoints || 0) : 0);
+      const taxes = Number(out.adultBoardingTax || 0) + (back ? Number(back.adultBoardingTax || 0) : 0);
+      const cash = Number(out.adultPriceCash || 0) + (back ? Number(back.adultPriceCash || 0) : 0);
+      return {
+        program: 'SMILES',
+        priceBRL: cash > 0 ? cash : null,
+        milesRequired: miles > 0 ? miles : null,
+        taxesBRL: taxes > 0 ? taxes : null,
+        stops: Math.max((out.segments || []).length, 1) - 1,
+        isHiddenCity: false,
+        deepLink: null,
+        source: `Smiles — voo ${out.flightNumber || '?'} (Award Flight & Miles Search API)`,
+      };
+    })
+    .filter((o) => o.priceBRL != null || o.milesRequired != null);
+}
+
+// Fallback: se RAPIDAPI_KEY não estiver configurada (ou a chamada falhar),
+// comporta-se como os outros programas — "não configurado" ou integração
+// própria via SMILES_PROVIDER_URL.
+const fallback = createProgramProvider({
   id: 'SMILES',
   label: 'Smiles (Gol)',
   envPrefix: 'SMILES',
   homepageUrl: 'https://www.smiles.com.br/emissao-com-milhas',
 });
+
+function enabled() {
+  return Boolean(config.get('RAPIDAPI_KEY')) || fallback.enabled();
+}
+
+async function search(params) {
+  if (!config.get('RAPIDAPI_KEY')) return fallback.search(params);
+
+  try {
+    const offers = await searchRapidApiSmiles(params);
+    return { status: 'ok', message: null, offers, manualCheckUrl: fallback.homepageUrl };
+  } catch (err) {
+    if (fallback.enabled()) return fallback.search(params);
+    const body = err.response?.data;
+    const bodyMsg = typeof body === 'string' ? body : body?.message || err.message;
+    return {
+      status: 'error',
+      message: `Award Flight & Miles Search API (Smiles): ${bodyMsg}`.slice(0, 300),
+      offers: [],
+      manualCheckUrl: fallback.homepageUrl,
+    };
+  }
+}
+
+module.exports = { id: 'SMILES', label: 'Smiles (Gol)', enabled, search, homepageUrl: fallback.homepageUrl };
