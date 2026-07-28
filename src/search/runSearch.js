@@ -237,23 +237,35 @@ async function runSearch(search) {
 
   const cheapestCashOffer = allOffersSorted.find((o) => Number.isFinite(o.priceBRL));
 
+  // Busca por região consulta vários destinos (hubs) na mesma busca — o menor
+  // preço em dinheiro de UM destino não serve de referência pra oferta em
+  // milhas de OUTRO destino. Precisa comparar destino com destino.
+  const cheapestCashByDestination = new Map();
+  for (const o of allOffersSorted) {
+    if (!Number.isFinite(o.priceBRL)) continue;
+    const current = cheapestCashByDestination.get(o.destination);
+    if (!current || o.priceBRL < current.priceBRL) cheapestCashByDestination.set(o.destination, o);
+  }
+
   // Compara cada oferta em milhas com o menor preço em dinheiro já achado
-  // NA MESMA BUSCA (mesma origem/destino/datas) — não é uma cotação de
-  // mercado em tempo real (não existe API grátis pra isso), é a estimativa
-  // que o próprio usuário configurou (MILES_VALUE_PER_1000) aplicada ao
-  // preço em dinheiro real que a busca encontrou agora.
-  if (cheapestCashOffer) {
-    const valuePer1000 = milesValuePer1000();
-    for (const o of allOffersSorted) {
-      if (!Number.isFinite(o.milesRequired)) continue;
-      const milesCostBRL = (o.milesRequired / 1000) * valuePer1000 + (o.taxesBRL || 0);
-      o.arbitrage = {
-        milesCostBRL,
-        cashReferenceBRL: cheapestCashOffer.priceBRL,
-        milesValuePer1000: valuePer1000,
-        verdict: milesCostBRL < cheapestCashOffer.priceBRL ? 'miles_better' : 'cash_better',
-      };
-    }
+  // NA MESMA BUSCA, pro MESMO destino — não é uma cotação de mercado em
+  // tempo real (não existe API grátis pra isso), é a estimativa que o
+  // próprio usuário configurou (MILES_VALUE_PER_1000) aplicada ao preço em
+  // dinheiro real que a busca encontrou agora. Sem preço em dinheiro achado
+  // pra esse destino nessa busca, não dá pra comparar — fica sem arbitrage
+  // (o front explica isso em vez de mostrar célula vazia sem explicação).
+  const valuePer1000 = milesValuePer1000();
+  for (const o of allOffersSorted) {
+    if (!Number.isFinite(o.milesRequired)) continue;
+    const cashRef = cheapestCashByDestination.get(o.destination);
+    if (!cashRef) continue;
+    const milesCostBRL = (o.milesRequired / 1000) * valuePer1000 + (o.taxesBRL || 0);
+    o.arbitrage = {
+      milesCostBRL,
+      cashReferenceBRL: cashRef.priceBRL,
+      milesValuePer1000: valuePer1000,
+      verdict: milesCostBRL < cashRef.priceBRL ? 'miles_better' : 'cash_better',
+    };
   }
 
   let bestDeal = cheapestCashOffer

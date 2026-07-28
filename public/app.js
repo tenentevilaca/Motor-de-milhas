@@ -663,7 +663,10 @@ async function runNow(id, resultElId, metaElId) {
 
     function arbitrageCellHtml(o) {
       if (!showArbitrageColumn) return '';
-      if (!o.arbitrage) return '<td>-</td>';
+      if (!Number.isFinite(o.milesRequired)) return '<td>-</td>'; // oferta em dinheiro — não se compara com ela mesma
+      if (!o.arbitrage) {
+        return '<td title="Nenhuma fonte em dinheiro achou preço pra esse destino nessa busca — sem referência pra comparar.">sem ref. em R$</td>';
+      }
       const better = o.arbitrage.verdict === 'miles_better';
       const label = better ? '🎫 Milhas' : '💰 Dinheiro';
       const title = `Milhas: ${formatBRL(o.arbitrage.milesCostBRL)} (a R$${o.arbitrage.milesValuePer1000}/1000 milhas, sua estimativa) vs. dinheiro: ${formatBRL(
