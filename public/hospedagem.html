@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hospedagem — Motor de Milhas</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="hospedagem">
+
+<div class="sky" aria-hidden="true">
+  <svg class="cloud cloud-1" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+  <svg class="cloud cloud-2" viewBox="0 0 200 100"><rect x="30" y="55" width="130" height="30" rx="15"/><ellipse cx="50" cy="60" rx="40" ry="25"/><ellipse cx="95" cy="45" rx="45" ry="30"/><ellipse cx="140" cy="60" rx="35" ry="22"/></svg>
+</div>
+
+<nav class="topnav">
+  <a class="topnav-logo" href="/index.html">✈️ Motor de Milhas</a>
+  <div class="topnav-links">
+    <a href="/index.html" data-page="buscar">Buscar</a>
+    <a href="/buscas.html" data-page="buscas">Buscas ativas</a>
+    <a href="/hospedagem.html" data-page="hospedagem">Hospedagem</a>
+    <a href="/promocoes.html" data-page="promocoes">Promoções</a>
+    <a href="/settings.html" data-page="config">Configurações</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <span class="hero-badge">🏨 Hotéis de vários sites, num lugar só</span>
+  <h1>🏨 Hospedagem</h1>
+  <p class="subtitle">Busca de hotéis via Trivago — preço, avaliação e distância de um local específico</p>
+</header>
+
+<main class="container">
+
+  <div class="callout">
+    Essa busca usa a mesma <b>X-RapidAPI-Key</b> já configurada em <a href="/settings.html">Configurações</a> (seção 1).
+    Sem ela, essa aba não funciona — o Airbnb não entra aqui porque não tem API pública de busca (fazer scraping
+    violaria os Termos de Uso deles, mesmo cuidado que o resto do projeto toma com companhias aéreas).
+  </div>
+
+  <section class="card card-narrow">
+    <h2>Buscar hospedagem</h2>
+
+    <div class="form-section form-section--route">
+      <div class="form-section-label">📍 Destino</div>
+      <div class="row">
+        <div class="field combobox-field">
+          <label for="destinationQuery">Cidade ou região</label>
+          <input type="text" id="destinationQuery" placeholder="Ex: Corfu, Rio de Janeiro, Paris" autocomplete="off" />
+          <div class="combobox-list" id="destinationList"></div>
+        </div>
+        <div class="field">
+          <label for="nearPlace">Local específico (opcional, pra ordenar por proximidade)</label>
+          <input type="text" id="nearPlace" placeholder="Ex: Torre Eiffel, endereço, ponto turístico" autocomplete="off" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section form-section--dates">
+      <div class="form-section-label">📅 Datas &amp; hóspedes</div>
+      <div class="row">
+        <div class="field">
+          <label for="checkIn">Check-in</label>
+          <input type="date" id="checkIn" />
+        </div>
+        <div class="field">
+          <label for="checkOut">Check-out</label>
+          <input type="date" id="checkOut" />
+        </div>
+        <div class="field field-narrow">
+          <label for="adults">Adultos</label>
+          <input type="number" id="adults" min="1" value="2" />
+        </div>
+        <div class="field field-narrow">
+          <label for="rooms">Quartos</label>
+          <input type="number" id="rooms" min="1" value="1" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section form-section--programs">
+      <div class="form-section-label">🔀 Ordenar por</div>
+      <div class="checkbox-group" id="sortByGroup">
+        <label><input type="radio" name="sortBy" value="relevance" checked /> Mais relevante</label>
+        <label><input type="radio" name="sortBy" value="price" /> Menor preço</label>
+        <label><input type="radio" name="sortBy" value="rating" /> Melhor avaliação</label>
+        <label><input type="radio" name="sortBy" value="distance" /> Mais próximo (exige local específico)</label>
+      </div>
+    </div>
+
+    <button id="searchHotelsBtn" onclick="searchHotelsNow()">Buscar hospedagem</button>
+    <div class="status-line" id="hotelSearchStatus"></div>
+
+    <div id="hotelResultBlock" hidden>
+      <div id="hotelResult"></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+<script src="hospedagem.js"></script>
+</body>
+</html>

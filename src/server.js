@@ -17,6 +17,8 @@ const config = require('./config');
 const { fetchAllPosts } = require('./dealFeeds');
 const { checkDealFeedsForAllSearches, checkDealFeedsForSearch, findMatchesForAllActiveSearches } = require('./search/checkDealFeeds');
 const { getBestTimeAdvice } = require('./search/bestTimeToBuy');
+const { searchHotels } = require('./search/hotelSearch');
+const trivago = require('./providers/trivago');
 
 const app = express();
 app.use(express.json());
@@ -199,6 +201,35 @@ app.get('/api/deal-feed/latest', async (req, res) => {
 app.post('/api/deal-feed/check', async (req, res) => {
   try {
     const result = await checkDealFeedsForAllSearches();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/hotels/status', (req, res) => {
+  res.json({ enabled: trivago.enabled() });
+});
+
+app.get('/api/hotels/destinations', async (req, res) => {
+  const q = String(req.query.q || '');
+  if (q.trim().length < 2) return res.json({ suggestions: [] });
+  if (!trivago.enabled()) return res.json({ suggestions: [] });
+  try {
+    const suggestions = await trivago.searchDestinations(q);
+    res.json({ suggestions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/hotels/search', async (req, res) => {
+  const { destination, nearPlace, checkIn, checkOut, adults, rooms, sortBy } = req.body || {};
+  if (!destination || !checkIn || !checkOut) {
+    return res.status(400).json({ error: 'destination, checkIn e checkOut são obrigatórios' });
+  }
+  try {
+    const result = await searchHotels({ destination, nearPlace, checkIn, checkOut, adults, rooms, sortBy });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

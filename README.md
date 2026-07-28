@@ -37,11 +37,17 @@ TudoAzul) e comparação com preços em dinheiro, com alertas automáticos por e
 - **Resultado como motor de busca de verdade**: ao rodar uma busca, todas as ofertas de todas as fontes
   configuradas (e a quebra de bilhete, se ativada) são comparadas e a mais barata de todas aparece destacada no
   topo ("🏆 Menor preço encontrado"), com a tabela completa ordenada da mais barata pra mais cara.
-- **Site com abas** (`index.html` Buscar, `buscas.html` Buscas ativas, `promocoes.html` Promoções,
-  `settings.html` Configurações — nav compartilhado, link ativo destacado), cada uma usando a largura inteira da
-  página com grid de cards. "Promoções" mostra o feed completo de blogs por padrão (busca por texto + filtro por
-  fonte + filtro "relacionado às minhas buscas"), e o formulário de busca tem atalhos de "rotas populares" (1
-  clique preenche origem/destino).
+- **Site com abas** (`index.html` Buscar, `buscas.html` Buscas ativas, `hospedagem.html` Hospedagem,
+  `promocoes.html` Promoções, `settings.html` Configurações — nav compartilhado, link ativo destacado), cada uma
+  usando a largura inteira da página com grid de cards. "Promoções" mostra o feed completo de blogs por padrão
+  (busca por texto + filtro por fonte + filtro "relacionado às minhas buscas"), e o formulário de busca tem
+  atalhos de "rotas populares" (1 clique preenche origem/destino).
+- **Hospedagem** (`hospedagem.html`): busca hotéis via Trivago (mesma X-RapidAPI-Key das outras fontes) — nome,
+  foto, estrelas, avaliação e preço. Se você informar um "local específico" (endereço/ponto turístico), o app
+  geocodifica esse ponto e calcula a distância real até cada hotel (via `src/geocode.js` + coordenadas do
+  Trivago), permitindo ordenar por proximidade além de relevância/preço/avaliação. Airbnb não entra: não tem API
+  pública de busca, e scraping direto violaria os Termos de Uso deles (mesmo critério usado pras companhias
+  aéreas neste projeto).
 - **Buscar já roda a busca e mostra o resultado ali mesmo** (primeira aba, sem precisar navegar pra "Buscas
   ativas") — a busca também fica salva pra rodar de novo depois. O formulário é dividido em blocos com cor própria
   (rota, datas, programas, alertas) e "stopover/quebra de bilhete/hidden-city" viram uma seção avançada recolhida
@@ -205,9 +211,10 @@ src/
 public/
   index.html            página "Buscar" (formulário + calculadora milhas/dinheiro)
   buscas.html             página "Buscas ativas" (grid de cards)
+  hospedagem.html, hospedagem.js  página "Hospedagem" (busca de hotéis via Trivago + proximidade)
   promocoes.html          página "Promoções" (feed de blogs em cards, com filtro)
   settings.html, settings.js  página "Configurações" (chaves de API, e-mail, WhatsApp, agendador, status)
-  app.js                único script compartilhado pelas 4 páginas
+  app.js                script compartilhado por todas as páginas (api(), escapeHtml(), nav ativo)
 ```
 
 ## Créditos de dados

@@ -372,6 +372,27 @@ th { color: var(--muted); font-weight: 600; }
 .search-item .actions { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
 .search-item .actions button { margin-top: 0; }
 
+/* --- Hospedagem: cards de hotel (Trivago) --- */
+.hotel-card {
+  display: block;
+  background: #fbfeff;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--ink);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.hotel-card:hover { box-shadow: 0 6px 16px rgba(0,0,0,0.08); transform: translateY(-2px); }
+.hotel-img { width: 100%; height: 160px; object-fit: cover; display: block; background: var(--accent-soft); }
+.hotel-img--empty { background: var(--accent-soft); }
+.hotel-card-body { padding: 12px 14px; }
+.hotel-name { font-weight: 700; color: var(--accent-dark); margin-bottom: 2px; }
+.hotel-location { font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; }
+.hotel-rating { font-size: 0.85rem; margin-bottom: 4px; }
+.hotel-distance { font-size: 0.82rem; color: var(--accent-dark); margin-bottom: 4px; }
+.hotel-price { font-weight: 700; }
+
 
 /* --- Promoções: barra de busca + pills de filtro + cards --- */
 .promo-toolbar { margin: 12px 0 16px; }
