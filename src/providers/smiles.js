@@ -11,21 +11,25 @@ const RAPIDAPI_HOST = 'award-flight-miles-search-api.p.rapidapi.com';
 // não fontes reais). Ou seja, essa API cobre milhas reais só do Smiles/Gol —
 // LATAM/Azul/AA continuam sem fonte grátis conhecida (ver programProvider.js).
 async function searchRapidApiSmiles({ origin, destination, departDate, returnDate }) {
-  const body = new URLSearchParams({
+  // O schema real dessa API exige adults/children/infants como NÚMERO (não
+  // string) — mandar como form-urlencoded (tudo vira string) gera o erro
+  // "Expected number". JSON com tipos corretos é o que o schema documentado
+  // realmente pede.
+  const body = {
     provider: 'smiles',
     origin,
     destination,
     departureDate: departDate,
     tripType: returnDate ? 'round-trip' : 'one-way',
-    adults: '1',
-    children: '0',
-    infants: '0',
-  });
-  if (returnDate) body.set('returnDate', returnDate);
+    adults: 1,
+    children: 0,
+    infants: 0,
+  };
+  if (returnDate) body.returnDate = returnDate;
 
   const { data } = await axios.post(RAPIDAPI_BASE_URL, body, {
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/json',
       'x-rapidapi-host': RAPIDAPI_HOST,
       'x-rapidapi-key': config.get('RAPIDAPI_KEY'),
     },
@@ -81,7 +85,8 @@ async function search(params) {
   } catch (err) {
     if (fallback.enabled()) return fallback.search(params);
     const body = err.response?.data;
-    const bodyMsg = typeof body === 'string' ? body : body?.message || err.message;
+    const bodyMsg =
+      typeof body === 'string' ? body : body?.property ? `${body.property}: ${body.message}` : body?.message || err.message;
     return {
       status: 'error',
       message: `Award Flight & Miles Search API (Smiles): ${bodyMsg}`.slice(0, 300),
