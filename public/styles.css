@@ -119,11 +119,12 @@ body {
 }
 .container.container-narrow { max-width: 880px; }
 
-/* Cards de formulário/texto (busca, agendador, integrações) ficam numa
-   coluna mais legível; os cards com grid (buscas ativas, promoções) usam
-   a largura toda do container. */
+/* Cards de formulário/texto (busca, agendador, integrações) — largura maior
+   que .container-narrow pra aproveitar telas largas (as linhas de campo já
+   quebram/organizam sozinhas em .row), mas ainda com uma margem lateral
+   visível pra não esticar rente às bordas em monitores muito largos. */
 .card-narrow {
-  max-width: 880px;
+  max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
 }

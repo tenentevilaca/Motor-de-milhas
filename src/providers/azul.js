@@ -41,6 +41,9 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
         stops: itinerary ? itinerary.stops : (cabin.direct ? 0 : null),
         isHiddenCity: false,
         deepLink: item.link || null,
+        flightNumber: (itinerary?.flightNumbers || []).join(', ') || null,
+        departureTime: itinerary?.departure ? itinerary.departure.slice(11, 16) : null,
+        arrivalTime: itinerary?.arrival ? itinerary.arrival.slice(11, 16) : null,
         source: `TudoAzul — ${cabin.name} (Flight Award & Itinerary Scraper via Apify)`,
       });
     }

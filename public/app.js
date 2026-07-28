@@ -646,13 +646,29 @@ async function runNow(id, resultElId, metaElId) {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
     const sorted = result.allOffersSorted || [];
     const showDestinationColumn = sorted.some((o) => o.destination) && new Set(sorted.map((o) => o.destination)).size > 1;
+    // Nem toda fonte devolve número de voo/horário (ex: provider custom via
+    // URL própria pode não mandar) — só mostra a coluna se alguma oferta tiver.
+    const showFlightColumn = sorted.some((o) => o.flightNumber || o.departureTime || o.arrivalTime);
+    const columnCount = 5 + (showDestinationColumn ? 1 : 0) + (showFlightColumn ? 1 : 0);
     const rows = sorted
-      .map(
-        (o, i) =>
-          `<tr${i === 0 ? ' style="font-weight:600;"' : ''}><td>${i === 0 ? '🏆 ' : ''}${o.program}</td>${
-            showDestinationColumn ? `<td>${o.destination || '-'}</td>` : ''
-          }<td>${formatBRL(o.priceBRL)}</td><td>${o.milesRequired ?? '-'}</td><td>${o.stops === 0 ? 'direto' : o.stops + ' parada(s)'}</td></tr>`
-      )
+      .map((o, i) => {
+        // Clica no programa pra ver a oferta: link direto quando a fonte
+        // fornece (ex: Azul via Apify), senão cai pro site da companhia.
+        const link = o.deepLink || o.manualCheckUrl;
+        const programCell = link
+          ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(o.program)}</a>`
+          : escapeHtml(o.program);
+        const flightCell = showFlightColumn
+          ? `<td>${o.flightNumber ? escapeHtml(o.flightNumber) : '-'}${
+              o.departureTime && o.arrivalTime ? ` (${o.departureTime}–${o.arrivalTime})` : ''
+            }</td>`
+          : '';
+        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}><td>${i === 0 ? '🏆 ' : ''}${programCell}</td>${
+          showDestinationColumn ? `<td>${escapeHtml(o.destination || '-')}</td>` : ''
+        }<td>${formatBRL(o.priceBRL)}</td><td>${o.milesRequired ?? '-'}</td><td>${
+          o.stops === 0 ? 'direto' : o.stops + ' parada(s)'
+        }</td>${flightCell}</tr>`;
+      })
       .join('');
     // Busca por região consulta os mesmos provedores em vários hubs — deduplica
     // por programId aqui pra não repetir "CASH_TRAVELPAYOUTS, CASH_TRAVELPAYOUTS, ..." N vezes.
@@ -678,8 +694,10 @@ async function runNow(id, resultElId, metaElId) {
         ${dealHtml}
         ${bestDealHtml}
         <table>
-          <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}<th>Preço</th><th>Milhas</th><th>Paradas</th></tr>
-          ${rows || `<tr><td colspan="${showDestinationColumn ? 5 : 4}">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>`}
+          <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}<th>Preço</th><th>Milhas</th><th>Paradas</th>${
+            showFlightColumn ? '<th>Voo</th>' : ''
+          }</tr>
+          ${rows || `<tr><td colspan="${columnCount}">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>`}
         </table>
         ${result.alertCount > 0 ? `<div class="warning">${result.alertCount} alerta(s) disparado(s) e enviado(s).</div>` : ''}
         ${

@@ -13,7 +13,10 @@ const azul = require('./azul');
 //   taxesBRL: number | null,       // taxes/fees on top of miles redemption
 //   stops: number,
 //   isHiddenCity: boolean,
-//   deepLink: string | null,
+//   deepLink: string | null,   // link pra ver/comprar a oferta, quando a fonte fornecer um
+//   flightNumber: string | null,
+//   departureTime: string | null,  // ex: "18:25" — hora local de partida
+//   arrivalTime: string | null,
 //   source: string,
 // }
 

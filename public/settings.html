@@ -31,6 +31,15 @@
 
 <main class="container container-narrow">
 
+  <div class="callout" style="border-color:#fde047; background:#fef9c3; color:#713f12;">
+    <b>⚠️ No plano grátis do Render, o que você salva aqui pode ser perdido a cada novo deploy</b> (o disco não é
+    persistente nesse plano). Se as chaves "somem" depois que eu faço uma atualização no código, a causa mais provável
+    é essa. Pra elas ficarem fixas de vez, cadastre como <b>variável de ambiente direto no Render</b> em vez de usar
+    esta tela: painel do Render → seu serviço → aba "Environment" → "Add Environment Variable" → nome da chave (ex:
+    <code>RAPIDAPI_KEY</code>, <code>APIFY_TOKEN</code>) e o valor → salvar. Variável de ambiente do Render sobrevive
+    a qualquer deploy; o que você preenche aqui embaixo, no plano grátis, não.
+  </div>
+
   <section class="card">
     <h2>1. Comparação em dinheiro real</h2>
     <p class="status-line">Essas fontes alimentam o detector de erro de tarifa / promoção relâmpago com preços reais,

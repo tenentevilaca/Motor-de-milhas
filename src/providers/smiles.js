@@ -55,7 +55,10 @@ async function searchRapidApiSmiles({ origin, destination, departDate, returnDat
         taxesBRL: taxes > 0 ? taxes : null,
         stops: Math.max((out.segments || []).length, 1) - 1,
         isHiddenCity: false,
-        deepLink: null,
+        deepLink: null, // essa API não devolve link de compra — o front cai pro manualCheckUrl (site da Smiles)
+        flightNumber: out.flightNumber || null,
+        departureTime: out.departureTime || null,
+        arrivalTime: out.arrivalTime || null,
         source: `Smiles — voo ${out.flightNumber || '?'} (Award Flight & Miles Search API)`,
       };
     })

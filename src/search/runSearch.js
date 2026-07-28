@@ -123,7 +123,15 @@ async function runSearch(search) {
       } catch (err) {
         result = { status: 'error', message: describeProviderError(err), offers: [] };
       }
-      results.push({ programId, destination, ...result, offers: (result.offers || []).map((o) => ({ ...o, destination })) });
+      // manualCheckUrl vem por resultado de provider, não por oferta — repassa
+      // pra cada oferta aqui pra servir de link de fallback quando a oferta
+      // não tiver deepLink próprio (ex: Smiles não devolve link de compra).
+      results.push({
+        programId,
+        destination,
+        ...result,
+        offers: (result.offers || []).map((o) => ({ ...o, destination, manualCheckUrl: result.manualCheckUrl || null })),
+      });
     }
   }
 
