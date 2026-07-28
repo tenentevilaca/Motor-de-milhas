@@ -52,10 +52,23 @@
     "Endpoints" de qualquer uma delas, copie o valor de <code>X-RapidAPI-Key</code> (é o mesmo pra qualquer API que você
     assinar por lá) · 4. Cole abaixo. Essa única chave ativa as duas coisas: preço em dinheiro ao vivo (Google Flights —
     vem em dólar, convertido por uma taxa aproximada abaixo) e <b>milhas reais do Smiles</b> na seção "4. Milhas" logo
-    adiante (LATAM/Azul/AA não têm fonte grátis equivalente ainda).</p>
+    adiante (LATAM/AA não têm fonte grátis equivalente ainda; Azul tem, mas por uma fonte diferente — ver abaixo).</p>
     <div class="row">
       <div class="field"><label for="RAPIDAPI_KEY">X-RapidAPI-Key</label><input type="password" id="RAPIDAPI_KEY" placeholder="já configurado" /></div>
       <div class="field field-narrow"><label for="USD_TO_BRL_RATE">Câmbio USD→BRL aproximado</label><input type="text" id="USD_TO_BRL_RATE" placeholder="5.5" /></div>
+    </div>
+
+    <h3>Apify: Azul (milhas reais) <span class="badge pending" id="badge-APIFY_TOKEN">verificando…</span></h3>
+    <p class="status-line"><b>Atenção — é scraping de verdade do site da Azul</b> (diferente das outras fontes acima,
+    que são integrações oficiais dos provedores): roda o ator "Flight Award & Itinerary Scraper" na Apify, que consulta
+    o site da Azul por baixo dos panos. Isso pode violar os Termos de Uso da Azul e, em tese, gerar bloqueio de conta/IP
+    — só ative se você entender e aceitar esse risco. Testado e <b>confirmado com dado real</b> pra TudoAzul; LATAM foi
+    testado e não tem cobertura nesse ator. 1. Crie uma conta grátis em
+    <a href="https://apify.com" target="_blank" rel="noopener">apify.com</a> (e-mail ou Google/GitHub, sem telefone) ·
+    2. Ícone de perfil → Settings → Integrations → copie o "API token" · 3. Cole abaixo. Cota grátis mensal limitada
+    antes de cobrar por uso.</p>
+    <div class="row">
+      <div class="field"><label for="APIFY_TOKEN">Apify API Token</label><input type="password" id="APIFY_TOKEN" placeholder="já configurado" /></div>
     </div>
   </section>
 
@@ -154,12 +167,13 @@
 
   <section class="card">
     <h2>4. Milhas (AA / LATAM Pass / Smiles / TudoAzul)</h2>
-    <p class="status-line"><b>Smiles já tem milhas reais</b> assim que você preenche a <code>X-RapidAPI-Key</code> na seção 1
-    acima (usa a Award Flight & Miles Search API — sem precisar configurar mais nada aqui). AA, LATAM Pass e TudoAzul
-    não têm parceiro público equivalente ainda — por isso a lista abaixo tem só duas escolhas por programa: deixar
-    "não configurado" (o app mostra um link para checagem manual, que já é o esperado pra maioria das pessoas) ou
-    informar a URL de uma integração que você mesmo tenha (parceria oficial, GDS, ou serviço que você administre e
-    esteja autorizado a rodar).</p>
+    <p class="status-line"><b>Smiles</b> já tem milhas reais assim que você preenche a <code>X-RapidAPI-Key</code> na seção 1
+    acima (Award Flight & Miles Search API). <b>TudoAzul</b> também tem milhas reais, preenchendo o <code>Apify API Token</code>
+    na seção 1 (Flight Award & Itinerary Scraper — leia o aviso de risco de Termos de Uso lá antes de ativar). Nenhuma das
+    duas precisa de mais nada aqui embaixo. AA e LATAM Pass não têm parceiro público equivalente ainda — por isso a lista
+    abaixo tem só duas escolhas por programa: deixar "não configurado" (o app mostra um link para checagem manual, que já
+    é o esperado pra maioria das pessoas) ou informar a URL de uma integração que você mesmo tenha (parceria oficial, GDS,
+    ou serviço que você administre e esteja autorizado a rodar).</p>
     <div class="row">
       <div class="field">
         <label for="AA_PROVIDER_URL_mode">American Airlines</label>
@@ -188,9 +202,9 @@
         <input type="text" id="SMILES_PROVIDER_URL" placeholder="https://sua-integracao.com/smiles" style="margin-top:6px; display:none;" />
       </div>
       <div class="field">
-        <label for="AZUL_PROVIDER_URL_mode">TudoAzul</label>
+        <label for="AZUL_PROVIDER_URL_mode">TudoAzul — só se quiser substituir a fonte automática (Apify)</label>
         <select id="AZUL_PROVIDER_URL_mode" onchange="toggleProviderUrl('AZUL_PROVIDER_URL')">
-          <option value="none">Não configurado</option>
+          <option value="none">Usar Flight Award & Itinerary Scraper (automático)</option>
           <option value="custom">Tenho minha própria integração</option>
         </select>
         <input type="text" id="AZUL_PROVIDER_URL" placeholder="https://sua-integracao.com/azul" style="margin-top:6px; display:none;" />
