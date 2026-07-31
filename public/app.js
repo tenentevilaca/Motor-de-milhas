@@ -265,19 +265,24 @@ async function runMonthScan() {
     const params = new URLSearchParams({ origin, destination, yearMonth });
     const data = await api(`/api/month-scan?${params}`);
     const rows = data.dates
-      .map(
-        (d) =>
-          `<tr><td>${new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td><td>${formatBRL(d.priceBRL)}</td><td>${
-            d.program || '-'
-          }</td></tr>`
-      )
+      .map((d) => {
+        const priceCell = d.priceBRL != null ? `${formatBRL(d.priceBRL)} <span class="status-line" style="margin:0;">(${d.cashProgram})</span>` : d.errorNote ? `<span title="${escapeHtml(d.errorNote)}">sem dado (erro na fonte ⚠️)</span>` : 'sem voo achado nessa data';
+        const milesCell =
+          d.milesRequired != null
+            ? `${d.milesRequired.toLocaleString('pt-BR')} milhas${d.milesTaxesBRL ? ` + ${formatBRL(d.milesTaxesBRL)} taxas` : ''} <span class="status-line" style="margin:0;">(${d.milesProgram})</span>`
+            : '-';
+        return `<tr><td>${new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td><td>${priceCell}</td><td>${milesCell}</td></tr>`;
+      })
       .join('');
-    const allEmpty = data.dates.every((d) => d.priceBRL == null);
+    const allEmpty = data.dates.every((d) => d.priceBRL == null && d.milesRequired == null);
     result.innerHTML = `
-      <table><tr><th>Data</th><th>Menor preço</th><th>Fonte</th></tr>${rows}</table>
+      <table><tr><th>Data de ida</th><th>Menor preço (dinheiro)</th><th>Menor milhagem</th></tr>${rows}</table>
+      <div class="status-line">Cada data é uma consulta independente e só ida (sem volta) — datas sem preço ou sem
+      milhas podem ser porque a fonte genuinamente não achou voo pra aquele dia, ou (fontes pagas por uso) a cota
+      grátis mensal estourou no meio da varredura. Passe o mouse em "erro na fonte" pra ver o motivo exato quando houver.</div>
       ${
         allEmpty
-          ? '<div class="warning">Nenhuma fonte de preço em dinheiro achou valor pra nenhuma das datas — confira em Configurações se RAPIDAPI_KEY/Travelpayouts estão mesmo ativos (podem ter sido perdidos num redeploy, ver aviso lá no topo da tela de Configurações).</div>'
+          ? '<div class="warning">Nenhuma fonte (dinheiro ou milhas) achou valor pra nenhuma das datas — confira em Configurações se as chaves estão mesmo ativas (podem ter sido perdidas num redeploy, ver aviso no topo da tela de Configurações).</div>'
           : ''
       }`;
     resultBlock.hidden = false;
