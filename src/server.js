@@ -125,6 +125,12 @@ app.post('/api/searches', (req, res) => {
   if (!body.origin || !body.destination) {
     return res.status(400).json({ error: 'origin e destination são obrigatórios' });
   }
+  if (!body.departDate) {
+    // Sem data, os providers de preço em dinheiro (Google Flights Live,
+    // Travelpayouts) não têm o que consultar — já vimos isso quebrar com um
+    // 422 (departure_date nulo) em vez de dar um erro claro pro usuário.
+    return res.status(400).json({ error: 'departDate é obrigatório — escolha uma data de ida.' });
+  }
   const destinationIsRegion = isRegionValue(body.destination);
   if (!/^[A-Za-z]{3}$/.test(body.origin)) {
     return res.status(400).json({ error: 'origin deve ser um código IATA de 3 letras — escolha um aeroporto na lista sugerida' });

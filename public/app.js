@@ -545,6 +545,11 @@ async function createSearch() {
     status.style.color = 'var(--danger-text)';
     return;
   }
+  if (!document.getElementById('departDate').value) {
+    status.textContent = 'Escolha uma data de ida — sem data, as fontes de preço em dinheiro não têm o que consultar.';
+    status.style.color = 'var(--danger-text)';
+    return;
+  }
   const programs = Array.from(document.querySelectorAll('#programs input:checked')).map((i) => i.value);
   const body = {
     origin,
