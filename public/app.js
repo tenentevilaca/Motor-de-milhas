@@ -211,28 +211,56 @@ function toggleTripType() {
   if (!isRoundTrip) document.getElementById('returnDate').value = '';
 }
 
-// "Comparar mês": não é uma busca salva/agendada, é uma consulta avulsa —
-// pega origem/destino já escolhidos no formulário acima e amostra ~5 datas
-// espaçadas no mês (não os ~30 dias, pra não estourar a cota grátis das
-// fontes de preço em dinheiro).
+// Alterna entre "Data específica" (fluxo normal de busca salva/agendada) e
+// "Mês inteiro" (consulta avulsa, só preço em dinheiro, não salva nada) —
+// esconde o que não se aplica a cada modo pra não confundir (programas de
+// milhas e alertas não existem no modo mês).
+function toggleSearchMode() {
+  const isMonth = document.querySelector('input[name="searchMode"]:checked').value === 'month';
+  document.getElementById('specificDateFields').hidden = isMonth;
+  document.getElementById('monthFields').hidden = !isMonth;
+  document.getElementById('programsSection').hidden = isMonth;
+  document.getElementById('alertsSection').hidden = isMonth;
+  document.getElementById('createBtn').textContent = isMonth ? 'Comparar mês' : 'Buscar';
+  document.getElementById('createStatus').textContent = isMonth
+    ? 'Consulta avulsa (não salva, não agenda) — só preço em dinheiro, ~5 datas amostradas no mês.'
+    : 'Cria a busca, roda na hora e mostra o resultado logo abaixo.';
+}
+
+function handleSearchSubmit() {
+  const isMonth = document.querySelector('input[name="searchMode"]:checked').value === 'month';
+  if (isMonth) return runMonthScan();
+  return createSearch();
+}
+
+// Consulta avulsa (não é busca salva/agendada) — pega origem/destino já
+// escolhidos acima e amostra ~5 datas espaçadas no mês (não os ~30 dias,
+// pra não estourar a cota grátis das fontes de preço em dinheiro).
 async function runMonthScan() {
-  const result = document.getElementById('monthScanResult');
+  const status = document.getElementById('createStatus');
+  const resultBlock = document.getElementById('searchResultBlock');
+  const result = document.getElementById('searchResult');
   const origin = document.getElementById('origin').value;
   const destination = document.getElementById('destination').value;
-  const yearMonth = document.getElementById('monthScanMonth').value;
+  const yearMonth = document.getElementById('scanMonth').value;
   if (!origin || !destination) {
-    result.innerHTML = '<div class="status-line" style="color:var(--danger-text);">Escolha origem e destino no formulário acima primeiro.</div>';
+    status.textContent = 'Escolha origem e destino a partir da lista sugerida.';
+    status.style.color = 'var(--danger-text)';
     return;
   }
   if (isRegionDestination(destination)) {
-    result.innerHTML = '<div class="status-line" style="color:var(--danger-text);">Comparar mês não cobre destino em região — escolha um aeroporto específico.</div>';
+    status.textContent = 'Comparar mês não cobre destino em região — escolha um aeroporto específico.';
+    status.style.color = 'var(--danger-text)';
     return;
   }
   if (!yearMonth) {
-    result.innerHTML = '<div class="status-line" style="color:var(--danger-text);">Escolha um mês.</div>';
+    status.textContent = 'Escolha um mês.';
+    status.style.color = 'var(--danger-text)';
     return;
   }
-  result.innerHTML = '<div class="status-line">Consultando ~5 datas do mês...</div>';
+  status.textContent = 'Consultando ~5 datas do mês...';
+  status.style.color = 'var(--muted)';
+  resultBlock.hidden = true;
   try {
     const params = new URLSearchParams({ origin, destination, yearMonth });
     const data = await api(`/api/month-scan?${params}`);
@@ -244,9 +272,20 @@ async function runMonthScan() {
           }</td></tr>`
       )
       .join('');
-    result.innerHTML = `<table><tr><th>Data</th><th>Menor preço</th><th>Fonte</th></tr>${rows}</table>`;
+    const allEmpty = data.dates.every((d) => d.priceBRL == null);
+    result.innerHTML = `
+      <table><tr><th>Data</th><th>Menor preço</th><th>Fonte</th></tr>${rows}</table>
+      ${
+        allEmpty
+          ? '<div class="warning">Nenhuma fonte de preço em dinheiro achou valor pra nenhuma das datas — confira em Configurações se RAPIDAPI_KEY/Travelpayouts estão mesmo ativos (podem ter sido perdidos num redeploy, ver aviso lá no topo da tela de Configurações).</div>'
+          : ''
+      }`;
+    resultBlock.hidden = false;
+    status.textContent = 'Comparação de mês concluída.';
+    status.style.color = '#16a34a';
   } catch (err) {
-    result.innerHTML = `<div class="status-line" style="color:var(--danger-text);">Erro: ${escapeHtml(err.message)}</div>`;
+    status.textContent = 'Erro: ' + err.message;
+    status.style.color = 'var(--danger-text)';
   }
 }
 

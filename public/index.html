@@ -71,36 +71,54 @@
     </div>
 
     <div class="form-section form-section--dates">
-      <div class="form-section-label">📅 Datas &amp; preço-alvo</div>
-      <div class="checkbox-group" id="tripTypeGroup">
-        <label><input type="radio" name="tripType" value="oneway" checked onchange="toggleTripType()" /> Somente ida</label>
-        <label><input type="radio" name="tripType" value="roundtrip" onchange="toggleTripType()" /> Ida e volta</label>
+      <div class="form-section-label">📅 Quando</div>
+      <div class="checkbox-group" id="searchModeGroup">
+        <label><input type="radio" name="searchMode" value="specific" checked onchange="toggleSearchMode()" /> Data específica</label>
+        <label><input type="radio" name="searchMode" value="month" onchange="toggleSearchMode()" /> Mês inteiro (sem data fixa, ~5 amostras)</label>
       </div>
-      <div class="row">
-        <div class="field">
-          <label for="departDate">Data de ida</label>
-          <input type="date" id="departDate" required />
+
+      <div id="specificDateFields">
+        <div class="checkbox-group" id="tripTypeGroup">
+          <label><input type="radio" name="tripType" value="oneway" checked onchange="toggleTripType()" /> Somente ida</label>
+          <label><input type="radio" name="tripType" value="roundtrip" onchange="toggleTripType()" /> Ida e volta</label>
         </div>
-        <div class="field" id="returnDateField" hidden>
-          <label for="returnDate">Data de volta</label>
-          <input type="date" id="returnDate" />
+        <div class="row">
+          <div class="field">
+            <label for="departDate">Data de ida</label>
+            <input type="date" id="departDate" />
+          </div>
+          <div class="field" id="returnDateField" hidden>
+            <label for="returnDate">Data de volta</label>
+            <input type="date" id="returnDate" />
+          </div>
+          <div class="field field-narrow">
+            <label for="flexDays">Flexibilidade (± dias)</label>
+            <input type="number" id="flexDays" min="0" max="7" value="0" />
+          </div>
+          <div class="field field-narrow">
+            <label for="targetPrice">Preço-alvo (R$)</label>
+            <input type="number" id="targetPrice" placeholder="1500" />
+          </div>
         </div>
-        <div class="field field-narrow">
-          <label for="flexDays">Flexibilidade (± dias)</label>
-          <input type="number" id="flexDays" min="0" max="7" value="0" />
-        </div>
-        <div class="field field-narrow">
-          <label for="targetPrice">Preço-alvo (R$)</label>
-          <input type="number" id="targetPrice" placeholder="1500" />
+        <div class="best-time-card" id="bestTimeCard" hidden>
+          <b>📅 Melhor época para essa rota</b>
+          <div id="bestTimeBody"></div>
         </div>
       </div>
-      <div class="best-time-card" id="bestTimeCard" hidden>
-        <b>📅 Melhor época para essa rota</b>
-        <div id="bestTimeBody"></div>
+
+      <div id="monthFields" hidden>
+        <p class="status-line">Consulta ~5 datas espaçadas nesse mês (não os ~30 dias) só nas fontes de preço em
+        dinheiro, pra não estourar a cota grátis das APIs — não cria busca salva/agendada, é uma consulta avulsa.</p>
+        <div class="row">
+          <div class="field field-narrow">
+            <label for="scanMonth">Mês</label>
+            <input type="month" id="scanMonth" />
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="form-section form-section--programs">
+    <div class="form-section form-section--programs" id="programsSection">
       <div class="form-section-label">🎯 Programas de milhas</div>
       <div class="checkbox-group" id="programs">
         <label><input type="checkbox" value="AA" /> American Airlines</label>
@@ -127,7 +145,7 @@
       </div>
     </div>
 
-    <div class="form-section form-section--alerts">
+    <div class="form-section form-section--alerts" id="alertsSection">
       <div class="form-section-label">🔔 Alertas (opcional)</div>
       <div class="row">
         <div class="field">
@@ -151,7 +169,7 @@
       </div>
     </div>
 
-    <button id="createBtn" onclick="createSearch()">Buscar</button>
+    <button id="createBtn" onclick="handleSearchSubmit()">Buscar</button>
     <div class="status-line" id="createStatus">Cria a busca, roda na hora e mostra o resultado logo abaixo.</div>
 
     <div id="searchResultBlock" hidden>
@@ -172,17 +190,6 @@
     <section class="card">
       <h2>🔌 Status das fontes</h2>
       <div id="providerStatus" class="provider-list">Carregando...</div>
-    </section>
-    <section class="card">
-      <h2>📅 Comparar preços no mês</h2>
-      <p class="status-line">Usa a origem/destino já escolhidos acima. Consulta ~5 datas espaçadas no mês (não o
-      mês inteiro dia a dia) pra não estourar a cota grátis das fontes de preço em dinheiro.</p>
-      <div class="field">
-        <label for="monthScanMonth">Mês</label>
-        <input type="month" id="monthScanMonth" />
-      </div>
-      <button type="button" class="secondary" onclick="runMonthScan()">Comparar mês</button>
-      <div id="monthScanResult"></div>
     </section>
   </aside>
   </div>
