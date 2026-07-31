@@ -19,6 +19,7 @@ const { checkDealFeedsForAllSearches, checkDealFeedsForSearch, findMatchesForAll
 const { getBestTimeAdvice } = require('./search/bestTimeToBuy');
 const { searchHotels } = require('./search/hotelSearch');
 const trivago = require('./providers/trivago');
+const { scanMonth } = require('./search/monthScan');
 
 const app = express();
 app.use(express.json());
@@ -51,6 +52,25 @@ app.get('/api/best-time', (req, res) => {
   const { origin, destination, departDate } = req.query;
   if (!origin || !destination) return res.status(400).json({ error: 'origin e destination são obrigatórios' });
   res.json(getBestTimeAdvice({ origin: String(origin).toUpperCase(), destination: String(destination).toUpperCase(), departDate: departDate || null }));
+});
+
+app.get('/api/month-scan', async (req, res) => {
+  const { origin, destination, yearMonth } = req.query;
+  if (!origin || !destination || !yearMonth) {
+    return res.status(400).json({ error: 'origin, destination e yearMonth (AAAA-MM) são obrigatórios' });
+  }
+  if (!/^[A-Za-z]{3}$/.test(origin) || !/^[A-Za-z]{3}$/.test(destination)) {
+    return res.status(400).json({ error: 'origin e destination devem ser códigos IATA de 3 letras (busca por mês não cobre destino em região)' });
+  }
+  if (!/^\d{4}-\d{2}$/.test(yearMonth)) {
+    return res.status(400).json({ error: 'yearMonth deve estar no formato AAAA-MM' });
+  }
+  try {
+    const result = await scanMonth({ origin: origin.toUpperCase(), destination: destination.toUpperCase(), yearMonth });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/providers', (req, res) => {

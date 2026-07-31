@@ -211,6 +211,45 @@ function toggleTripType() {
   if (!isRoundTrip) document.getElementById('returnDate').value = '';
 }
 
+// "Comparar mês": não é uma busca salva/agendada, é uma consulta avulsa —
+// pega origem/destino já escolhidos no formulário acima e amostra ~5 datas
+// espaçadas no mês (não os ~30 dias, pra não estourar a cota grátis das
+// fontes de preço em dinheiro).
+async function runMonthScan() {
+  const result = document.getElementById('monthScanResult');
+  const origin = document.getElementById('origin').value;
+  const destination = document.getElementById('destination').value;
+  const yearMonth = document.getElementById('monthScanMonth').value;
+  if (!origin || !destination) {
+    result.innerHTML = '<div class="status-line" style="color:var(--danger-text);">Escolha origem e destino no formulário acima primeiro.</div>';
+    return;
+  }
+  if (isRegionDestination(destination)) {
+    result.innerHTML = '<div class="status-line" style="color:var(--danger-text);">Comparar mês não cobre destino em região — escolha um aeroporto específico.</div>';
+    return;
+  }
+  if (!yearMonth) {
+    result.innerHTML = '<div class="status-line" style="color:var(--danger-text);">Escolha um mês.</div>';
+    return;
+  }
+  result.innerHTML = '<div class="status-line">Consultando ~5 datas do mês...</div>';
+  try {
+    const params = new URLSearchParams({ origin, destination, yearMonth });
+    const data = await api(`/api/month-scan?${params}`);
+    const rows = data.dates
+      .map(
+        (d) =>
+          `<tr><td>${new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td><td>${formatBRL(d.priceBRL)}</td><td>${
+            d.program || '-'
+          }</td></tr>`
+      )
+      .join('');
+    result.innerHTML = `<table><tr><th>Data</th><th>Menor preço</th><th>Fonte</th></tr>${rows}</table>`;
+  } catch (err) {
+    result.innerHTML = `<div class="status-line" style="color:var(--danger-text);">Erro: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
 async function updateBestTimeCard() {
   const origin = document.getElementById('origin').value;
   const destination = document.getElementById('destination').value;

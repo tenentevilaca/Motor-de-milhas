@@ -173,6 +173,17 @@
       <h2>🔌 Status das fontes</h2>
       <div id="providerStatus" class="provider-list">Carregando...</div>
     </section>
+    <section class="card">
+      <h2>📅 Comparar preços no mês</h2>
+      <p class="status-line">Usa a origem/destino já escolhidos acima. Consulta ~5 datas espaçadas no mês (não o
+      mês inteiro dia a dia) pra não estourar a cota grátis das fontes de preço em dinheiro.</p>
+      <div class="field">
+        <label for="monthScanMonth">Mês</label>
+        <input type="month" id="monthScanMonth" />
+      </div>
+      <button type="button" class="secondary" onclick="runMonthScan()">Comparar mês</button>
+      <div id="monthScanResult"></div>
+    </section>
   </aside>
   </div>
 
