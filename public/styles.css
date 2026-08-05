@@ -58,6 +58,7 @@
   --danger-text: var(--red-700);
   --sky-top: var(--blue-100);
   --sky-bottom: var(--gray-50);
+  --success-text: #16a34a; /* mesmo verde já usado inline em app.js pros outros indicadores positivos */
 }
 
 * { box-sizing: border-box; }
@@ -488,6 +489,40 @@ tr:hover td { background: var(--blue-50); }
 .search-item .route { font-weight: 700; color: var(--blue-800); font-size: 1.05rem; }
 .search-item .actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
 .search-item .actions button { margin-top: 0; }
+
+.dashboard-header {
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 10px;
+}
+
+.dashboard-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.price-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.last-price {
+  font-weight: 700;
+  color: var(--blue-700);
+  font-size: 1.1rem;
+}
+
+.target-price {
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+
+.target-price span {
+  color: var(--success-text);
+  font-weight: 600;
+}
 
 /* --- Hospedagem: cards de hotel (Trivago) --- */
 .hotel-card {

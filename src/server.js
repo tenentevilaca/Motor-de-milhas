@@ -18,6 +18,7 @@ const { fetchAllPosts } = require('./dealFeeds');
 const { checkDealFeedsForAllSearches, checkDealFeedsForSearch, findMatchesForAllActiveSearches } = require('./search/checkDealFeeds');
 const { getBestTimeAdvice } = require('./search/bestTimeToBuy');
 const { searchHotels } = require('./search/hotelSearch');
+const { buildDashboardEntry, historyToCsv } = require('./dashboard');
 const trivago = require('./providers/trivago');
 const { scanMonth } = require('./search/monthScan');
 
@@ -217,6 +218,20 @@ app.get('/api/searches/:id/history', (req, res) => {
   const search = db.getSearch(req.params.id);
   if (!search) return res.status(404).json({ error: 'busca não encontrada' });
   res.json(db.getHistoryForSearch(req.params.id));
+});
+
+app.get('/api/searches/:id/export', (req, res) => {
+  const search = db.getSearch(req.params.id);
+  if (!search) return res.status(404).json({ error: 'busca não encontrada' });
+  const history = db.getHistoryForSearch(req.params.id);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename=historico-${search.origin}-${search.destination}.csv`);
+  res.send(historyToCsv(history));
+});
+
+app.get('/api/dashboard', (req, res) => {
+  const dashboardData = db.listSearches().map((s) => buildDashboardEntry(s, db.getHistoryForSearch(s.id, 1)[0]));
+  res.json(dashboardData);
 });
 
 app.get('/api/deal-feed/latest', async (req, res) => {

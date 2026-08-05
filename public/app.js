@@ -279,12 +279,12 @@ async function runMonthScan() {
           d.milesRequired != null
             ? `${d.milesRequired.toLocaleString('pt-BR')} milhas${d.milesTaxesBRL ? ` + ${formatBRL(d.milesTaxesBRL)} taxas` : ''} <span class="status-line" style="margin:0;">(${d.milesProgram})</span>`
             : '-';
-        return `<tr><td>${new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td><td>${priceCell}</td><td>${milesCell}</td></tr>`;
+        return `<tr><td>${new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td><td>${priceCell}</td>${data.mode === 'full' ? `<td>${milesCell}</td>` : ''}</tr>`;
       })
       .join('');
     const allEmpty = data.dates.every((d) => d.priceBRL == null && d.milesRequired == null);
     result.innerHTML = `
-      <table><tr><th>Data de ida</th><th>Menor preço (dinheiro)</th><th>Menor milhagem</th></tr>${rows}</table>
+      <table><tr><th>Data de ida</th><th>Menor preço (dinheiro)</th>${data.mode === 'full' ? '<th>Menor milhagem</th>' : ''}</tr>${rows}</table>
       <div class="status-line">Cada data é uma consulta independente e só ida (sem volta) — datas sem preço ou sem
       milhas podem ser porque a fonte genuinamente não achou voo pra aquele dia, ou (fontes pagas por uso) a cota
       grátis mensal estourou no meio da varredura. Passe o mouse em "erro na fonte" pra ver o motivo exato quando houver.
@@ -332,7 +332,7 @@ async function updateBestTimeCard() {
                 .join(', ')}.</div>`
             : ''
         }`
-      : `<div class="status-line">Ainda sem histórico próprio suficiente nessa rota pra estatística por mês (precisa de pelo menos ${advice.historical?.samplesNeeded ?? 3} checagens no mesmo mês) — vai aparecer aqui conforme o motor for rodando.</div>`;
+      : `<div class="status-line">Ainda sem histórico próprio suficiente nessa rota (precisa de pelo menos ${advice.historical?.samplesNeeded ?? 3} checagens) — vai aparecer aqui conforme o motor for rodando.</div>`;
     const trendHtml = advice.trend
       ? `<div class="status-line" style="margin-top:8px;"><b>Tendência recente:</b> ${advice.trend.message}</div>${sparklineHtml(advice.trend.prices)}`
       : '';
@@ -636,37 +636,51 @@ function buildManualLinks(s) {
 async function loadSearches() {
   const el = document.getElementById('searchList');
   try {
-    const searches = await api('/api/searches');
-    if (searches.length === 0) {
+    const dashboardData = await api('/api/dashboard');
+    if (dashboardData.length === 0) {
       el.innerHTML = '<p class="status-line">Nenhuma busca criada ainda.</p>';
       return;
     }
-    el.innerHTML = searches
+    el.innerHTML = dashboardData
       .map(
-        (s) => `
+        (d) => `
       <div class="search-item">
-        <span class="route">${s.origin} → ${isRegionDestination(s.destination) ? '🌎 ' + regionLabelFor(s.destination) : s.destination}</span>
-        ${s.departDate ? ' · ida ' + s.departDate : ''}${s.returnDate ? ' · volta ' + s.returnDate : ''}
-        <div class="status-line">
-          Programas: ${s.programs.join(', ') || '-'} · Stopover: ${s.allowStopover ? 'sim' : 'não'} ·
-          Hidden-city: ${s.allowHiddenCity ? 'sim' : 'não'}
+        <div class="dashboard-header">
+          <span class="route">${d.origin} → ${isRegionDestination(d.destination) ? '🌎 ' + regionLabelFor(d.destination) : d.destination}</span>
+          ${d.departDate ? ' · ida ' + d.departDate : ''}${d.returnDate ? ' · volta ' + d.returnDate : ''}
+          ${d.isAnomaly ? '<span class="status-line" style="color: var(--danger-text); font-weight: bold;">⚠️ Queda suspeita</span>' : ''}
         </div>
-        <div class="status-line" id="meta-${s.id}">Última checagem: ${s.lastRunAt ? new Date(s.lastRunAt).toLocaleString('pt-BR') : 'nunca'}</div>
-        <div class="status-line">Conferir agora, sem esperar nenhuma API: ${buildManualLinks(s)
+        <div class="status-line">
+          Programas: ${(d.programs || []).join(', ') || '-'} · Stopover: ${d.allowStopover ? 'sim' : 'não'} ·
+          Hidden-city: ${d.allowHiddenCity ? 'sim' : 'não'}
+        </div>
+        <div class="dashboard-content">
+          <div class="price-info">
+            <div class="last-price">${d.lastPrice != null ? `Último preço: ${formatBRL(d.lastPrice)}` : 'Sem preço registrado'}</div>
+            ${d.targetPrice != null ? `<div class="target-price">Alvo: ${formatBRL(d.targetPrice)} ${d.isBelowTarget ? '<span>(✅ Alcançado!)</span>' : ''}</div>` : ''}
+          </div>
+        </div>
+        <div class="status-line" id="meta-${d.id}">Última checagem: ${d.lastCheckedAt ? new Date(d.lastCheckedAt).toLocaleString('pt-BR') : 'nunca'}</div>
+        <div class="status-line">Conferir agora, sem esperar nenhuma API: ${buildManualLinks(d)
           .map((l) => `<a href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`)
           .join(' · ')}</div>
         <div class="actions">
-          <button onclick="runNow('${s.id}')">Rodar agora</button>
-          <button class="secondary" onclick="viewHistory('${s.id}')">Ver histórico</button>
-          <button class="danger" onclick="removeSearch('${s.id}')">Excluir</button>
+          <button onclick="runNow('${d.id}')">Rodar agora</button>
+          <button class="secondary" onclick="viewHistory('${d.id}')">Ver histórico</button>
+          <button class="secondary" onclick="exportHistory('${d.id}')">Exportar CSV</button>
+          <button class="danger" onclick="removeSearch('${d.id}')">Excluir</button>
         </div>
-        <div id="result-${s.id}"></div>
+        <div id="result-${d.id}"></div>
       </div>`
       )
       .join('');
   } catch (err) {
     el.textContent = 'Erro ao carregar: ' + err.message;
   }
+}
+
+function exportHistory(id) {
+  window.open(`/api/searches/${id}/export`, '_blank');
 }
 
 async function createSearch() {
@@ -798,9 +812,12 @@ async function runNow(id, resultElId, metaElId) {
     const showDestinationColumn = sorted.some((o) => o.destination) && new Set(sorted.map((o) => o.destination)).size > 1;
     // Com "Flexibilidade (± dias)" a busca testa várias datas de uma vez só
     // e mistura tudo no mesmo resultado — sem essa coluna não dá pra saber
-    // a qual data cada oferta pertence (mais de 1 data de ida distinta =
-    // mostra a coluna).
-    const showDateColumn = new Set(sorted.map((o) => o.departDate).filter(Boolean)).size > 1;
+    // a qual data cada oferta pertence (mais de 1 data de ida OU de volta
+    // distinta = mostra a coluna; flexDays pode variar só a volta quando a
+    // ida já está fixa, e nesse caso só olhar departDate escondia a coluna).
+    const showDateColumn =
+      new Set(sorted.map((o) => o.departDate).filter(Boolean)).size > 1 ||
+      new Set(sorted.map((o) => o.returnDate).filter(Boolean)).size > 1;
     // Nem toda fonte devolve número de voo/horário/duração/veredito milhas x
     // dinheiro (ex: provider custom via URL própria pode não mandar nada
     // disso) — cada coluna extra só aparece se pelo menos uma oferta tiver.
