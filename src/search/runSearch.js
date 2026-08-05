@@ -139,51 +139,62 @@ async function runSearch(search) {
     if (dateCombinations.length >= MAX_DATE_COMBINATIONS) break;
   }
 
+  // Cada programa é uma API/host diferente (Travelpayouts, Google Flights,
+  // Smiles, Azul...), então consultá-los em paralelo pra um mesmo
+  // destino/data não estoura a cota de nenhum deles — a cota é por API, não
+  // compartilhada. O que preserva o espaçamento é manter as datas/destinos
+  // de UM MESMO provider sequenciais entre si (loop de fora), então uma API
+  // com limite de requisições por segundo continua vendo uma chamada de
+  // cada vez. Isso corta o tempo de espera do usuário por ~N (nº de
+  // programas consultados) sem gastar cota a mais.
   const results = [];
   for (const destination of destinations) {
-    for (const programId of programsToQuery) {
-      const provider = ALL_PROVIDERS[programId];
-      if (!provider) continue;
+    for (const { departDate, returnDate } of dateCombinations) {
+      const batch = await Promise.all(
+        programsToQuery.map(async (programId) => {
+          const provider = ALL_PROVIDERS[programId];
+          if (!provider) return null;
 
-      for (const { departDate, returnDate } of dateCombinations) {
-        const cacheKey = `${programId}|${search.origin}|${destination}|${departDate}|${returnDate}|${search.allowStopover}`;
-        let result;
-        try {
-          result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
-            provider.search({
-              origin: search.origin,
-              destination,
-              departDate,
-              returnDate,
-              allowStopover: search.allowStopover,
-              allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
-            })
-          );
-        } catch (err) {
-          result = { status: 'error', message: describeProviderError(err), offers: [] };
-        }
-        // manualCheckUrl vem por resultado de provider, não por oferta — repassa
-        // pra cada oferta aqui pra servir de link de fallback quando a oferta
-        // não tiver deepLink próprio (ex: Smiles não devolve link de compra).
-        // departDate/returnDate também vão em cada oferta: com flexibilidade
-        // de datas, o resultado mistura várias datas na mesma busca, então
-        // cada linha precisa deixar claro a qual data ela se refere.
-        results.push({
-          programId,
-          destination,
-          departDate,
-          returnDate,
-          ...result,
-          offers: (result.offers || []).map((o) => ({
-            ...o,
+          const cacheKey = `${programId}|${search.origin}|${destination}|${departDate}|${returnDate}|${search.allowStopover}`;
+          let result;
+          try {
+            result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
+              provider.search({
+                origin: search.origin,
+                destination,
+                departDate,
+                returnDate,
+                allowStopover: search.allowStopover,
+                allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
+              })
+            );
+          } catch (err) {
+            result = { status: 'error', message: describeProviderError(err), offers: [] };
+          }
+          // manualCheckUrl vem por resultado de provider, não por oferta — repassa
+          // pra cada oferta aqui pra servir de link de fallback quando a oferta
+          // não tiver deepLink próprio (ex: Smiles não devolve link de compra).
+          // departDate/returnDate também vão em cada oferta: com flexibilidade
+          // de datas, o resultado mistura várias datas na mesma busca, então
+          // cada linha precisa deixar claro a qual data ela se refere.
+          return {
+            programId,
             destination,
-            destinationLabel: destinationLabel(destination),
             departDate,
             returnDate,
-            manualCheckUrl: result.manualCheckUrl || null,
-          })),
-        });
-      }
+            ...result,
+            offers: (result.offers || []).map((o) => ({
+              ...o,
+              destination,
+              destinationLabel: destinationLabel(destination),
+              departDate,
+              returnDate,
+              manualCheckUrl: result.manualCheckUrl || null,
+            })),
+          };
+        })
+      );
+      results.push(...batch.filter(Boolean));
     }
   }
 

@@ -75,7 +75,7 @@ app.get('/api/month-scan', async (req, res) => {
       origin: origin.toUpperCase(),
       destination: destination.toUpperCase(),
       yearMonth,
-      includeMiles: includeMiles === undefined ? true : includeMiles === 'true' || includeMiles === '1',
+      includeMiles: includeMiles === 'true' || includeMiles === '1',
     });
     res.json(result);
   } catch (err) {

@@ -40,22 +40,32 @@ async function scanMonth({ origin, destination, yearMonth, includeMiles = true }
   const results = [];
   const programIds = includeMiles ? [...CASH_PROVIDER_IDS, ...MILE_PROGRAM_IDS] : [...CASH_PROVIDER_IDS];
 
+  // Cada programa é uma API/host diferente, então consultá-los em paralelo
+  // pra uma mesma data não estoura a cota de nenhum (mesma lógica de
+  // runSearch.js) — só corta o tempo de espera do usuário, sem gastar cota
+  // a mais. As datas continuam sequenciais entre si.
   for (const date of dates) {
     let cheapestCash = null;
     let cheapestMiles = null;
     const errors = [];
 
-    for (const programId of programIds) {
-      const provider = ALL_PROVIDERS[programId];
-      const cacheKey = `${programId}|${origin}|${destination}|${date}|null|false`;
-      let result;
-      try {
-        result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
-          provider.search({ origin, destination, departDate: date, returnDate: null, allowStopover: false, allowHiddenCity: false })
-        );
-      } catch (err) {
-        result = { status: 'error', message: err.message, offers: [] };
-      }
+    const providerResults = await Promise.all(
+      programIds.map(async (programId) => {
+        const provider = ALL_PROVIDERS[programId];
+        const cacheKey = `${programId}|${origin}|${destination}|${date}|null|false`;
+        try {
+          return await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
+            provider.search({ origin, destination, departDate: date, returnDate: null, allowStopover: false, allowHiddenCity: false })
+          );
+        } catch (err) {
+          return { status: 'error', message: err.message, offers: [] };
+        }
+      })
+    );
+
+    for (let i = 0; i < programIds.length; i++) {
+      const programId = programIds[i];
+      const result = providerResults[i];
       if (result.status === 'error') errors.push(`${programId}: ${result.message}`);
 
       for (const offer of result.offers || []) {
