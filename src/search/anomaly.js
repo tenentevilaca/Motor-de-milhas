@@ -20,6 +20,7 @@ function evaluateOffer(offer, baseline) {
   const ratioVsAvg = price / baseline.avg;
   const ratioVsMin = baseline.min > 0 ? price / baseline.min : 1;
 
+  // Erro de tarifa (primário): bem abaixo da média histórica.
   if (ratioVsAvg <= DROP_RATIO_THRESHOLD) {
     return {
       isAnomaly: true,
@@ -28,7 +29,18 @@ function evaluateOffer(offer, baseline) {
     };
   }
 
-  if (ratioVsMin < 0.85) {
+  // Erro de tarifa (secundário): mesmo sem cair tanto vs a média, se estiver
+  // bem abaixo do MENOR preço já visto nessa rota também é suspeito — a
+  // média pode estar "puxada pra cima" por poucos preços altos no histórico.
+  if (ratioVsMin <= 0.75) {
+    return {
+      isAnomaly: true,
+      isFlashSale: false,
+      reason: `Preço ${Math.round((1 - ratioVsMin) * 100)}% abaixo do MENOR preço já visto nessa rota (possível erro de tarifa) — confirme antes de contar com a compra.`,
+    };
+  }
+
+  if (ratioVsMin <= 0.9) {
     return {
       isAnomaly: false,
       isFlashSale: true,

@@ -745,6 +745,11 @@ async function runNow(id, resultElId, metaElId) {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
     const sorted = result.allOffersSorted || [];
     const showDestinationColumn = sorted.some((o) => o.destination) && new Set(sorted.map((o) => o.destination)).size > 1;
+    // Com "Flexibilidade (± dias)" a busca testa várias datas de uma vez só
+    // e mistura tudo no mesmo resultado — sem essa coluna não dá pra saber
+    // a qual data cada oferta pertence (mais de 1 data de ida distinta =
+    // mostra a coluna).
+    const showDateColumn = new Set(sorted.map((o) => o.departDate).filter(Boolean)).size > 1;
     // Nem toda fonte devolve número de voo/horário/duração/veredito milhas x
     // dinheiro (ex: provider custom via URL própria pode não mandar nada
     // disso) — cada coluna extra só aparece se pelo menos uma oferta tiver.
@@ -755,10 +760,16 @@ async function runNow(id, resultElId, metaElId) {
     const columnCount =
       4 +
       (showDestinationColumn ? 1 : 0) +
+      (showDateColumn ? 1 : 0) +
       (showArbitrageColumn ? 1 : 0) +
       (showFlightColumn ? 1 : 0) +
       (showTimeColumn ? 1 : 0) +
       (showDurationColumn ? 1 : 0);
+
+    function formatDateBR(iso) {
+      if (!iso) return '-';
+      return new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR');
+    }
 
     function arbitrageCellHtml(o) {
       if (!showArbitrageColumn) return '';
@@ -796,12 +807,15 @@ async function runNow(id, resultElId, metaElId) {
             : '';
         const programCell = `<td>${i === 0 ? '🏆 ' : ''}${programLabel}${partnersLine}</td>`;
         const destinationCell = showDestinationColumn ? `<td>${escapeHtml(o.destinationLabel || o.destination || '-')}</td>` : '';
+        const dateCell = showDateColumn
+          ? `<td>${formatDateBR(o.departDate)}${o.returnDate ? ` → ${formatDateBR(o.returnDate)}` : ''}</td>`
+          : '';
         const flightCell = showFlightColumn ? `<td>${o.flightNumber ? escapeHtml(o.flightNumber) : '-'}</td>` : '';
         const timeCell = showTimeColumn
           ? `<td>${o.departureTime && o.arrivalTime ? `${o.departureTime}–${o.arrivalTime}` : '-'}</td>`
           : '';
         const durationCell = showDurationColumn ? `<td>${o.durationLabel ? escapeHtml(o.durationLabel) : '-'}</td>` : '';
-        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}<td>${formatBRL(
+        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}<td>${formatBRL(
           o.priceBRL
         )}</td><td>${o.milesRequired ?? '-'}</td>${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${flightCell}${timeCell}${durationCell}</tr>`;
       })
@@ -826,13 +840,26 @@ async function runNow(id, resultElId, metaElId) {
               result.bestDeal.type === 'split' ? ` (quebra de bilhete via ${result.bestDeal.program})` : ` via ${result.bestDeal.program}`
             }${
               result.bestDeal.destinationLabel && showDestinationColumn ? ` — destino: <b>${escapeHtml(result.bestDeal.destinationLabel)}</b>` : ''
+            }${
+              result.bestDeal.departDate && showDateColumn
+                ? ` — data: <b>${formatDateBR(result.bestDeal.departDate)}${
+                    result.bestDeal.returnDate ? ` → ${formatDateBR(result.bestDeal.returnDate)}` : ''
+                  }</b>`
+                : ''
             }</div>`
           : '';
       el.innerHTML = `
         ${dealHtml}
         ${bestDealHtml}
+        ${
+          result.flexDatesChecked > 1
+            ? `<div class="status-line">Flexibilidade de datas: ${result.flexDatesChecked} data(s) de ida testada(s) nessa busca.</div>`
+            : ''
+        }
         <table>
-          <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}<th>Preço</th><th>Milhas</th>${
+          <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}${
+            showDateColumn ? '<th>Data</th>' : ''
+          }<th>Preço</th><th>Milhas</th>${
             showArbitrageColumn ? '<th>Vale mais</th>' : ''
           }<th>Paradas</th>${showFlightColumn ? '<th>Voo</th>' : ''}${showTimeColumn ? '<th>Horário</th>' : ''}${
             showDurationColumn ? '<th>Duração</th>' : ''

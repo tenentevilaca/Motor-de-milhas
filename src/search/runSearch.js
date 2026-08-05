@@ -104,6 +104,23 @@ function milesValuePer1000() {
   return Number.isFinite(v) && v > 0 ? v : 20;
 }
 
+// "Flexibilidade (± dias)": gera as datas em torno de baseDate (baseDate,
+// baseDate-1, baseDate+1, baseDate-2, baseDate+2, ...) — usa componentes de
+// data (ano/mês/dia) em vez de aritmética de milissegundos pra não escorregar
+// de dia por causa de fuso horário.
+function generateFlexDates(baseDate, flexDays) {
+  if (!baseDate || flexDays <= 0) return [baseDate];
+  const [year, month, day] = baseDate.split('-').map(Number);
+  const dates = [baseDate];
+  for (let i = 1; i <= flexDays; i++) {
+    for (const sign of [1, -1]) {
+      const d = new Date(Date.UTC(year, month - 1, day + i * sign));
+      dates.push(d.toISOString().slice(0, 10));
+    }
+  }
+  return dates;
+}
+
 async function runSearch(search) {
   const programsToQuery = [...CASH_PROVIDER_IDS, ...search.programs.filter((p) => MILE_PROGRAM_IDS.includes(p))];
 
@@ -118,41 +135,70 @@ async function runSearch(search) {
         .filter((iata) => iata !== search.origin.toUpperCase())
     : [search.destination];
 
+  // Combinações de data (ida × volta) pra essa busca — só mais de uma quando
+  // flexDays > 0. A lista é montada UMA VEZ e aplicada igual pra cada
+  // destino/programa: se o limite fosse um contador só compartilhado entre
+  // todos os providers, o primeiro provider consultado "gastaria" o limite
+  // inteiro sozinho e os providers seguintes ficariam sem nenhuma data
+  // testada — o mesmo destino/programa sempre vê a mesma janela de datas.
+  const flexDays = Number(search.flexDays) || 0;
+  const departDates = generateFlexDates(search.departDate, flexDays);
+  const returnDates = search.returnDate ? generateFlexDates(search.returnDate, flexDays) : [null];
+  const MAX_DATE_COMBINATIONS = flexDays > 0 ? flexDays * 5 : 1;
+  const dateCombinations = [];
+  for (const departDate of departDates) {
+    for (const returnDate of returnDates) {
+      dateCombinations.push({ departDate, returnDate });
+      if (dateCombinations.length >= MAX_DATE_COMBINATIONS) break;
+    }
+    if (dateCombinations.length >= MAX_DATE_COMBINATIONS) break;
+  }
+
   const results = [];
   for (const destination of destinations) {
     for (const programId of programsToQuery) {
       const provider = ALL_PROVIDERS[programId];
       if (!provider) continue;
-      const cacheKey = `${programId}|${search.origin}|${destination}|${search.departDate}|${search.returnDate}|${search.allowStopover}`;
-      let result;
-      try {
-        result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
-          provider.search({
-            origin: search.origin,
-            destination,
-            departDate: search.departDate,
-            returnDate: search.returnDate,
-            allowStopover: search.allowStopover,
-            allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
-          })
-        );
-      } catch (err) {
-        result = { status: 'error', message: describeProviderError(err), offers: [] };
-      }
-      // manualCheckUrl vem por resultado de provider, não por oferta — repassa
-      // pra cada oferta aqui pra servir de link de fallback quando a oferta
-      // não tiver deepLink próprio (ex: Smiles não devolve link de compra).
-      results.push({
-        programId,
-        destination,
-        ...result,
-        offers: (result.offers || []).map((o) => ({
-          ...o,
+
+      for (const { departDate, returnDate } of dateCombinations) {
+        const cacheKey = `${programId}|${search.origin}|${destination}|${departDate}|${returnDate}|${search.allowStopover}`;
+        let result;
+        try {
+          result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
+            provider.search({
+              origin: search.origin,
+              destination,
+              departDate,
+              returnDate,
+              allowStopover: search.allowStopover,
+              allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
+            })
+          );
+        } catch (err) {
+          result = { status: 'error', message: describeProviderError(err), offers: [] };
+        }
+        // manualCheckUrl vem por resultado de provider, não por oferta — repassa
+        // pra cada oferta aqui pra servir de link de fallback quando a oferta
+        // não tiver deepLink próprio (ex: Smiles não devolve link de compra).
+        // departDate/returnDate também vão em cada oferta: com flexibilidade
+        // de datas, o resultado mistura várias datas na mesma busca, então
+        // cada linha precisa deixar claro a qual data ela se refere.
+        results.push({
+          programId,
           destination,
-          destinationLabel: destinationLabel(destination),
-          manualCheckUrl: result.manualCheckUrl || null,
-        })),
-      });
+          departDate,
+          returnDate,
+          ...result,
+          offers: (result.offers || []).map((o) => ({
+            ...o,
+            destination,
+            destinationLabel: destinationLabel(destination),
+            departDate,
+            returnDate,
+            manualCheckUrl: result.manualCheckUrl || null,
+          })),
+        });
+      }
     }
   }
 
@@ -169,7 +215,7 @@ async function runSearch(search) {
         searchId: search.id,
         origin: search.origin,
         destination: r.destination,
-        departDate: search.departDate,
+        departDate: r.departDate,
         program: offer.program,
         priceBRL: offer.priceBRL,
         milesRequired: offer.milesRequired,
@@ -237,27 +283,32 @@ async function runSearch(search) {
 
   const cheapestCashOffer = allOffersSorted.find((o) => Number.isFinite(o.priceBRL));
 
-  // Busca por região consulta vários destinos (hubs) na mesma busca — o menor
-  // preço em dinheiro de UM destino não serve de referência pra oferta em
-  // milhas de OUTRO destino. Precisa comparar destino com destino.
+  // Busca por região consulta vários destinos (hubs), e flexibilidade de
+  // datas testa várias datas — o menor preço em dinheiro de UM
+  // destino/data não serve de referência pra oferta em milhas de OUTRO
+  // destino/data. Precisa comparar destino+data com destino+data.
+  function cashRefKey(o) {
+    return `${o.destination}|${o.departDate}|${o.returnDate}`;
+  }
   const cheapestCashByDestination = new Map();
   for (const o of allOffersSorted) {
     if (!Number.isFinite(o.priceBRL)) continue;
-    const current = cheapestCashByDestination.get(o.destination);
-    if (!current || o.priceBRL < current.priceBRL) cheapestCashByDestination.set(o.destination, o);
+    const key = cashRefKey(o);
+    const current = cheapestCashByDestination.get(key);
+    if (!current || o.priceBRL < current.priceBRL) cheapestCashByDestination.set(key, o);
   }
 
   // Compara cada oferta em milhas com o menor preço em dinheiro já achado
-  // NA MESMA BUSCA, pro MESMO destino — não é uma cotação de mercado em
-  // tempo real (não existe API grátis pra isso), é a estimativa que o
-  // próprio usuário configurou (MILES_VALUE_PER_1000) aplicada ao preço em
-  // dinheiro real que a busca encontrou agora. Sem preço em dinheiro achado
-  // pra esse destino nessa busca, não dá pra comparar — fica sem arbitrage
-  // (o front explica isso em vez de mostrar célula vazia sem explicação).
+  // NA MESMA BUSCA, pro MESMO destino e MESMA data — não é uma cotação de
+  // mercado em tempo real (não existe API grátis pra isso), é a estimativa
+  // que o próprio usuário configurou (MILES_VALUE_PER_1000) aplicada ao
+  // preço em dinheiro real que a busca encontrou agora. Sem preço em
+  // dinheiro achado pra esse destino/data nessa busca, não dá pra comparar
+  // — fica sem arbitrage (o front explica isso em vez de célula vazia).
   const valuePer1000 = milesValuePer1000();
   for (const o of allOffersSorted) {
     if (!Number.isFinite(o.milesRequired)) continue;
-    const cashRef = cheapestCashByDestination.get(o.destination);
+    const cashRef = cheapestCashByDestination.get(cashRefKey(o));
     if (!cashRef) continue;
     const milesCostBRL = (o.milesRequired / 1000) * valuePer1000 + (o.taxesBRL || 0);
     o.arbitrage = {
@@ -277,6 +328,8 @@ async function runSearch(search) {
         destination: cheapestCashOffer.destination,
         destinationLabel: cheapestCashOffer.destinationLabel,
         milesRequired: cheapestCashOffer.milesRequired ?? null,
+        departDate: cheapestCashOffer.departDate,
+        returnDate: cheapestCashOffer.returnDate,
       }
     : null;
   const cheapestSplit = splitSuggestions.reduce(
@@ -327,6 +380,7 @@ async function runSearch(search) {
     allOffersSorted,
     bestDeal,
     notifications,
+    flexDatesChecked: dateCombinations.length,
   };
 }
 
