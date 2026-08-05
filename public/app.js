@@ -182,6 +182,12 @@ if (document.getElementById('originQuery')) {
   document.querySelectorAll('#programs input').forEach((el) => el.addEventListener('change', () => updateBestTimeCard()));
 }
 
+if (document.getElementById('passengers')) {
+  document.getElementById('passengers').addEventListener('input', () => {
+    document.getElementById('passengersNote').hidden = Number(document.getElementById('passengers').value) <= 1;
+  });
+}
+
 // Quebra de bilhete compara ida/volta com dois trechos só de ida pra um
 // destino específico — não existe "quebra de bilhete" pra uma região inteira.
 function toggleSplitTicketForRegion() {
@@ -684,6 +690,7 @@ async function createSearch() {
     departDate: document.getElementById('departDate').value || null,
     returnDate: document.getElementById('returnDate').value || null,
     flexDays: document.getElementById('flexDays').value,
+    passengers: document.getElementById('passengers').value || 1,
     targetPrice: document.getElementById('targetPrice').value || null,
     programs,
     allowStopover: document.getElementById('allowStopover').checked,
@@ -859,9 +866,13 @@ async function runNow(id, resultElId, metaElId) {
           ? `<td>${o.departureTime && o.arrivalTime ? `${o.departureTime}–${o.arrivalTime}` : '-'}</td>`
           : '';
         const durationCell = showDurationColumn ? `<td>${o.durationLabel ? escapeHtml(o.durationLabel) : '-'}</td>` : '';
-        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}<td>${formatBRL(
-          o.priceBRL
-        )}</td><td>${o.milesRequired ?? '-'}</td>${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${flightCell}${timeCell}${durationCell}</tr>`;
+        const priceCell = o.priceBRLTotal != null
+          ? `<td>${formatBRL(o.priceBRL)} <span class="status-line" style="margin:0;" title="Estimativa: preço por pessoa × ${result.passengers} passageiros">(${formatBRL(o.priceBRLTotal)} total)</span></td>`
+          : `<td>${formatBRL(o.priceBRL)}</td>`;
+        const milesCell = o.milesRequiredTotal != null
+          ? `<td>${o.milesRequired.toLocaleString('pt-BR')} <span class="status-line" style="margin:0;" title="Estimativa: milhas por pessoa × ${result.passengers} passageiros">(${o.milesRequiredTotal.toLocaleString('pt-BR')} total)</span></td>`
+          : `<td>${o.milesRequired ?? '-'}</td>`;
+        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}${priceCell}${milesCell}${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${flightCell}${timeCell}${durationCell}</tr>`;
       })
       .join('');
     // Busca por região consulta os mesmos provedores em vários hubs — deduplica
@@ -881,7 +892,9 @@ async function runNow(id, resultElId, metaElId) {
     } else {
       const bestDealHtml =
         result.bestDeal
-          ? `<div class="best-deal">🏆 <b>Menor preço encontrado: ${formatBRL(result.bestDeal.priceBRL)}</b>${
+          ? `<div class="best-deal">🏆 <b>Menor preço encontrado: ${formatBRL(result.bestDeal.priceBRL)}${
+              result.bestDeal.priceBRLTotal != null ? ` (${formatBRL(result.bestDeal.priceBRLTotal)} total pra ${result.passengers} passageiros)` : ''
+            }</b>${
               result.bestDeal.type === 'split' ? ` (quebra de bilhete via ${result.bestDeal.program})` : ` via ${result.bestDeal.program}`
             }${
               result.bestDeal.destinationLabel && showDestinationColumn ? ` — destino: <b>${escapeHtml(result.bestDeal.destinationLabel)}</b>` : ''
@@ -898,7 +911,7 @@ async function runNow(id, resultElId, metaElId) {
         ${bestDealHtml}
         ${
           result.flexDatesChecked > 1
-            ? `<div class="status-line">Flexibilidade de datas: ${result.flexDatesChecked} data(s) de ida testada(s) nessa busca.</div>`
+            ? `<div class="status-line">Flexibilidade de datas: ${result.flexDatesChecked} combinação(ões) de ida/volta testada(s) nessa busca.</div>`
             : ''
         }
         <table>
@@ -914,8 +927,8 @@ async function runNow(id, resultElId, metaElId) {
         ${result.alertCount > 0 ? `<div class="warning">${result.alertCount} alerta(s) disparado(s) e enviado(s).</div>` : ''}
         ${
           result.splitSuggestions && result.splitSuggestions.length > 0
-            ? `<table><tr><th>Quebra de bilhete</th><th>Ida e volta</th><th>Separado</th><th>Economia</th></tr>${result.splitSuggestions
-                .map((s) => `<tr><td>${s.program}</td><td>${formatBRL(s.roundTripPriceBRL)}</td><td>${formatBRL(s.splitPriceBRL)}</td><td>${formatBRL(s.savingsBRL)}</td></tr>`)
+            ? `<table><tr><th>Quebra de bilhete</th><th>Ida e volta</th><th>Separado</th><th>Economia</th><th>Datas reais</th></tr>${result.splitSuggestions
+                .map((s) => `<tr><td>${s.program}</td><td>${formatBRL(s.roundTripPriceBRL)}</td><td>${formatBRL(s.splitPriceBRL)}</td><td>${formatBRL(s.savingsBRL)}</td><td>${formatDateBR(s.departDate || result.bestDeal?.departDate)} → ${formatDateBR(s.returnDate || result.bestDeal?.returnDate)}</td></tr>`)
                 .join('')}</table>`
             : ''
         }

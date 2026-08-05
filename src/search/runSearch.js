@@ -306,10 +306,28 @@ async function runSearch(search) {
     };
   }
 
+  // Passageiros: as fontes são sempre consultadas pra 1 adulto (nenhuma
+  // API integrada aceita esse parâmetro hoje), então o total pra N
+  // passageiros é uma ESTIMATIVA linear (preço por pessoa × N) — não uma
+  // cotação real de grupo, que pode variar por causa de taxas de embarque
+  // que mudam por assento ou tarifas que somem antes do vigésimo lugar.
+  // Escala os três campos monetários/de milhas: multiplicar só o preço em
+  // dinheiro e deixar milhas/taxas por-pessoa seria enganoso, já que
+  // resgatar milhas pra 2 pessoas custa o dobro de milhas também.
+  const passengers = Number(search.passengers) > 0 ? Number(search.passengers) : 1;
+  if (passengers > 1) {
+    for (const o of allOffersSorted) {
+      if (Number.isFinite(o.priceBRL)) o.priceBRLTotal = Math.round(o.priceBRL * passengers * 100) / 100;
+      if (Number.isFinite(o.milesRequired)) o.milesRequiredTotal = o.milesRequired * passengers;
+      if (Number.isFinite(o.taxesBRL)) o.taxesBRLTotal = Math.round(o.taxesBRL * passengers * 100) / 100;
+    }
+  }
+
   let bestDeal = cheapestCashOffer
     ? {
         type: 'offer',
         priceBRL: cheapestCashOffer.priceBRL,
+        priceBRLTotal: cheapestCashOffer.priceBRLTotal ?? null,
         program: cheapestCashOffer.program,
         stops: cheapestCashOffer.stops,
         destination: cheapestCashOffer.destination,
@@ -324,7 +342,14 @@ async function runSearch(search) {
     null
   );
   if (cheapestSplit && (!bestDeal || cheapestSplit.splitPriceBRL < bestDeal.priceBRL)) {
-    bestDeal = { type: 'split', priceBRL: cheapestSplit.splitPriceBRL, program: cheapestSplit.program };
+    bestDeal = {
+      type: 'split',
+      priceBRL: cheapestSplit.splitPriceBRL,
+      priceBRLTotal: passengers > 1 ? Math.round(cheapestSplit.splitPriceBRL * passengers * 100) / 100 : null,
+      program: cheapestSplit.program,
+      departDate: cheapestSplit.departDate || null,
+      returnDate: cheapestSplit.returnDate || null,
+    };
   }
 
   const destinationDisplay = regionCode ? regionLabel(regionCode) : search.destination;
@@ -368,6 +393,7 @@ async function runSearch(search) {
     bestDeal,
     notifications,
     flexDatesChecked: dateCombinations.length,
+    passengers,
   };
 }
 

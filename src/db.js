@@ -50,6 +50,7 @@ function createSearch(input) {
     allowHiddenCity: Boolean(input.allowHiddenCity),
     hiddenCityRiskAcknowledged: Boolean(input.hiddenCityRiskAcknowledged),
     targetPrice: input.targetPrice != null ? Number(input.targetPrice) : null,
+    passengers: Number(input.passengers) > 0 ? Number(input.passengers) : 1,
     email: input.email || null,
     whatsapp: input.whatsapp || null,
     telegramChatId: input.telegramChatId || null,
