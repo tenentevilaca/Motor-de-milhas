@@ -101,14 +101,16 @@
       </div>
 
       <div id="monthFields" hidden>
-        <p class="status-line">Consulta ~5 datas espaçadas nesse mês (não os ~30 dias) só nas fontes de preço em
-        dinheiro, pra não estourar a cota grátis das APIs — não cria busca salva/agendada, é uma consulta avulsa.</p>
+        <p class="status-line">Consulta ~5 datas espaçadas nesse mês (não os ~30 dias), pra não estourar a cota grátis
+        das APIs — não cria busca salva/agendada, é uma consulta avulsa.</p>
         <div class="row">
           <div class="field field-narrow">
             <label for="scanMonth">Mês</label>
             <input type="month" id="scanMonth" />
           </div>
         </div>
+        <label class="ack"><input type="checkbox" id="monthScanIncludeMiles" checked /> Incluir programas de milhas na varredura
+          (desmarque pra usar menos cota das APIs, consultando só dinheiro)</label>
       </div>
     </div>
 

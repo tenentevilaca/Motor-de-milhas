@@ -49,13 +49,18 @@ app.get('/api/airports', async (req, res) => {
 });
 
 app.get('/api/best-time', (req, res) => {
-  const { origin, destination, departDate } = req.query;
+  const { origin, destination, departDate, program } = req.query;
   if (!origin || !destination) return res.status(400).json({ error: 'origin e destination são obrigatórios' });
-  res.json(getBestTimeAdvice({ origin: String(origin).toUpperCase(), destination: String(destination).toUpperCase(), departDate: departDate || null }));
+  res.json(getBestTimeAdvice({
+    origin: String(origin).toUpperCase(),
+    destination: String(destination).toUpperCase(),
+    departDate: departDate || null,
+    program: program || null,
+  }));
 });
 
 app.get('/api/month-scan', async (req, res) => {
-  const { origin, destination, yearMonth } = req.query;
+  const { origin, destination, yearMonth, includeMiles } = req.query;
   if (!origin || !destination || !yearMonth) {
     return res.status(400).json({ error: 'origin, destination e yearMonth (AAAA-MM) são obrigatórios' });
   }
@@ -66,7 +71,12 @@ app.get('/api/month-scan', async (req, res) => {
     return res.status(400).json({ error: 'yearMonth deve estar no formato AAAA-MM' });
   }
   try {
-    const result = await scanMonth({ origin: origin.toUpperCase(), destination: destination.toUpperCase(), yearMonth });
+    const result = await scanMonth({
+      origin: origin.toUpperCase(),
+      destination: destination.toUpperCase(),
+      yearMonth,
+      includeMiles: includeMiles === undefined ? true : includeMiles === 'true' || includeMiles === '1',
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

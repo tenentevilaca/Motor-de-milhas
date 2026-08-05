@@ -1,6 +1,7 @@
 const { ALL_PROVIDERS, MILE_PROGRAM_IDS, CASH_PROVIDER_IDS } = require('../providers');
 const { evaluateOffer } = require('./anomaly');
 const { compareSplitTickets } = require('./splitTicketCompare');
+const { generateFlexDates } = require('./flexDates');
 const { cached } = require('../cache');
 const { regionCodeFromValue, getHubAirportsForRegion, listRegions, getAirportByIata } = require('../airports');
 const config = require('../config');
@@ -55,6 +56,7 @@ function buildAlertHtml(search, alertOffers, splitSuggestions) {
         <td>${formatBRL(s.roundTripPriceBRL)}</td>
         <td>${formatBRL(s.splitPriceBRL)}</td>
         <td>${formatBRL(s.savingsBRL)}</td>
+        <td>${s.departDate || '-'} / ${s.returnDate || '-'}</td>
       </tr>`
     )
     .join('');
@@ -74,7 +76,7 @@ function buildAlertHtml(search, alertOffers, splitSuggestions) {
       splitRows
         ? `<p>Quebra de bilhete: comprar ida e volta separadas sai mais barato:</p>
     <table border="1" cellpadding="6" cellspacing="0">
-      <tr><th>Fonte</th><th>Ida e volta</th><th>Separado (ida + volta)</th><th>Economia</th></tr>
+      <tr><th>Fonte</th><th>Ida e volta</th><th>Separado (ida + volta)</th><th>Economia</th><th>Datas reais do split</th></tr>
       ${splitRows}
     </table>`
         : ''
@@ -102,23 +104,6 @@ function destinationLabel(iata) {
 function milesValuePer1000() {
   const v = Number(config.get('MILES_VALUE_PER_1000'));
   return Number.isFinite(v) && v > 0 ? v : 20;
-}
-
-// "Flexibilidade (± dias)": gera as datas em torno de baseDate (baseDate,
-// baseDate-1, baseDate+1, baseDate-2, baseDate+2, ...) — usa componentes de
-// data (ano/mês/dia) em vez de aritmética de milissegundos pra não escorregar
-// de dia por causa de fuso horário.
-function generateFlexDates(baseDate, flexDays) {
-  if (!baseDate || flexDays <= 0) return [baseDate];
-  const [year, month, day] = baseDate.split('-').map(Number);
-  const dates = [baseDate];
-  for (let i = 1; i <= flexDays; i++) {
-    for (const sign of [1, -1]) {
-      const d = new Date(Date.UTC(year, month - 1, day + i * sign));
-      dates.push(d.toISOString().slice(0, 10));
-    }
-  }
-  return dates;
 }
 
 async function runSearch(search) {
@@ -253,6 +238,8 @@ async function runSearch(search) {
         roundTripPriceBRL: roundTripMin,
         splitPriceBRL: cmp.splitPriceBRL,
         savingsBRL: roundTripMin - cmp.splitPriceBRL,
+        departDate: cmp.departDate || null,
+        returnDate: cmp.returnDate || null,
       });
     }
   }

@@ -179,6 +179,7 @@ if (document.getElementById('originQuery')) {
     },
   });
   document.getElementById('departDate').addEventListener('change', () => updateBestTimeCard());
+  document.querySelectorAll('#programs input').forEach((el) => el.addEventListener('change', () => updateBestTimeCard()));
 }
 
 // Quebra de bilhete compara ida/volta com dois trechos só de ida pra um
@@ -223,7 +224,7 @@ function toggleSearchMode() {
   document.getElementById('alertsSection').hidden = isMonth;
   document.getElementById('createBtn').textContent = isMonth ? 'Comparar mês' : 'Buscar';
   document.getElementById('createStatus').textContent = isMonth
-    ? 'Consulta avulsa (não salva, não agenda) — só preço em dinheiro, ~5 datas amostradas no mês.'
+    ? 'Consulta avulsa (não salva, não agenda) — ~5 datas amostradas no mês.'
     : 'Cria a busca, roda na hora e mostra o resultado logo abaixo.';
 }
 
@@ -258,11 +259,12 @@ async function runMonthScan() {
     status.style.color = 'var(--danger-text)';
     return;
   }
-  status.textContent = 'Consultando ~5 datas do mês...';
+  const includeMiles = document.getElementById('monthScanIncludeMiles').checked;
+  status.textContent = `Consultando ~5 datas do mês${includeMiles ? ' (dinheiro + milhas)' : ' (só dinheiro)'}...`;
   status.style.color = 'var(--muted)';
   resultBlock.hidden = true;
   try {
-    const params = new URLSearchParams({ origin, destination, yearMonth });
+    const params = new URLSearchParams({ origin, destination, yearMonth, includeMiles: includeMiles ? 'true' : 'false' });
     const data = await api(`/api/month-scan?${params}`);
     const rows = data.dates
       .map((d) => {
@@ -279,7 +281,8 @@ async function runMonthScan() {
       <table><tr><th>Data de ida</th><th>Menor preço (dinheiro)</th><th>Menor milhagem</th></tr>${rows}</table>
       <div class="status-line">Cada data é uma consulta independente e só ida (sem volta) — datas sem preço ou sem
       milhas podem ser porque a fonte genuinamente não achou voo pra aquele dia, ou (fontes pagas por uso) a cota
-      grátis mensal estourou no meio da varredura. Passe o mouse em "erro na fonte" pra ver o motivo exato quando houver.</div>
+      grátis mensal estourou no meio da varredura. Passe o mouse em "erro na fonte" pra ver o motivo exato quando houver.
+      ${data.mode === 'cash_only' ? 'Varredura só-dinheiro (milhas desmarcadas).' : ''}</div>
       ${
         allEmpty
           ? '<div class="warning">Nenhuma fonte (dinheiro ou milhas) achou valor pra nenhuma das datas — confira em Configurações se as chaves estão mesmo ativas (podem ter sido perdidas num redeploy, ver aviso no topo da tela de Configurações).</div>'
@@ -309,18 +312,36 @@ async function updateBestTimeCard() {
   try {
     const params = new URLSearchParams({ origin, destination });
     if (departDate) params.set('departDate', departDate);
+    const selectedPrograms = Array.from(document.querySelectorAll('#programs input:checked')).map((i) => i.value);
+    if (selectedPrograms.length === 1) params.set('program', selectedPrograms[0]);
     const advice = await api(`/api/best-time?${params}`);
     const statusColor = { ideal: '#16a34a', urgent: '#16a34a', late: '#c2410c', early: 'var(--muted)', no_date: 'var(--muted)', past: 'var(--danger-text)' };
     const historicalHtml = advice.historical?.available
       ? `<div class="status-line"><b>Com base no seu próprio histórico:</b> meses mais baratos observados nessa rota: ${advice.historical.cheapestMonths
           .map((m) => `${m.monthName} (${formatBRL(m.avgPriceBRL)} em média, ${m.samples} amostra(s))`)
-          .join(', ')}.</div>`
+          .join(', ')}.</div>${
+          advice.historical.cheapestWeekdays?.length > 0
+            ? `<div class="status-line"><b>Melhores dias da semana pra voar:</b> ${advice.historical.cheapestWeekdays
+                .map((d) => `${d.weekdayName} (${formatBRL(d.avgPriceBRL)} em média, ${d.samples} amostra(s))`)
+                .join(', ')}.</div>`
+            : ''
+        }`
       : `<div class="status-line">Ainda sem histórico próprio suficiente nessa rota pra estatística por mês (precisa de pelo menos ${advice.historical?.samplesNeeded ?? 3} checagens no mesmo mês) — vai aparecer aqui conforme o motor for rodando.</div>`;
+    const trendHtml = advice.trend
+      ? `<div class="status-line" style="margin-top:8px;"><b>Tendência recente:</b> ${advice.trend.message}</div>${sparklineHtml(advice.trend.prices)}`
+      : '';
+    const verdictColor = { buy_now: '#16a34a', wait: '#c2410c', monitor: 'var(--muted)' };
+    const verdictHtml = advice.verdict
+      ? `<div style="font-size:1.05em;font-weight:600;color:${verdictColor[advice.verdict.action] || 'inherit'};margin-bottom:6px;">${advice.verdict.label}
+        <span style="font-weight:400;font-size:0.85em;color:var(--muted);display:block;">${advice.verdict.message}</span></div>`
+      : '';
     body.innerHTML = `
+      ${verdictHtml}
       <div style="color:${statusColor[advice.buyingWindow.status] || 'inherit'};"><b>Quando comprar:</b> ${advice.buyingWindow.message}</div>
       <div class="status-line" style="margin-top:8px;"><b>Época mais cara pra viajar essa rota:</b> ${advice.seasonal.highSeasonMonths.join(', ')}.
       <b>Mais barata costuma ser:</b> ${advice.seasonal.lowSeasonMonths.join(', ')}. ${advice.seasonal.note}</div>
       ${historicalHtml}
+      ${trendHtml}
     `;
   } catch (err) {
     body.textContent = 'Erro ao calcular: ' + err.message;
@@ -545,9 +566,32 @@ function formatBRL(v) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+// Mini gráfico (SVG, sem lib externa) das últimas checagens de preço — dá
+// forma visual à tendência (alta/queda/estável) em vez de só texto.
+function sparklineHtml(prices) {
+  if (!Array.isArray(prices) || prices.length < 2) return '';
+  const w = 160;
+  const h = 36;
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+  const points = prices
+    .map((p, i) => {
+      const x = (i / (prices.length - 1)) * w;
+      const y = h - ((p - min) / range) * (h - 6) - 3;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+  const lastUp = prices[prices.length - 1] >= prices[0];
+  const strokeColor = lastUp ? '#c2410c' : '#16a34a';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin-top:4px;">
+    <polyline points="${points}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+  </svg>`;
+}
+
 // Links diretos pros maiores buscadores, prontos com origem/destino/data —
 // funcionam sem nenhuma API configurada, então dão valor imediato mesmo
-// antes (ou sem nunca) configurar SerpApi/Kiwi/Travelpayouts.
+// antes (ou sem nunca) configurar Travelpayouts/Google Flights/Smiles/Azul.
 function buildManualLinks(s) {
   const o = s.origin;
   const d = s.destination;
@@ -832,7 +876,8 @@ async function runNow(id, resultElId, metaElId) {
         ${dealHtml}
         <div class="warning">Busca executada em ${new Date(result.checkedAt).toLocaleTimeString('pt-BR')}, mas nenhuma
         fonte de preço está configurada ainda (${pending.map((p) => p.programId).join(', ')}) — por isso não há oferta
-        de preço pra mostrar. Veja "Configurações" (link no topo) para ativar o SerpApi/Kiwi/Travelpayouts/e-mail/WhatsApp.</div>`;
+        de preço pra mostrar. Veja "Configurações" (link no topo) para ativar Travelpayouts, Google Flights (RapidAPI),
+        Smiles, Azul, e-mail, WhatsApp ou Telegram.</div>`;
     } else {
       const bestDealHtml =
         result.bestDeal

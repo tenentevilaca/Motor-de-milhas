@@ -28,14 +28,17 @@ function sampleDates(yearMonth) {
 // Data é sempre a DATA DE IDA — essa consulta é só ida (sem volta), pra
 // manter o custo de chamadas baixo com ~5 amostras em vez do mês inteiro.
 // Cada data amostrada é uma chamada independente às fontes de preço em
-// dinheiro E aos programas de milhas configurados — uma data vir vazia não
-// significa erro: pode ser que a fonte genuinamente não tenha achado voo
-// pra aquele dia específico, ou (Google Flights Live) a cota grátis mensal
-// já ter estourado no meio da varredura.
-async function scanMonth({ origin, destination, yearMonth }) {
+// dinheiro e, por padrão, também aos programas de milhas configurados (pedido
+// explícito: o usuário quer ver o calendário de milhas junto do de dinheiro).
+// `includeMiles: false` permite uma varredura mais barata (só dinheiro) pra
+// quem só quer visualizar o calendário de preço sem gastar cota com milhas.
+// Uma data vir vazia não significa erro: pode ser que a fonte genuinamente
+// não tenha achado voo pra aquele dia específico, ou (Google Flights Live) a
+// cota grátis mensal já ter estourado no meio da varredura.
+async function scanMonth({ origin, destination, yearMonth, includeMiles = true }) {
   const dates = sampleDates(yearMonth);
   const results = [];
-  const programIds = [...CASH_PROVIDER_IDS, ...MILE_PROGRAM_IDS];
+  const programIds = includeMiles ? [...CASH_PROVIDER_IDS, ...MILE_PROGRAM_IDS] : [...CASH_PROVIDER_IDS];
 
   for (const date of dates) {
     let cheapestCash = null;
@@ -78,7 +81,7 @@ async function scanMonth({ origin, destination, yearMonth }) {
     });
   }
 
-  return { sampleCount: SAMPLE_COUNT, dates: results };
+  return { sampleCount: SAMPLE_COUNT, mode: includeMiles ? 'full' : 'cash_only', providersUsed: programIds, dates: results };
 }
 
 module.exports = { scanMonth, SAMPLE_COUNT };
