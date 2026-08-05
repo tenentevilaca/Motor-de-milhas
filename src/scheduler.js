@@ -3,6 +3,17 @@ const { parseExpression } = require('cron-parser');
 const db = require('./db');
 const { runSearch } = require('./search/runSearch');
 const { checkDealFeedsForAllSearches } = require('./search/checkDealFeeds');
+const { mapWithConcurrencyLimit } = require('./concurrency');
+
+// Quantas buscas salvas rodam ao mesmo tempo quando o agendador dispara.
+// Cada runSearch() já paraleliza internamente entre PROVIDERS diferentes
+// (hosts diferentes, sem risco de cota) — mas se o usuário tem várias buscas
+// salvas, rodá-las uma de cada vez (era o comportamento antigo) faz o
+// agendador demorar linearmente com o número de buscas. Só que aqui, ao
+// contrário do paralelismo entre providers, buscas diferentes PODEM cair no
+// MESMO provider (rotas diferentes, mesma fonte) — por isso um limite
+// pequeno (não "todas de uma vez") em vez de paralelismo total.
+const SEARCH_CONCURRENCY = Number(process.env.SCHEDULER_CONCURRENCY) || 3;
 
 // "Melhor horário" para rodar as buscas:
 // A ideia popular de "compre passagem terça de manhã" é folclore já
@@ -39,8 +50,8 @@ const state = {
 async function runAllActiveSearches(label) {
   const searches = db.listSearches().filter((s) => s.active);
   const now = new Date().toISOString();
-  console.log(`[scheduler:${label}] rodando ${searches.length} busca(s) ativa(s) em ${now}`);
-  for (const search of searches) {
+  console.log(`[scheduler:${label}] rodando ${searches.length} busca(s) ativa(s) em ${now} (até ${SEARCH_CONCURRENCY} em paralelo)`);
+  await mapWithConcurrencyLimit(searches, SEARCH_CONCURRENCY, async (search) => {
     try {
       const result = await runSearch(search);
       if (result.alertCount > 0) {
@@ -49,7 +60,7 @@ async function runAllActiveSearches(label) {
     } catch (err) {
       console.error(`[scheduler:${label}] erro na busca ${search.id} (${search.origin}->${search.destination}):`, err.message);
     }
-  }
+  });
   if (label === 'principal') {
     state.lastMainRunAt = now;
     state.lastMainSearchCount = searches.length;
