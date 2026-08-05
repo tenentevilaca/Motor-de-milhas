@@ -15,4 +15,12 @@ async function cached(key, ttlMs, fetchFn) {
   return value;
 }
 
-module.exports = { cached };
+// Só pra teste automatizado: cada arquivo de teste roda no mesmo processo
+// (node --test), então esse Map em memória sobrevive entre arquivos — sem
+// isso, uma rota+data já cacheada por um teste anterior "vaza" pro próximo
+// teste que reusa a mesma chave com um stub diferente.
+function clearCache() {
+  store.clear();
+}
+
+module.exports = { cached, clearCache };

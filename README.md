@@ -133,6 +133,17 @@ npm install
 npm start
 ```
 
+### Testes
+
+```bash
+npm test
+```
+
+Roda a suíte automatizada (Node's `node:test`, sem dependência nova) sobre a lógica pura do motor — flexibilidade de
+datas, detecção de erro de tarifa, quebra de bilhete com datas flexíveis, varredura por mês, escala de
+preço/milhas/taxas por passageiro, e o recorte de arbitragem por destino+data. Usa `DATA_DIR` isolado num diretório
+temporário (não toca nos seus dados reais em `data/`) e providers stubados (nenhuma chamada real de API).
+
 **Você não precisa configurar tudo.** O feed de blogs de promoção já funciona sem nenhuma chave. Se quiser
 detecção de erro de tarifa com preço real, basta **uma** das duas fontes de dinheiro (Travelpayouts, grátis, ou
 RapidAPI, paga) — não precisa das duas. Para alertas, e-mail ou Telegram costumam ser os mais rápidos de
@@ -154,9 +165,10 @@ o que estiver salvo na tela de Configurações tem prioridade.
 
 | Recurso | Onde conseguir | Custo |
 |---|---|---|
-| Comparação em dinheiro real (Google Flights) | [serpapi.com](https://serpapi.com) | Grátis até 100 buscas/mês |
-| Comparação em dinheiro real (agregador low-cost) | [tequila.kiwi.com](https://tequila.kiwi.com) | Grátis |
-| Comparação em dinheiro real (cache recente) | [travelpayouts.com](https://www.travelpayouts.com) — geralmente sem telefone | Grátis |
+| Comparação em dinheiro real (Google Flights) | [RapidAPI — Google Flights Live API](https://rapidapi.com) | Cota grátis mensal, depois pago |
+| Comparação em dinheiro real (agregador low-cost) | [travelpayouts.com](https://www.travelpayouts.com) — geralmente sem telefone | Grátis |
+| Milhas Smiles (Gol) | [RapidAPI — Award Flight & Miles Search API](https://rapidapi.com) (mesma chave do Google Flights) | Cota grátis mensal, depois pago |
+| Milhas Azul | Apify (ator `igolaizola/flight-award-scraper`) — risco de ToS, ver aviso na tela de Configurações | Cota grátis mensal, depois pago |
 | E-mail | Brevo, Resend, ou Gmail (senha de app) | Grátis (limite diário/mensal) |
 | WhatsApp (opção simples) | [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/) — sem cadastro em site | Grátis |
 | WhatsApp (opção avançada) | [Twilio WhatsApp Sandbox](https://www.twilio.com/docs/whatsapp/sandbox) | Grátis para testar, pago em produção |
