@@ -38,6 +38,12 @@ async function search({ origin, destination, departDate, returnDate }) {
       sorting: 'price',
       show_to_affiliates: false,
     },
+    // Sem timeout, uma API lenta/instável trava a promise indefinidamente —
+    // como esse provider é sempre consultado (é o cash provider padrão),
+    // isso trava a busca inteira até o proxy do host (ex: Render) derrubar
+    // a conexão sem resposta HTTP, o que o navegador mostra como
+    // "NetworkError" genérico em vez de um erro claro. Bug real visto assim.
+    timeout: 20000,
   });
 
   // Alguns registros do cache vêm sem preço válido (campo ausente ou nulo) —

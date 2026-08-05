@@ -27,12 +27,16 @@ function enabled() {
 }
 
 async function sendViaCallMeBot({ to, message }) {
+  // Sem timeout, uma falha no CallMeBot trava a promise indefinidamente —
+  // isso roda dentro de runSearch() antes da resposta ser enviada, então
+  // travaria a busca inteira (mesmo bug corrigido nos providers de preço).
   const response = await axios.get('https://api.callmebot.com/whatsapp.php', {
     params: {
       phone: to.replace(/[^\d+]/g, ''),
       text: message,
       apikey: config.get('CALLMEBOT_API_KEY'),
     },
+    timeout: 15000,
   });
   // CallMeBot responde HTTP 200 mesmo quando a apikey/telefone estão errados
   // ou o número nunca fez o opt-in — o erro só aparece no texto da resposta
@@ -55,7 +59,7 @@ async function sendViaTwilio({ to, message }) {
       To: `whatsapp:${to}`,
       Body: message,
     }),
-    { auth: { username: sid, password: config.get('TWILIO_AUTH_TOKEN') } }
+    { auth: { username: sid, password: config.get('TWILIO_AUTH_TOKEN') }, timeout: 15000 }
   );
   return { status: 'sent', method: 'twilio' };
 }

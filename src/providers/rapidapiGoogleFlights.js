@@ -41,6 +41,10 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
       'x-rapidapi-host': RAPIDAPI_HOST,
       'x-rapidapi-key': config.get('RAPIDAPI_KEY'),
     },
+    // Sem timeout, uma API lenta trava a promise indefinidamente — a busca
+    // inteira fica pendurada até o proxy do host derrubar a conexão sem
+    // resposta HTTP (o navegador mostra isso como "NetworkError" genérico).
+    timeout: 20000,
   });
 
   const offers = (Array.isArray(data) ? data : [])

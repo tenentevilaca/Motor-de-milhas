@@ -19,6 +19,14 @@ function buildTransporter() {
     port,
     secure: port === 465,
     auth: user ? { user, pass: config.get('SMTP_PASS') } : undefined,
+    // Nodemailer usa ~2min de default se isso não for setado — encurtado
+    // pra falhar rápido e não travar a resposta de runSearch() (mesmo
+    // raciocínio dos timeouts adicionados nos providers de preço/WhatsApp/
+    // Telegram: uma chamada de rede sem timeout curto trava a busca inteira
+    // até o proxy do host derrubar a conexão sem resposta HTTP).
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
   });
 }
 

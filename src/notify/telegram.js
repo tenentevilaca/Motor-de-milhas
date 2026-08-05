@@ -22,7 +22,12 @@ async function sendTelegramAlert({ chatId, message }) {
   if (!enabled()) {
     return { status: 'not_configured', message: 'Configure TELEGRAM_BOT_TOKEN na tela de Configurações para ativar alertas via Telegram.' };
   }
-  await axios.post(apiUrl('sendMessage'), { chat_id: chatId, text: message });
+  // Sem timeout, uma falha na API do Telegram trava a promise indefinidamente
+  // — como isso roda dentro de runSearch() antes da resposta ser enviada,
+  // travaria a busca inteira (mesmo bug já visto e corrigido nos providers
+  // de preço: sem timeout, o proxy do host derruba a conexão sem resposta
+  // HTTP, e o navegador mostra isso como "NetworkError" genérico).
+  await axios.post(apiUrl('sendMessage'), { chat_id: chatId, text: message }, { timeout: 15000 });
   return { status: 'sent' };
 }
 
@@ -31,7 +36,7 @@ async function sendTelegramAlert({ chatId, message }) {
 // passo 2 do setup é necessário).
 async function getRecentChats() {
   if (!enabled()) return [];
-  const { data } = await axios.get(apiUrl('getUpdates'), { params: { limit: 20 } });
+  const { data } = await axios.get(apiUrl('getUpdates'), { params: { limit: 20 }, timeout: 15000 });
   const seen = new Map();
   for (const update of data.result || []) {
     const chat = update.message?.chat || update.my_chat_member?.chat;
