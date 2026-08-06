@@ -5,6 +5,7 @@ const { generateFlexDates } = require('./flexDates');
 const { describeProviderError } = require('../providerError');
 const { cached } = require('../cache');
 const { regionCodeFromValue, getHubAirportsForRegion, listRegions, getAirportByIata } = require('../airports');
+const { mapWithConcurrencyLimit } = require('../concurrency');
 const config = require('../config');
 const db = require('../db');
 
@@ -188,72 +189,88 @@ async function runSearch(search) {
   // Cada programa é uma API/host diferente (Travelpayouts, Google Flights,
   // Smiles, Azul...), então consultá-los em paralelo pra um mesmo
   // destino/data não estoura a cota de nenhum deles — a cota é por API, não
-  // compartilhada. O que preserva o espaçamento é manter as datas/destinos
-  // de UM MESMO provider sequenciais entre si (loop de fora), então uma API
-  // com limite de requisições por segundo continua vendo uma chamada de
-  // cada vez. Isso corta o tempo de espera do usuário por ~N (nº de
+  // compartilhada. Isso corta o tempo de espera do usuário por ~N (nº de
   // programas consultados) sem gastar cota a mais.
+  const combinations = [];
+  for (const destination of destinations) {
+    for (const { departDate, returnDate } of dateCombinations) {
+      combinations.push({ destination, departDate, returnDate });
+    }
+  }
+  const combinationsPlanned = combinations.length;
+
+  // Combinações destino×data rodam com um teto de concorrência (não uma de
+  // cada vez): busca por região consulta até 8 hubs, e sequencial fazia o
+  // orçamento de resposta inteiro (RESPONSE_DEADLINE_MS) caber só 1-2 hubs
+  // sempre que alguma fonte estivesse lenta — os hubs restantes nunca
+  // chegavam a ser tentados, e "buscar toda a América do Sul" podia voltar
+  // "nenhuma oferta" mesmo com voos reais em hubs que nem foram consultados
+  // (achado com busca real: 1 fonte lenta bastava pra isso acontecer). Rodar
+  // vários hubs ao mesmo tempo é o que permite cobrir a região dentro do
+  // mesmo orçamento. O teto (em vez de tudo de uma vez) evita martelar a
+  // MESMA API com N requisições simultâneas quando N hubs são consultados —
+  // diferente do fan-out de providers acima, que são hosts diferentes entre
+  // si e por isso roda sem teto.
+  const REGION_SEARCH_CONCURRENCY = Number(process.env.REGION_SEARCH_CONCURRENCY) || 3;
   const results = [];
   const searchStartedAt = Date.now();
   let combinationsAttempted = 0;
   let deadlineExceeded = false;
-  searchLoop: for (const destination of destinations) {
-    for (const { departDate, returnDate } of dateCombinations) {
-      if (Date.now() - searchStartedAt > RESPONSE_DEADLINE_MS) {
-        deadlineExceeded = true;
-        break searchLoop;
-      }
-      combinationsAttempted += 1;
-      const batch = await Promise.all(
-        programsToQuery.map(async (programId) => {
-          const provider = ALL_PROVIDERS[programId];
-          if (!provider) return null;
 
-          const cacheKey = `${programId}|${search.origin}|${destination}|${departDate}|${returnDate}|${search.allowStopover}`;
-          const fetchResult = (async () => {
-            try {
-              return await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
-                provider.search({
-                  origin: search.origin,
-                  destination,
-                  departDate,
-                  returnDate,
-                  allowStopover: search.allowStopover,
-                  allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
-                })
-              );
-            } catch (err) {
-              return { status: 'error', message: describeProviderError(err), offers: [] };
-            }
-          })();
-          const result = await raceWithSoftDeadline(fetchResult, PROVIDER_SOFT_DEADLINE_MS);
-          // manualCheckUrl vem por resultado de provider, não por oferta — repassa
-          // pra cada oferta aqui pra servir de link de fallback quando a oferta
-          // não tiver deepLink próprio (ex: Smiles não devolve link de compra).
-          // departDate/returnDate também vão em cada oferta: com flexibilidade
-          // de datas, o resultado mistura várias datas na mesma busca, então
-          // cada linha precisa deixar claro a qual data ela se refere.
-          return {
-            programId,
+  await mapWithConcurrencyLimit(combinations, REGION_SEARCH_CONCURRENCY, async ({ destination, departDate, returnDate }) => {
+    if (deadlineExceeded || Date.now() - searchStartedAt > RESPONSE_DEADLINE_MS) {
+      deadlineExceeded = true;
+      return;
+    }
+    combinationsAttempted += 1;
+    const batch = await Promise.all(
+      programsToQuery.map(async (programId) => {
+        const provider = ALL_PROVIDERS[programId];
+        if (!provider) return null;
+
+        const cacheKey = `${programId}|${search.origin}|${destination}|${departDate}|${returnDate}|${search.allowStopover}`;
+        const fetchResult = (async () => {
+          try {
+            return await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
+              provider.search({
+                origin: search.origin,
+                destination,
+                departDate,
+                returnDate,
+                allowStopover: search.allowStopover,
+                allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
+              })
+            );
+          } catch (err) {
+            return { status: 'error', message: describeProviderError(err), offers: [] };
+          }
+        })();
+        const result = await raceWithSoftDeadline(fetchResult, PROVIDER_SOFT_DEADLINE_MS);
+        // manualCheckUrl vem por resultado de provider, não por oferta — repassa
+        // pra cada oferta aqui pra servir de link de fallback quando a oferta
+        // não tiver deepLink próprio (ex: Smiles não devolve link de compra).
+        // departDate/returnDate também vão em cada oferta: com flexibilidade
+        // de datas, o resultado mistura várias datas na mesma busca, então
+        // cada linha precisa deixar claro a qual data ela se refere.
+        return {
+          programId,
+          destination,
+          departDate,
+          returnDate,
+          ...result,
+          offers: (result.offers || []).map((o) => ({
+            ...o,
             destination,
+            destinationLabel: destinationLabel(destination),
             departDate,
             returnDate,
-            ...result,
-            offers: (result.offers || []).map((o) => ({
-              ...o,
-              destination,
-              destinationLabel: destinationLabel(destination),
-              departDate,
-              returnDate,
-              manualCheckUrl: result.manualCheckUrl || null,
-            })),
-          };
-        })
-      );
-      results.push(...batch.filter(Boolean));
-    }
-  }
-  const combinationsPlanned = destinations.length * dateCombinations.length;
+            manualCheckUrl: result.manualCheckUrl || null,
+          })),
+        };
+      })
+    );
+    results.push(...batch.filter(Boolean));
+  });
 
   const now = new Date().toISOString();
   const historyEntries = [];
