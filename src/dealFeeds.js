@@ -10,7 +10,10 @@ const DEFAULT_FEEDS = [
   { name: 'Melhores Destinos', url: 'https://www.melhoresdestinos.com.br/feed' },
   { name: 'Passageiro de Primeira', url: 'https://passageirodeprimeira.com/feed' },
   { name: 'Mestre das Milhas', url: 'https://www.mestredasmilhas.com/feed' },
-  { name: 'Flip Milhas', url: 'https://flipmilhas.com/feed' },
+  // "Flip Milhas" removido: /feed devolve 404 há tempos (confirmado em log
+  // de produção, não é falha passageira) — o site deve ter mudado de
+  // estrutura ou saído do ar. Mantê-lo só gerava ruído no log a cada 10min
+  // sem nenhum post a mais.
 ];
 
 const parser = new Parser({ timeout: 10000 });
