@@ -19,6 +19,34 @@ test('detecta tendência de alta e sintetiza um veredito "comprar agora"', () =>
   assert.equal(advice.verdict.action, 'buy_now');
 });
 
+test('score: tendência de ALTA aumenta o score (motivo pra não esperar), tendência de QUEDA diminui (motivo pra esperar)', () => {
+  const now = Date.now();
+  const rising = [1000, 1050, 1100, 1150, 1300].map((p, i) => ({
+    origin: 'BSB', destination: 'MIA', program: 'CASH_TRAVELPAYOUTS', priceBRL: p,
+    departDate: '2026-11-10', checkedAt: new Date(now - (5 - i) * 86400000).toISOString(),
+  }));
+  db.addHistoryEntries(rising);
+  const adviceRising = getBestTimeAdvice({ origin: 'BSB', destination: 'MIA', departDate: '2026-11-10', program: 'CASH_TRAVELPAYOUTS' });
+  assert.equal(adviceRising.trend.trend, 'rising');
+
+  const falling = [1300, 1150, 1100, 1050, 1000].map((p, i) => ({
+    origin: 'BSB', destination: 'LIS', program: 'CASH_TRAVELPAYOUTS', priceBRL: p,
+    departDate: '2026-11-10', checkedAt: new Date(now - (5 - i) * 86400000).toISOString(),
+  }));
+  db.addHistoryEntries(falling);
+  const adviceFalling = getBestTimeAdvice({ origin: 'BSB', destination: 'LIS', departDate: '2026-11-10', program: 'CASH_TRAVELPAYOUTS' });
+  assert.equal(adviceFalling.trend.trend, 'falling');
+
+  // Mesma janela de compra (mesmo daysUntil/routeType) nos dois casos — só a
+  // tendência difere. Alta tem que pontuar MAIS que queda, nunca o contrário
+  // (regra econômica básica: preço subindo = motivo pra agir logo, preço
+  // caindo = motivo pra esperar).
+  assert.ok(
+    adviceRising.verdict.score > adviceFalling.verdict.score,
+    `score com tendência de alta (${adviceRising.verdict.score}) deveria ser maior que com tendência de queda (${adviceFalling.verdict.score})`
+  );
+});
+
 test('tendência de queda sugere esperar', () => {
   const now = Date.now();
   const entries = [1300, 1150, 1100, 1050, 1000].map((p, i) => ({

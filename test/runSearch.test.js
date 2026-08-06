@@ -72,3 +72,41 @@ test('arbitragem só compara oferta em milhas com dinheiro do MESMO destino+data
     }
   }
 });
+
+test('isNewLow marca a oferta quando o preço bate o mínimo histórico da rota', async () => {
+  clearCache();
+  stubAllNotConfigured();
+
+  // Primeira busca: sem histórico anterior nenhum, não deveria alegar "novo mínimo"
+  // (regra: precisa de pelo menos 1 amostra pra existir um recorde pra bater).
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1000, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  const search1 = db.createSearch({ origin: 'GRU', destination: 'CNF', departDate: '2026-12-01' });
+  const result1 = await runSearch(search1);
+  const offer1 = result1.allOffersSorted.find((o) => o.program === 'CASH_TRAVELPAYOUTS');
+  assert.equal(offer1.isNewLow, false, 'primeira checagem de uma rota não é "recorde batido" — não há nada anterior pra comparar');
+  assert.equal(result1.bestDeal.isNewLow, false);
+
+  // Segunda busca, preço mais alto: não deveria bater o mínimo (1000 continua sendo o menor).
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1200, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  const search2 = db.createSearch({ origin: 'GRU', destination: 'CNF', departDate: '2026-12-08' });
+  const result2 = await runSearch(search2);
+  const offer2 = result2.allOffersSorted.find((o) => o.program === 'CASH_TRAVELPAYOUTS');
+  assert.equal(offer2.isNewLow, false, '1200 é mais caro que o mínimo histórico (1000) — não é recorde');
+
+  // Terceira busca, preço mais baixo que qualquer checagem anterior: deve bater recorde.
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 700, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  const search3 = db.createSearch({ origin: 'GRU', destination: 'CNF', departDate: '2026-12-15' });
+  const result3 = await runSearch(search3);
+  const offer3 = result3.allOffersSorted.find((o) => o.program === 'CASH_TRAVELPAYOUTS');
+  assert.equal(offer3.isNewLow, true, '700 é mais barato que qualquer checagem anterior (1000, 1200) — deveria bater recorde');
+  assert.equal(result3.bestDeal.isNewLow, true);
+});

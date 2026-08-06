@@ -254,28 +254,46 @@ function recentPriceTrend(origin, destination, program) {
   };
 }
 
+// Score numérico (0-100) só pra dar uma métrica visual de "quão forte" é o
+// sinal — quem decide o veredito é a árvore de regras em buyingVerdict()
+// (mais nuançada que uma soma de pesos: por exemplo, tendência de alta só
+// vira "compre logo" quando já dentro da janela ideal, senão é só "ainda
+// cedo"). Sinal econômico correto: tendência de ALTA empurra o score PRA
+// CIMA (motivo pra não esperar, só tende a piorar) e tendência de QUEDA
+// empurra PRA BAIXO (motivo real pra esperar mais um pouco).
+function buyingScore(buyingWindow, trend) {
+  let score = 50;
+  if (buyingWindow.status === 'urgent') score += 30;
+  else if (buyingWindow.status === 'late' || buyingWindow.status === 'ideal') score += 15;
+  else if (buyingWindow.status === 'early') score -= 15;
+  if (trend?.trend === 'rising') score += 15;
+  else if (trend?.trend === 'falling') score -= 15;
+  return Math.max(0, Math.min(100, score));
+}
+
 // Sintetiza janela de compra + tendência recente numa única recomendação
 // acionável — o usuário não precisa cruzar os sinais na cabeça. É só um
 // resumo do que já foi calculado acima; não introduz nenhum dado novo.
 function buyingVerdict(buyingWindow, trend) {
   if (buyingWindow.status === 'no_date' || buyingWindow.status === 'past') return null;
+  const score = buyingScore(buyingWindow, trend);
 
   if (buyingWindow.status === 'urgent') {
-    return { action: 'buy_now', label: '🔴 Compre agora', message: 'Pouquíssimo tempo até o embarque — última hora tende a só piorar.' };
+    return { action: 'buy_now', label: '🔴 Compre agora', message: 'Pouquíssimo tempo até o embarque — última hora tende a só piorar.', score };
   }
   if (trend && trend.trend === 'falling') {
-    return { action: 'wait', label: '🟡 Vale esperar', message: 'Preço em queda nas últimas checagens — pode valer aguardar mais um pouco antes de fechar.' };
+    return { action: 'wait', label: '🟡 Vale esperar', message: 'Preço em queda nas últimas checagens — pode valer aguardar mais um pouco antes de fechar.', score };
   }
   if (trend && trend.trend === 'rising' && (buyingWindow.status === 'ideal' || buyingWindow.status === 'late')) {
-    return { action: 'buy_now', label: '🟢 Boa hora de comprar', message: 'Dentro (ou perto do fim) da janela ideal e o preço está subindo — não vale mais esperar.' };
+    return { action: 'buy_now', label: '🟢 Boa hora de comprar', message: 'Dentro (ou perto do fim) da janela ideal e o preço está subindo — não vale mais esperar.', score };
   }
   if (buyingWindow.status === 'ideal' || buyingWindow.status === 'late') {
-    return { action: 'buy_now', label: '🟢 Boa hora de comprar', message: 'Está dentro da janela ideal de compra pra essa rota.' };
+    return { action: 'buy_now', label: '🟢 Boa hora de comprar', message: 'Está dentro da janela ideal de compra pra essa rota.', score };
   }
   if (buyingWindow.status === 'early') {
-    return { action: 'monitor', label: '🔵 Ainda cedo, monitore', message: 'Ainda é cedo pra essa rota — mantenha o alerta ligado e volte a checar mais perto da janela ideal.' };
+    return { action: 'monitor', label: '🔵 Ainda cedo, monitore', message: 'Ainda é cedo pra essa rota — mantenha o alerta ligado e volte a checar mais perto da janela ideal.', score };
   }
-  return { action: 'monitor', label: '🔵 Monitore', message: 'Sem sinal forte de alta ou baixa — continue acompanhando.' };
+  return { action: 'monitor', label: '🔵 Monitore', message: 'Sem sinal forte de alta ou baixa — continue acompanhando.', score };
 }
 
 function getBestTimeAdvice({ origin, destination, departDate, program }) {

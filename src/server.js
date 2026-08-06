@@ -230,7 +230,18 @@ app.get('/api/searches/:id/export', (req, res) => {
 });
 
 app.get('/api/dashboard', (req, res) => {
-  const dashboardData = db.listSearches().map((s) => buildDashboardEntry(s, db.getHistoryForSearch(s.id, 1)[0]));
+  // getHistoryForSearch devolve em ordem cronológica (mais antiga primeiro)
+  // — com limit=2, o ÚLTIMO elemento é o mais recente. Não dá pra
+  // desestruturar direto como [previous, last] porque com só 1 checagem
+  // no histórico o array vem com 1 elemento só, e essa checagem única é a
+  // MAIS RECENTE (não a "anterior") — usar índices relativos ao fim evita
+  // esse caso trocar as duas.
+  const dashboardData = db.listSearches().map((s) => {
+    const recent = db.getHistoryForSearch(s.id, 2);
+    const last = recent[recent.length - 1];
+    const previous = recent.length > 1 ? recent[recent.length - 2] : undefined;
+    return buildDashboardEntry(s, last, previous);
+  });
   res.json(dashboardData);
 });
 

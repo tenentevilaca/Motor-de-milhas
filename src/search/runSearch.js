@@ -263,6 +263,14 @@ async function runSearch(search) {
     for (const offer of r.offers) {
       const baseline = db.getRouteBaseline(search.origin, r.destination, offer.program);
       const evaluation = evaluateOffer(offer, baseline);
+      // "Novo mínimo histórico": só dá pra saber comparando com o baseline
+      // buscado ANTES de gravar essa oferta no histórico (senão a oferta
+      // se compararia com ela mesma depois de já estar salva, e Math.min
+      // incluindo o próprio valor nunca é "menor que" ele mesmo — sempre
+      // false mesmo quando é de fato o novo recorde). Exige pelo menos 1
+      // amostra anterior: a primeiríssima checagem de uma rota não é um
+      // "recorde batido", é só o único dado que existe ainda.
+      offer.isNewLow = Boolean(baseline && Number.isFinite(offer.priceBRL) && offer.priceBRL < baseline.min);
 
       historyEntries.push({
         searchId: search.id,
@@ -403,6 +411,7 @@ async function runSearch(search) {
         milesRequired: cheapestCashOffer.milesRequired ?? null,
         departDate: cheapestCashOffer.departDate,
         returnDate: cheapestCashOffer.returnDate,
+        isNewLow: Boolean(cheapestCashOffer.isNewLow),
       }
     : null;
   const cheapestSplit = splitSuggestions.reduce(

@@ -339,7 +339,8 @@ async function updateBestTimeCard() {
     const verdictColor = { buy_now: '#16a34a', wait: '#c2410c', monitor: 'var(--muted)' };
     const verdictHtml = advice.verdict
       ? `<div style="font-size:1.05em;font-weight:600;color:${verdictColor[advice.verdict.action] || 'inherit'};margin-bottom:6px;">${advice.verdict.label}
-        <span style="font-weight:400;font-size:0.85em;color:var(--muted);display:block;">${advice.verdict.message}</span></div>`
+        <span style="font-weight:400;font-size:0.85em;color:var(--muted);display:block;">${advice.verdict.message}</span>
+        ${advice.verdict.score != null ? `<span style="font-size:0.75em;color:var(--muted);display:block;margin-top:2px;">Força do sinal: ${advice.verdict.score}/100</span>` : ''}</div>`
       : '';
     body.innerHTML = `
       ${verdictHtml}
@@ -656,7 +657,15 @@ async function loadSearches() {
         </div>
         <div class="dashboard-content">
           <div class="price-info">
-            <div class="last-price">${d.lastPrice != null ? `Último preço: ${formatBRL(d.lastPrice)}` : 'Sem preço registrado'}</div>
+            <div class="last-price">${
+              d.lastPrice != null
+                ? `Último preço: ${formatBRL(d.lastPrice)} ${
+                    d.variationLabel
+                      ? `<span class="variation-badge" style="color: ${d.variationPercent < 0 ? 'var(--success-text)' : 'var(--danger-text)'};font-weight:600;font-size:0.85em;">(${d.variationLabel} vs. checagem anterior)</span>`
+                      : ''
+                  }`
+                : 'Sem preço registrado'
+            }</div>
             ${d.targetPrice != null ? `<div class="target-price">Alvo: ${formatBRL(d.targetPrice)} ${d.isBelowTarget ? '<span>(✅ Alcançado!)</span>' : ''}</div>` : ''}
           </div>
         </div>
@@ -918,6 +927,8 @@ async function runNow(id, resultElId, metaElId) {
           ? `<div class="best-deal">🏆 <b>Menor preço encontrado: ${formatBRL(result.bestDeal.priceBRL)}${
               result.bestDeal.priceBRLTotal != null ? ` (${formatBRL(result.bestDeal.priceBRLTotal)} total pra ${result.passengers} passageiros)` : ''
             }</b>${
+              result.bestDeal.isNewLow ? ' <span style="color: var(--success-text); font-weight: bold;">🎉 Novo mínimo histórico nessa rota!</span>' : ''
+            }${
               result.bestDeal.type === 'split' ? ` (quebra de bilhete via ${result.bestDeal.program})` : ` via ${result.bestDeal.program}`
             }${
               result.bestDeal.destinationLabel && showDestinationColumn ? ` — destino: <b>${escapeHtml(result.bestDeal.destinationLabel)}</b>` : ''

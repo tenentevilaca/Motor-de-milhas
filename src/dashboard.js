@@ -1,7 +1,18 @@
 // Funções puras usadas pelas rotas /api/dashboard e /api/searches/:id/export —
 // separadas do server.js pra dar pra testar sem precisar subir o Express.
 
-function buildDashboardEntry(search, lastHistoryEntry) {
+// `previousHistoryEntry` é opcional — usado só pra calcular a variação % em
+// relação à checagem anterior. Os dois vêm de db.getHistoryForSearch(id, 2),
+// que devolve em ordem CRONOLÓGICA (mais antiga primeiro): a chamada
+// precisa passar o ÚLTIMO elemento do array como lastHistoryEntry e o
+// PENÚLTIMO como previousHistoryEntry — inverter isso faz a variação sair
+// de trás pra frente (queda de preço aparecendo como alta e vice-versa).
+function buildDashboardEntry(search, lastHistoryEntry, previousHistoryEntry) {
+  const variationPercent =
+    previousHistoryEntry?.priceBRL && lastHistoryEntry?.priceBRL
+      ? ((lastHistoryEntry.priceBRL - previousHistoryEntry.priceBRL) / previousHistoryEntry.priceBRL) * 100
+      : null;
+
   return {
     id: search.id,
     origin: search.origin,
@@ -18,6 +29,8 @@ function buildDashboardEntry(search, lastHistoryEntry) {
     isBelowTarget:
       search.targetPrice != null && lastHistoryEntry?.priceBRL != null && lastHistoryEntry.priceBRL <= search.targetPrice,
     isAnomaly: Boolean(lastHistoryEntry?.isAnomaly),
+    variationPercent,
+    variationLabel: variationPercent != null ? `${variationPercent > 0 ? '+' : ''}${variationPercent.toFixed(1)}%` : null,
   };
 }
 
