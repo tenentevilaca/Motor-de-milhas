@@ -895,10 +895,17 @@ async function runNow(id, resultElId, metaElId) {
         const priceCell = o.priceBRLTotal != null
           ? `<td>${formatBRL(o.priceBRL)} <span class="status-line" style="margin:0;" title="Estimativa: preço por pessoa × ${result.passengers} passageiros">(${formatBRL(o.priceBRLTotal)} total)</span></td>`
           : `<td>${formatBRL(o.priceBRL)}</td>`;
+        const fairnessCell = o.priceFairness
+          ? `<td title="Média dos últimos 30 dias: ${formatBRL(o.priceFairness.avg30d)}">
+              <span style="color: ${o.priceFairness.verdict === 'good' ? 'var(--success-text)' : o.priceFairness.verdict === 'bad' ? 'var(--danger-text)' : 'inherit'}; font-weight: bold;">
+                ${o.priceFairness.verdict === 'good' ? '🟢' : o.priceFairness.verdict === 'bad' ? '🔴' : '⚪'} ${o.priceFairness.deviationPercent > 0 ? '+' : ''}${o.priceFairness.deviationPercent.toFixed(0)}%
+              </span>
+            </td>`
+          : `<td>-</td>`;
         const milesCell = o.milesRequiredTotal != null
           ? `<td>${o.milesRequired.toLocaleString('pt-BR')} <span class="status-line" style="margin:0;" title="Estimativa: milhas por pessoa × ${result.passengers} passageiros">(${o.milesRequiredTotal.toLocaleString('pt-BR')} total)</span></td>`
           : `<td>${o.milesRequired ?? '-'}</td>`;
-        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}${priceCell}${milesCell}${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${flightCell}${timeCell}${durationCell}</tr>`;
+        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}${priceCell}${fairnessCell}${milesCell}${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${flightCell}${timeCell}${durationCell}</tr>`;
       })
       .join('');
     // Busca por região consulta os mesmos provedores em vários hubs — deduplica
@@ -956,7 +963,7 @@ async function runNow(id, resultElId, metaElId) {
         <table>
           <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}${
             showDateColumn ? '<th>Data</th>' : ''
-          }<th>Preço</th><th>Milhas</th>${
+          }<th>Preço</th><th>Preço Justo (30d)</th><th>Milhas</th>${
             showArbitrageColumn ? '<th>Vale mais</th>' : ''
           }<th>Paradas</th>${showFlightColumn ? '<th>Voo</th>' : ''}${showTimeColumn ? '<th>Horário</th>' : ''}${
             showDurationColumn ? '<th>Duração</th>' : ''

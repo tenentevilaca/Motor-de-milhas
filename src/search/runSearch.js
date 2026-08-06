@@ -259,6 +259,11 @@ async function runSearch(search) {
   const historyEntries = [];
   const alertOffers = [];
 
+  // Mesmo limiar de confiança estatística do anomaly.js (MIN_SAMPLES_FOR_CONFIDENCE):
+  // comparar contra uma média de 1 ou 2 amostras não é confiável o bastante
+  // pra rotular uma oferta como "preço bom" ou "preço ruim" na tabela.
+  const PRICE_FAIRNESS_MIN_SAMPLES = 3;
+
   for (const r of results) {
     for (const offer of r.offers) {
       const baseline = db.getRouteBaseline(search.origin, r.destination, offer.program);
@@ -271,6 +276,28 @@ async function runSearch(search) {
       // amostra anterior: a primeiríssima checagem de uma rota não é um
       // "recorde batido", é só o único dado que existe ainda.
       offer.isNewLow = Boolean(baseline && Number.isFinite(offer.priceBRL) && offer.priceBRL < baseline.min);
+
+      // "Preço Justo vs Histórico": compara com a média dos últimos 30 dias
+      // pra essa rota+programa. Só faz sentido pra ofertas com preço em
+      // dinheiro — ofertas só-em-milhas (ex: Azul, e Smiles quando não há
+      // taxa em dinheiro) têm priceBRL null, e comparar null com uma média
+      // numérica produziria NaN e um veredito sem sentido. Também exige
+      // amostras suficientes (mesmo limiar do anomaly.js) pra não rotular
+      // "bom"/"ruim" com base num único ponto de dado.
+      if (Number.isFinite(offer.priceBRL)) {
+        const last30Days = db.getHistoryForRoute(search.origin, r.destination).filter((h) => {
+          const daysDiff = (Date.now() - new Date(h.checkedAt).getTime()) / (1000 * 60 * 60 * 24);
+          return h.program === offer.program && h.priceBRL != null && daysDiff <= 30;
+        });
+        if (last30Days.length >= PRICE_FAIRNESS_MIN_SAMPLES) {
+          const avg = last30Days.reduce((acc, curr) => acc + curr.priceBRL, 0) / last30Days.length;
+          offer.priceFairness = {
+            avg30d: avg,
+            deviationPercent: ((offer.priceBRL - avg) / avg) * 100,
+            verdict: offer.priceBRL < avg * 0.9 ? 'good' : offer.priceBRL > avg * 1.2 ? 'bad' : 'fair',
+          };
+        }
+      }
 
       historyEntries.push({
         searchId: search.id,
@@ -288,9 +315,23 @@ async function runSearch(search) {
       });
 
       const belowTarget = search.targetPrice != null && Number.isFinite(offer.priceBRL) && offer.priceBRL <= search.targetPrice;
+      // Preço >=10% abaixo da média de 30 dias também merece alerta, mesmo
+      // sem bater recorde histórico ou ultrapassar o limiar de erro de
+      // tarifa do anomaly.js — é o mesmo dado que já aparece na coluna
+      // "Preço Justo", só que a maioria dos usuários não define um
+      // Preço-alvo, então sem isso essa informação nunca vira notificação.
+      const isGoodFairnessDeal = offer.priceFairness?.verdict === 'good';
 
-      if (evaluation.isAnomaly || evaluation.isFlashSale || belowTarget) {
-        alertOffers.push({ offer, evaluation, belowTarget });
+      if (evaluation.isAnomaly || evaluation.isFlashSale || belowTarget || isGoodFairnessDeal) {
+        const alertEvaluation = evaluation.reason
+          ? evaluation
+          : {
+              ...evaluation,
+              reason: isGoodFairnessDeal
+                ? `Preço ${Math.abs(Math.round(offer.priceFairness.deviationPercent))}% abaixo da média dos últimos 30 dias nessa rota`
+                : evaluation.reason,
+            };
+        alertOffers.push({ offer, evaluation: alertEvaluation, belowTarget });
       }
     }
   }
