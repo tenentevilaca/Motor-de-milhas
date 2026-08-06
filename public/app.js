@@ -896,6 +896,12 @@ async function runNow(id, resultElId, metaElId) {
     // por programId aqui pra não repetir "CASH_TRAVELPAYOUTS, CASH_TRAVELPAYOUTS, ..." N vezes.
     const pending = [...new Map(result.providerResults.filter((r) => r.status === 'not_configured').map((r) => [r.programId, r])).values()];
     const errored = [...new Map(result.providerResults.filter((r) => r.status === 'error').map((r) => [r.programId, r])).values()];
+    // "pending" = a fonte não respondeu dentro do orçamento de tempo da
+    // busca (não é erro nem falta de configuração — ela continua rodando em
+    // segundo plano e populando o cache; rodar de novo em instantes já pega
+    // o resultado). Fica de fora do "allUnusable" pra não confundir com
+    // "nenhuma fonte configurada".
+    const stillFetching = [...new Map(result.providerResults.filter((r) => r.status === 'pending').map((r) => [r.programId, r])).values()];
     const allUnusable = pending.length + errored.length === new Set(result.providerResults.map((r) => r.programId)).size;
     const dealHtml = dealFeedMatchesHtml(result);
 
@@ -931,6 +937,11 @@ async function runNow(id, resultElId, metaElId) {
             ? `<div class="status-line">Flexibilidade de datas: ${result.flexDatesChecked} combinação(ões) de ida/volta testada(s) nessa busca.</div>`
             : ''
         }
+        ${
+          result.partialResults
+            ? `<div class="status-line">⏳ Busca parcial: ${result.combinationsSkipped} combinação(ões) de data não deu tempo de testar dentro do orçamento da resposta — rode de novo pra continuar (o que já foi buscado fica em cache).</div>`
+            : ''
+        }
         <table>
           <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}${
             showDateColumn ? '<th>Data</th>' : ''
@@ -951,6 +962,7 @@ async function runNow(id, resultElId, metaElId) {
         }
         ${arbitrageBlockHtml(id, result.bestDeal)}
         ${pending.length > 0 ? `<div class="status-line">Pendentes de configuração: ${pending.map((p) => p.programId).join(', ')}</div>` : ''}
+        ${stillFetching.length > 0 ? `<div class="status-line">⏳ Ainda buscando (demorou mais que o orçamento da resposta, mas segue rodando em segundo plano): ${stillFetching.map((r) => r.programId).join(', ')} — rode de novo em instantes.</div>` : ''}
         ${errored.map((r) => `<div class="warning">${r.programId}: ${r.message}</div>`).join('')}
       `;
     }

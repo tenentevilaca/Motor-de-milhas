@@ -13,6 +13,62 @@ const db = require('../db');
 // duplicadas, cliques repetidos em "Rodar agora"). 15min é curto o
 // suficiente pra não atrapalhar a detecção de promoção relâmpago.
 const PROVIDER_CACHE_TTL_MS = 15 * 60 * 1000;
+
+// Orçamento de tempo pra RESPONDER ao navegador — diferente do timeout de
+// cada provider (que pode ser bem maior, ex: 28s no Google Flights). Uma
+// fonte paga pode legitimamente ser mais lenta que as outras sem estar com
+// problema nenhum, mas a busca inteira não pode ficar refém dela: se uma
+// fonte não respondeu dentro do orçamento, a busca segue sem ela (status
+// "pending" em vez de esperar) — a chamada em si NÃO é cancelada, continua
+// rodando em segundo plano e preenche o cache normalmente pra próxima vez
+// (cached() grava o resultado assim que chegar, não importa quem ainda tá
+// esperando). Isso existe pro Render (e qualquer proxy na frente do host)
+// ter seu próprio timeout de requisição recebida — sem esse teto, esperar
+// uma fonte lenta o suficiente derruba a conexão do navegador sem resposta
+// nenhuma (o mesmo "NetworkError" genérico que já corrigimos uma vez).
+const PROVIDER_SOFT_DEADLINE_MS = Number(process.env.SEARCH_PROVIDER_SOFT_DEADLINE_MS) || 10000;
+// Teto pro tempo TOTAL da busca (soma de todas as combinações de data
+// testadas) — protege contra o caso de várias combinações de flexibilidade,
+// cada uma já limitada pelo teto acima, ainda somarem mais tempo que o
+// proxy aguenta. Checado antes de começar cada combinação nova; se estourar,
+// as combinações restantes simplesmente não são testadas nessa resposta.
+const RESPONSE_DEADLINE_MS = Number(process.env.SEARCH_RESPONSE_DEADLINE_MS) || 20000;
+
+// Corre `promise` contra um cronômetro — devolve o que resolver primeiro,
+// mas NUNCA cancela `promise` (não dá pra cancelar uma promise em JS; ela
+// segue rodando e, quando terminar, ainda vai gravar no cache através do
+// cached() que a envolve — só paramos de ESPERAR por ela nessa resposta).
+function raceWithSoftDeadline(promise, ms) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve({
+        status: 'pending',
+        message: `Ainda buscando depois de ${Math.round(ms / 1000)}s — tente rodar de novo em instantes (o resultado fica em cache assim que a fonte responder).`,
+        offers: [],
+      });
+    }, ms);
+    // `promise` aqui já nunca rejeita (erro de provider é capturado antes),
+    // então só precisa de .then — mas .catch por segurança não faz mal.
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve({ status: 'error', message: 'Erro inesperado', offers: [] });
+      }
+    );
+  });
+}
+
 const { sendEmailAlert } = require('../notify/email');
 const { sendWhatsAppAlert } = require('../notify/whatsapp');
 const { sendTelegramAlert } = require('../notify/telegram');
@@ -138,29 +194,39 @@ async function runSearch(search) {
   // cada vez. Isso corta o tempo de espera do usuário por ~N (nº de
   // programas consultados) sem gastar cota a mais.
   const results = [];
-  for (const destination of destinations) {
+  const searchStartedAt = Date.now();
+  let combinationsAttempted = 0;
+  let deadlineExceeded = false;
+  searchLoop: for (const destination of destinations) {
     for (const { departDate, returnDate } of dateCombinations) {
+      if (Date.now() - searchStartedAt > RESPONSE_DEADLINE_MS) {
+        deadlineExceeded = true;
+        break searchLoop;
+      }
+      combinationsAttempted += 1;
       const batch = await Promise.all(
         programsToQuery.map(async (programId) => {
           const provider = ALL_PROVIDERS[programId];
           if (!provider) return null;
 
           const cacheKey = `${programId}|${search.origin}|${destination}|${departDate}|${returnDate}|${search.allowStopover}`;
-          let result;
-          try {
-            result = await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
-              provider.search({
-                origin: search.origin,
-                destination,
-                departDate,
-                returnDate,
-                allowStopover: search.allowStopover,
-                allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
-              })
-            );
-          } catch (err) {
-            result = { status: 'error', message: describeProviderError(err), offers: [] };
-          }
+          const fetchResult = (async () => {
+            try {
+              return await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
+                provider.search({
+                  origin: search.origin,
+                  destination,
+                  departDate,
+                  returnDate,
+                  allowStopover: search.allowStopover,
+                  allowHiddenCity: search.allowHiddenCity && search.hiddenCityRiskAcknowledged,
+                })
+              );
+            } catch (err) {
+              return { status: 'error', message: describeProviderError(err), offers: [] };
+            }
+          })();
+          const result = await raceWithSoftDeadline(fetchResult, PROVIDER_SOFT_DEADLINE_MS);
           // manualCheckUrl vem por resultado de provider, não por oferta — repassa
           // pra cada oferta aqui pra servir de link de fallback quando a oferta
           // não tiver deepLink próprio (ex: Smiles não devolve link de compra).
@@ -187,6 +253,7 @@ async function runSearch(search) {
       results.push(...batch.filter(Boolean));
     }
   }
+  const combinationsPlanned = destinations.length * dateCombinations.length;
 
   const now = new Date().toISOString();
   const historyEntries = [];
@@ -395,6 +462,8 @@ async function runSearch(search) {
     notifications,
     flexDatesChecked: dateCombinations.length,
     passengers,
+    partialResults: deadlineExceeded,
+    combinationsSkipped: combinationsPlanned - combinationsAttempted,
   };
 }
 
