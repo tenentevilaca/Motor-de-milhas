@@ -524,6 +524,85 @@ tr:hover td { background: var(--blue-50); }
   font-weight: 600;
 }
 
+.history-chart-container {
+  background: var(--white);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.history-chart-container h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: var(--blue-800);
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 10px;
+}
+
+.chart-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--blue-50);
+  padding: 10px;
+  border-radius: 8px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--gray-600);
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.sparkline-large {
+  width: 100%;
+  height: 200px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.sparkline-large svg {
+  width: 100%;
+  height: 100%;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-table th, .history-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--card-border);
+  text-align: left;
+}
+
+.history-table th {
+  background: var(--blue-50);
+  color: var(--blue-800);
+  font-weight: 600;
+}
+
+.history-table tr:hover {
+  background: var(--gray-50);
+}
+
 /* --- Hospedagem: cards de hotel (Trivago) --- */
 .hotel-card {
   display: block;

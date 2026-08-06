@@ -969,8 +969,62 @@ async function viewHistory(id) {
       el.innerHTML = '<p class="status-line">Sem histórico ainda.</p>';
       return;
     }
+
+    // Gráfico de tendência: só usa checagens com preço em dinheiro (ofertas
+    // só-em-milhas não entram) — em rotas com só Smiles configurado, por
+    // exemplo, isso pode zerar. Sem checar esse caso, Math.min/max([]) dá
+    // Infinity/-Infinity e formatBRL mostra "R$ ∞" na tela (bug visto e
+    // corrigido antes de integrar).
+    const chartData = history
+      .slice()
+      .reverse()
+      .map((h) => ({ date: new Date(h.checkedAt).toLocaleDateString('pt-BR'), price: h.priceBRL }))
+      .filter((h) => h.price != null);
+
+    const chartHtml =
+      chartData.length === 0
+        ? ''
+        : (() => {
+            const minPrice = Math.min(...chartData.map((d) => d.price));
+            const maxPrice = Math.max(...chartData.map((d) => d.price));
+            const currentPrice = chartData[chartData.length - 1].price;
+            return `
+      <div class="history-chart-container">
+        <h3>Tendência de preços (em dinheiro)</h3>
+        <div class="chart-stats">
+          <div class="stat-item">
+            <span class="stat-label">Mínimo histórico:</span>
+            <span class="stat-value" style="color: var(--success-text);">${formatBRL(minPrice)}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Máximo histórico:</span>
+            <span class="stat-value" style="color: var(--danger-text);">${formatBRL(maxPrice)}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Preço mais recente:</span>
+            <span class="stat-value" style="color: var(--blue-700);">${formatBRL(currentPrice)}</span>
+          </div>
+        </div>
+        <div class="sparkline-large">
+          <svg width="100%" height="200" viewBox="0 0 ${Math.max(chartData.length * 50, 50)} 200" preserveAspectRatio="none">
+            ${
+              chartData.length > 1
+                ? `<polyline points="${chartData
+                    .map((d, i) => `${i * 50},${200 - ((d.price - minPrice) / (maxPrice - minPrice || 1)) * 150 - 25}`)
+                    .join(' ')}" fill="none" stroke="var(--blue-600)" stroke-width="3"/>
+               ${chartData
+                 .map((d, i) => `<circle cx="${i * 50}" cy="${200 - ((d.price - minPrice) / (maxPrice - minPrice || 1)) * 150 - 25}" r="4" fill="var(--blue-600)"/>`)
+                 .join('')}`
+                : ''
+            }
+          </svg>
+        </div>
+      </div>`;
+          })();
+
     el.innerHTML = `
-      <table>
+      ${chartHtml}
+      <table class="history-table">
         <tr><th>Data</th><th>Programa</th><th>Preço</th><th>Milhas</th><th>Anomalia</th><th>Promo</th></tr>
         ${history
           .slice()
