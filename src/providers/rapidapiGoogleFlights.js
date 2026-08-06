@@ -41,10 +41,17 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
       'x-rapidapi-host': RAPIDAPI_HOST,
       'x-rapidapi-key': config.get('RAPIDAPI_KEY'),
     },
-    // Sem timeout, uma API lenta trava a promise indefinidamente — a busca
-    // inteira fica pendurada até o proxy do host derrubar a conexão sem
-    // resposta HTTP (o navegador mostra isso como "NetworkError" genérico).
-    timeout: 20000,
+    // 28s: essa API (mesmo em plano pago) pode legitimamente demorar mais
+    // que outras fontes — não é sempre cota estourada. Mas não dá pra subir
+    // à vontade: o Render tem seu PRÓPRIO timeout no proxy entre o navegador
+    // e o nosso servidor (não documentado oficialmente, relatos da
+    // comunidade apontam ~15-30s) — se o total pra responder ao cliente
+    // passar disso, o proxy derruba a conexão do navegador ANTES da nossa
+    // resposta chegar, recriando o "NetworkError" genérico (dessa vez sem
+    // nem a mensagem de erro clara, porque a resposta nunca chega a tempo).
+    // 28s fica dentro da faixa mais comumente reportada como segura (~30s)
+    // com uma margem pequena.
+    timeout: 28000,
   });
 
   const offers = (Array.isArray(data) ? data : [])
