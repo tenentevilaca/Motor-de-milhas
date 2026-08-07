@@ -229,6 +229,7 @@ async function runSearch(search) {
         if (!provider) return null;
 
         const cacheKey = `${programId}|${search.origin}|${destination}|${departDate}|${returnDate}|${search.allowStopover}`;
+        const fetchStartedAt = Date.now();
         const fetchResult = (async () => {
           try {
             return await cached(cacheKey, PROVIDER_CACHE_TTL_MS, () =>
@@ -246,6 +247,24 @@ async function runSearch(search) {
           }
         })();
         const result = await raceWithSoftDeadline(fetchResult, PROVIDER_SOFT_DEADLINE_MS);
+        // Quando um provider estoura o orçamento por provider e vira
+        // "pending" na resposta, ele continua rodando sem que ninguém mais
+        // espere por ele — e sem log nenhum, o resultado final (sucesso
+        // tardio ou erro) fica invisível pra sempre, mesmo nos logs do
+        // Render. Isso torna impossível diagnosticar se uma fonte lenta é
+        // "lenta mas funciona" (uma nova busca da mesma rota logo depois
+        // pegaria o cache) ou "sempre falha, só demora pra falhar" (nenhuma
+        // busca nova vai resolver, porque cached() só guarda sucesso).
+        if (result.status === 'pending') {
+          fetchResult.then((bgResult) => {
+            const elapsedMs = Date.now() - fetchStartedAt;
+            if (bgResult.status === 'ok') {
+              console.log(`[segundo plano] ${programId} (${destination}) respondeu depois de ${elapsedMs}ms com ${bgResult.offers.length} oferta(s) — em cache pra próxima busca dessa rota/data.`);
+            } else {
+              console.error(`[segundo plano] ${programId} (${destination}) falhou depois de ${elapsedMs}ms: ${bgResult.message || bgResult.status}`);
+            }
+          });
+        }
         // manualCheckUrl vem por resultado de provider, não por oferta — repassa
         // pra cada oferta aqui pra servir de link de fallback quando a oferta
         // não tiver deepLink próprio (ex: Smiles não devolve link de compra).

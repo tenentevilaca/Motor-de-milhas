@@ -57,6 +57,55 @@ test('provider mais lento que o orçamento vira "pending" na resposta, mas conti
   assert.equal(second.allOffersSorted.some((o) => o.program === 'CASH_TRAVELPAYOUTS' && o.priceBRL === 1234), true);
 });
 
+test('resultado tardio de um provider "pending" é logado (sucesso ou erro) — senão fica invisível pra sempre, mesmo nos logs', async () => {
+  clearCache();
+  stubAllNotConfigured();
+
+  // Caso 1: a chamada de fundo eventualmente dá certo — deveria logar sucesso.
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => {
+    await delay(300);
+    return { status: 'ok', offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 999, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }] };
+  };
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    const search1 = db.createSearch({ origin: 'GRU', destination: 'OK1', departDate: '2026-11-10' });
+    await runSearch(search1);
+    await delay(400); // espera a chamada de fundo terminar de verdade
+  } finally {
+    console.log = originalLog;
+  }
+  assert.ok(
+    logLines.some((l) => l.includes('CASH_TRAVELPAYOUTS') && l.includes('respondeu depois de') && l.includes('1 oferta')),
+    `deveria ter logado o sucesso tardio; logs capturados: ${JSON.stringify(logLines)}`
+  );
+
+  // Caso 2: a chamada de fundo eventualmente FALHA — sem log, isso é
+  // invisível até nos logs do servidor (o próprio bug que motivou esse
+  // fix: usuário via "ainda buscando" run após run, sem forma de saber se
+  // era só lento ou se estava sempre falhando).
+  clearCache();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => {
+    await delay(300);
+    throw new Error('quota mensal excedida');
+  };
+  const originalError = console.error;
+  const errorLines = [];
+  console.error = (...args) => errorLines.push(args.join(' '));
+  try {
+    const search2 = db.createSearch({ origin: 'GRU', destination: 'ERR1', departDate: '2026-11-10' });
+    await runSearch(search2);
+    await delay(400);
+  } finally {
+    console.error = originalError;
+  }
+  assert.ok(
+    errorLines.some((l) => l.includes('CASH_TRAVELPAYOUTS') && l.includes('falhou depois de') && l.includes('quota mensal excedida')),
+    `deveria ter logado a falha tardia; logs capturados: ${JSON.stringify(errorLines)}`
+  );
+});
+
 test('orçamento total interrompe combinações de data restantes e reporta partialResults', async () => {
   clearCache();
   stubAllNotConfigured();
