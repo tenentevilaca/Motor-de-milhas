@@ -46,8 +46,17 @@ function searchAirports(query, limit = 12) {
   for (const a of normalizedAirports) {
     let score = 0;
     if (a._iata === q) score = 100;
+    // Alias exato de cidade (ex: "bh" -> "Belo Horizonte") vem ANTES do
+    // prefixo de IATA de propósito: uma query de 2-3 letras como "bh"/"sp"
+    // também é, por coincidência, prefixo de dezenas de códigos IATA
+    // aleatórios ao redor do mundo (BHV, BHI, SPB, SPP...) — sem essa
+    // prioridade, esses acertos por acaso ficavam ACIMA do aeroporto que o
+    // alias resolve de propósito, escondendo Belo Horizonte/São Paulo da
+    // lista quando alguém digitava a abreviação que todo brasileiro usa
+    // (bug real reportado: "bh" não sugeria nada de Belo Horizonte).
+    else if (aliasCity && a._city === aliasCity) score = 95;
     else if (a._iata.startsWith(q)) score = 90;
-    else if (a._city.startsWith(q) || (aliasCity && a._city === aliasCity)) score = 80;
+    else if (a._city.startsWith(q)) score = 80;
     else if (a._name.startsWith(q)) score = 70;
     else if (a._country.startsWith(q) || (aliasCountry && a._country === aliasCountry)) score = 60;
     else if (a._city.includes(q) || (aliasCity && a._city.includes(aliasCity))) score = 50;
