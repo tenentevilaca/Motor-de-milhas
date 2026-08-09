@@ -853,7 +853,17 @@ function calcArbInline(id) {
   el.innerHTML = `<b>Vale mais pagar em dinheiro.</b> As ${milesNeeded.toLocaleString('pt-BR')} milhas equivaleriam a ${formatBRL(milesCostBRL)} — ${formatBRL(-diff)} mais caro que o preço em dinheiro de ${formatBRL(cashPrice)}.`;
 }
 
-async function runNow(id, resultElId, metaElId) {
+// Fontes "pending" (estouraram o orçamento de resposta mas continuam
+// rodando em segundo plano) só viravam resultado visível se o usuário
+// clicasse "Rodar agora" de novo por conta própria — sem isso, o resultado
+// ficava esperando no cache pra sempre sem ninguém nunca ver. Rechecar
+// automaticamente algumas vezes cobre o caso comum (fonte só um pouco
+// lenta) sem exigir ação manual; o teto evita ficar rechecando pra sempre
+// se uma fonte estiver de fato sempre estourando o orçamento.
+const AUTO_RETRY_DELAY_MS = 8000;
+const MAX_AUTO_RETRIES = 2;
+
+async function runNow(id, resultElId, metaElId, autoRetryCount = 0) {
   const el = document.getElementById(resultElId || `result-${id}`);
   const meta = metaElId === null ? null : document.getElementById(metaElId || `meta-${id}`);
   el.innerHTML = '<div class="status-line">Buscando nas fontes configuradas e nos blogs de promoção…</div>';
@@ -960,6 +970,7 @@ async function runNow(id, resultElId, metaElId) {
     // o resultado). Fica de fora do "allUnusable" pra não confundir com
     // "nenhuma fonte configurada".
     const stillFetching = [...new Map(result.providerResults.filter((r) => r.status === 'pending').map((r) => [r.programId, r])).values()];
+    const willAutoRetry = stillFetching.length > 0 && autoRetryCount < MAX_AUTO_RETRIES;
     const allUnusable = pending.length + errored.length === new Set(result.providerResults.map((r) => r.programId)).size;
     const dealHtml = dealFeedMatchesHtml(result);
 
@@ -1030,11 +1041,30 @@ async function runNow(id, resultElId, metaElId) {
         }
         ${arbitrageBlockHtml(id, result.bestDeal)}
         ${pending.length > 0 ? `<div class="status-line">Pendentes de configuração: ${pending.map((p) => p.programId).join(', ')}</div>` : ''}
-        ${stillFetching.length > 0 ? `<div class="status-line">⏳ Ainda buscando (demorou mais que o orçamento da resposta, mas segue rodando em segundo plano): ${stillFetching.map((r) => r.programId).join(', ')} — rode de novo em instantes.</div>` : ''}
+        ${
+          stillFetching.length > 0
+            ? `<div class="status-line">⏳ Ainda buscando (demorou mais que o orçamento da resposta, mas segue rodando em segundo plano): ${stillFetching
+                .map((r) => r.programId)
+                .join(', ')}${
+                willAutoRetry
+                  ? ` — rechecando automaticamente em ${Math.round(AUTO_RETRY_DELAY_MS / 1000)}s...`
+                  : ' — rode de novo em instantes.'
+              }</div>`
+            : ''
+        }
         ${errored.map((r) => `<div class="warning">${r.programId}: ${r.message}</div>`).join('')}
       `;
     }
     if (meta) meta.textContent = `Última checagem: ${new Date(result.checkedAt).toLocaleString('pt-BR')}`;
+    if (willAutoRetry) {
+      setTimeout(() => {
+        // Se o elemento não existe mais (usuário saiu da página/trocou de
+        // busca), não faz sentido continuar rechecando em segundo plano.
+        if (document.getElementById(resultElId || `result-${id}`)) {
+          runNow(id, resultElId, metaElId, autoRetryCount + 1);
+        }
+      }, AUTO_RETRY_DELAY_MS);
+    }
   } catch (err) {
     el.innerHTML = `<div class="warning">Erro ao rodar a busca: ${err.message}</div>`;
   }
