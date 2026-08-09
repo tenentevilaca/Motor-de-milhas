@@ -336,6 +336,9 @@ async function updateBestTimeCard() {
     const trendHtml = advice.trend
       ? `<div class="status-line" style="margin-top:8px;"><b>Tendência recente:</b> ${advice.trend.message}</div>${sparklineHtml(advice.trend.prices)}`
       : '';
+    const autoSeasonalHtml = advice.autoSeasonal
+      ? `<div class="status-line" style="margin-top:8px;"><b>📊 Padrão sazonal automático:</b> ${advice.autoSeasonal.message} (média geral: ${formatBRL(advice.autoSeasonal.overallAvg)})</div>`
+      : '';
     const verdictColor = { buy_now: '#16a34a', wait: '#c2410c', monitor: 'var(--muted)' };
     const verdictHtml = advice.verdict
       ? `<div style="font-size:1.05em;font-weight:600;color:${verdictColor[advice.verdict.action] || 'inherit'};margin-bottom:6px;">${advice.verdict.label}
@@ -347,6 +350,7 @@ async function updateBestTimeCard() {
       <div style="color:${statusColor[advice.buyingWindow.status] || 'inherit'};"><b>Quando comprar:</b> ${advice.buyingWindow.message}</div>
       <div class="status-line" style="margin-top:8px;"><b>Época mais cara pra viajar essa rota:</b> ${advice.seasonal.highSeasonMonths.join(', ')}.
       <b>Mais barata costuma ser:</b> ${advice.seasonal.lowSeasonMonths.join(', ')}. ${advice.seasonal.note}</div>
+      ${autoSeasonalHtml}
       ${historicalHtml}
       ${trendHtml}
     `;
@@ -642,7 +646,32 @@ async function loadSearches() {
       el.innerHTML = '<p class="status-line">Nenhuma busca criada ainda.</p>';
       return;
     }
-    el.innerHTML = dashboardData
+    // Ranking por score de oportunidade (0-100, ver src/dashboard.js) — a
+    // busca mais urgente aparece primeiro, independente da ordem de criação.
+    const ranked = [...dashboardData].sort((a, b) => (b.opportunityScore ?? 0) - (a.opportunityScore ?? 0));
+    ranked.forEach((d, i) => (d.opportunityRank = i + 1));
+
+    // KPIs de portfólio: só entram na média as buscas que JÁ têm uma
+    // variação calculada (2+ checagens) — misturar `variationPercent ?? 0`
+    // puxaria a média pra perto de zero em qualquer portfólio com buscas
+    // recém-criadas, mascarando o sinal real de quem já tem histórico.
+    const withVariation = dashboardData.filter((d) => d.variationPercent != null);
+    const avgVariation = withVariation.length > 0 ? withVariation.reduce((sum, d) => sum + d.variationPercent, 0) / withVariation.length : null;
+    const urgentCount = dashboardData.filter((d) => d.variationPercent != null && d.variationPercent < -10).length;
+
+    const opportunityColors = { compre: 'var(--danger-text)', bom: 'var(--success-text)', monitore: 'var(--primary-color)', espere: 'var(--muted)' };
+    const analyticsHeader = `
+      <div class="card" style="margin-bottom: 16px;">
+        <h3 style="margin: 0 0 12px 0;">📊 Resumo do Portfólio</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+          <div><div style="font-size: 1.5rem; font-weight: bold; color: var(--primary-color);">${dashboardData.length}</div><div class="status-line">Buscas ativas</div></div>
+          <div><div style="font-size: 1.5rem; font-weight: bold; color: var(--danger-text);">${urgentCount}</div><div class="status-line">Quedas urgentes (&gt;10%)</div></div>
+          <div><div style="font-size: 1.5rem; font-weight: bold; color: ${avgVariation != null && avgVariation < 0 ? 'var(--success-text)' : 'inherit'};">${avgVariation != null ? `${avgVariation > 0 ? '+' : ''}${avgVariation.toFixed(0)}%` : '-'}</div><div class="status-line">Variação média (buscas com histórico)</div></div>
+        </div>
+      </div>
+    `;
+
+    el.innerHTML = analyticsHeader + ranked
       .map(
         (d) => `
       <div class="search-item">
@@ -650,6 +679,8 @@ async function loadSearches() {
           <span class="route">${d.origin} → ${isRegionDestination(d.destination) ? '🌎 ' + regionLabelFor(d.destination) : d.destination}</span>
           ${d.departDate ? ' · ida ' + d.departDate : ''}${d.returnDate ? ' · volta ' + d.returnDate : ''}
           ${d.isAnomaly ? '<span class="status-line" style="color: var(--danger-text); font-weight: bold;">⚠️ Queda suspeita</span>' : ''}
+          ${d.isNewLow ? '<span class="status-line" style="color: var(--success-text); font-weight: bold;">🎉 Novo recorde!</span>' : ''}
+          <span style="margin-left: auto; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; background: ${opportunityColors[d.opportunityLevel] || 'var(--muted)'}; color: white;">#${d.opportunityRank} · ${(d.opportunityLevel || '').toUpperCase()} (${d.opportunityScore ?? '-'})</span>
         </div>
         <div class="status-line">
           Programas: ${(d.programs || []).join(', ') || '-'} · Stopover: ${d.allowStopover ? 'sim' : 'não'} ·
@@ -1079,6 +1110,38 @@ async function removeSearch(id) {
     loadSearches();
   } catch (err) {
     alert('Erro: ' + err.message);
+  }
+}
+
+function parseRoute(str) {
+  const parts = str.split(/[-→]/);
+  if (parts.length !== 2) return null;
+  return { origin: parts[0].trim().toUpperCase(), destination: parts[1].trim().toUpperCase() };
+}
+
+async function compareRoutes() {
+  const inputs = [document.getElementById('route1'), document.getElementById('route2'), document.getElementById('route3')];
+  const routes = inputs.map((el) => el.value.trim()).filter(Boolean).map(parseRoute).filter(Boolean);
+  const resultDiv = document.getElementById('routeComparisonResult');
+
+  if (routes.length === 0) {
+    resultDiv.innerHTML = '<span style="color: var(--danger-text)">Preencha pelo menos uma rota no formato ORIGEM-DESTINO (ex: GRU-EWR).</span>';
+    return;
+  }
+
+  resultDiv.innerHTML = 'Comparando...';
+  try {
+    const data = await api(`/api/routes/comparison?routes=${encodeURIComponent(JSON.stringify(routes))}`);
+    let html = '<table style="width: 100%; margin-top: 8px;"><tr><th>Rota</th><th>Mínimo histórico</th><th>Média (30d)</th></tr>';
+    data.forEach((d) => {
+      const min = d.minPrice != null ? formatBRL(d.minPrice) : '-';
+      const avg30 = d.avg30d != null ? formatBRL(d.avg30d) : 'Sem dados recentes';
+      html += `<tr><td><b>${d.origin} → ${d.destination}</b></td><td>${min}</td><td>${avg30}</td></tr>`;
+    });
+    html += '</table><div class="status-line" style="margin-top:6px;">Baseado no histórico já coletado (buscas salvas rodadas anteriormente) — rotas nunca buscadas antes não têm dado ainda.</div>';
+    resultDiv.innerHTML = html;
+  } catch (err) {
+    resultDiv.innerHTML = `<span style="color: var(--danger-text)">Erro: ${err.message}</span>`;
   }
 }
 

@@ -7,11 +7,38 @@
 // precisa passar o ÚLTIMO elemento do array como lastHistoryEntry e o
 // PENÚLTIMO como previousHistoryEntry — inverter isso faz a variação sair
 // de trás pra frente (queda de preço aparecendo como alta e vice-versa).
+// Score de oportunidade (0-100): combina múltiplos sinais já calculados em
+// outro lugar (variação, alvo, anomalia, recorde) numa nota só, pra
+// ranquear as buscas ativas por urgência. É um resumo, não substitui os
+// sinais individuais — cada um continua exposto separadamente também.
+function opportunityScoreFor(search, lastHistoryEntry, variationPercent) {
+  let score = 50;
+  if (variationPercent != null) {
+    if (variationPercent < -10) score += 30;
+    else if (variationPercent < 0) score += 15;
+    else if (variationPercent > 10) score -= 20;
+  }
+  if (search.targetPrice != null && lastHistoryEntry?.priceBRL != null && lastHistoryEntry.priceBRL <= search.targetPrice) {
+    score += 25;
+  }
+  if (lastHistoryEntry?.isAnomaly) score += 35;
+  if (lastHistoryEntry?.isNewLow) score += 20;
+  return Math.max(0, Math.min(100, score));
+}
+
+function opportunityLevelFor(score) {
+  if (score >= 80) return 'compre';
+  if (score >= 60) return 'bom';
+  if (score >= 40) return 'monitore';
+  return 'espere';
+}
+
 function buildDashboardEntry(search, lastHistoryEntry, previousHistoryEntry) {
   const variationPercent =
     previousHistoryEntry?.priceBRL && lastHistoryEntry?.priceBRL
       ? ((lastHistoryEntry.priceBRL - previousHistoryEntry.priceBRL) / previousHistoryEntry.priceBRL) * 100
       : null;
+  const opportunityScore = opportunityScoreFor(search, lastHistoryEntry, variationPercent);
 
   return {
     id: search.id,
@@ -29,8 +56,11 @@ function buildDashboardEntry(search, lastHistoryEntry, previousHistoryEntry) {
     isBelowTarget:
       search.targetPrice != null && lastHistoryEntry?.priceBRL != null && lastHistoryEntry.priceBRL <= search.targetPrice,
     isAnomaly: Boolean(lastHistoryEntry?.isAnomaly),
+    isNewLow: Boolean(lastHistoryEntry?.isNewLow),
     variationPercent,
     variationLabel: variationPercent != null ? `${variationPercent > 0 ? '+' : ''}${variationPercent.toFixed(1)}%` : null,
+    opportunityScore,
+    opportunityLevel: opportunityLevelFor(opportunityScore),
   };
 }
 
@@ -64,4 +94,4 @@ function historyToCsv(history) {
   return [header.join(','), ...rows].join('\n');
 }
 
-module.exports = { buildDashboardEntry, csvEscape, historyToCsv };
+module.exports = { buildDashboardEntry, csvEscape, historyToCsv, opportunityScoreFor, opportunityLevelFor };

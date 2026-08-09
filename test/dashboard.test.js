@@ -1,7 +1,7 @@
 require('./helpers/setup');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildDashboardEntry, csvEscape, historyToCsv } = require('../src/dashboard');
+const { buildDashboardEntry, csvEscape, historyToCsv, opportunityScoreFor, opportunityLevelFor } = require('../src/dashboard');
 const db = require('../src/db');
 
 test('csvEscape entre aspas quando o valor tem vírgula (regressão: toLocaleString pt-BR sempre tem vírgula)', () => {
@@ -92,4 +92,59 @@ test('buildDashboardEntry sem histórico cai pro lastRunAt e não quebra', () =>
   assert.equal(entry.isBelowTarget, false);
   assert.equal(entry.isAnomaly, false);
   assert.equal(entry.lastCheckedAt, null);
+});
+
+test('opportunityScoreFor combina os 4 sinais e satura em [0, 100]', () => {
+  // Base neutra (score 50): nenhum sinal.
+  assert.equal(opportunityScoreFor({ targetPrice: null }, undefined, null), 50);
+
+  // Queda forte (<-10%) sozinha: 50 + 30 = 80.
+  assert.equal(opportunityScoreFor({ targetPrice: null }, { priceBRL: 100 }, -15), 80);
+
+  // Queda fraca (0 a -10%): 50 + 15 = 65.
+  assert.equal(opportunityScoreFor({ targetPrice: null }, { priceBRL: 100 }, -5), 65);
+
+  // Subida forte (>10%): 50 - 20 = 30.
+  assert.equal(opportunityScoreFor({ targetPrice: null }, { priceBRL: 100 }, 15), 30);
+
+  // Alvo atingido: +25.
+  assert.equal(opportunityScoreFor({ targetPrice: 100 }, { priceBRL: 90 }, null), 75);
+
+  // Anomalia detectada: +35.
+  assert.equal(opportunityScoreFor({ targetPrice: null }, { priceBRL: 100, isAnomaly: true }, null), 85);
+
+  // Novo mínimo histórico: +20.
+  assert.equal(opportunityScoreFor({ targetPrice: null }, { priceBRL: 100, isNewLow: true }, null), 70);
+
+  // Todos os sinais positivos somados estourariam 100 — precisa saturar.
+  assert.equal(
+    opportunityScoreFor({ targetPrice: 100 }, { priceBRL: 90, isAnomaly: true, isNewLow: true }, -15),
+    100
+  );
+
+  // Só o sinal negativo (subida forte), sem nenhum positivo — não pode ficar negativo.
+  assert.equal(opportunityScoreFor({ targetPrice: null }, { priceBRL: 100 }, 200), 30);
+});
+
+test('opportunityLevelFor mapeia score pras 4 categorias acionáveis nos limites certos', () => {
+  assert.equal(opportunityLevelFor(0), 'espere');
+  assert.equal(opportunityLevelFor(39), 'espere');
+  assert.equal(opportunityLevelFor(40), 'monitore');
+  assert.equal(opportunityLevelFor(59), 'monitore');
+  assert.equal(opportunityLevelFor(60), 'bom');
+  assert.equal(opportunityLevelFor(79), 'bom');
+  assert.equal(opportunityLevelFor(80), 'compre');
+  assert.equal(opportunityLevelFor(100), 'compre');
+});
+
+test('buildDashboardEntry expõe isNewLow e o score/nível de oportunidade calculados a partir da última checagem', () => {
+  const search = { id: '5', origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null, programs: [], allowStopover: false, allowHiddenCity: false, active: true, targetPrice: null, lastRunAt: null };
+  const withRecord = buildDashboardEntry(search, { priceBRL: 1000, isNewLow: true, checkedAt: '2026-08-05T00:00:00Z' });
+  assert.equal(withRecord.isNewLow, true);
+  assert.equal(withRecord.opportunityScore, 70); // base 50 + 20 (novo mínimo)
+  assert.equal(withRecord.opportunityLevel, 'bom');
+
+  const withoutRecord = buildDashboardEntry(search, { priceBRL: 1000, checkedAt: '2026-08-05T00:00:00Z' });
+  assert.equal(withoutRecord.isNewLow, false);
+  assert.equal(withoutRecord.opportunityScore, 50);
 });

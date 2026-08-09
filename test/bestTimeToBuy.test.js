@@ -78,3 +78,36 @@ test('estatística por mês e por dia da semana usa amostras reais do histórico
   assert.equal(advice.historical.available, true);
   assert.ok(advice.historical.cheapestMonths.some((m) => m.month === 6));
 });
+
+test('autoSeasonal detecta mês consistentemente mais barato (>=10% abaixo da média geral, >=5 amostras)', () => {
+  const now = Date.now();
+  const entries = [];
+  // Março: 5 amostras baratas (média 700). Julho: 5 amostras caras (média 1300).
+  for (let i = 0; i < 5; i++) {
+    entries.push({ origin: 'GRU', destination: 'FLN', program: 'CASH_TRAVELPAYOUTS', priceBRL: 700, departDate: `2026-03-0${i + 1}`, checkedAt: new Date(now - i * 86400000).toISOString() });
+    entries.push({ origin: 'GRU', destination: 'FLN', program: 'CASH_TRAVELPAYOUTS', priceBRL: 1300, departDate: `2026-07-0${i + 1}`, checkedAt: new Date(now - i * 86400000).toISOString() });
+  }
+  db.addHistoryEntries(entries);
+
+  const advice = getBestTimeAdvice({ origin: 'GRU', destination: 'FLN', departDate: null });
+  assert.ok(advice.autoSeasonal, 'deveria detectar padrão com 5+ amostras em pelo menos 1 mês');
+  assert.equal(advice.autoSeasonal.overallAvg, 1000); // média das médias mensais: (700+1300)/2
+  assert.equal(advice.autoSeasonal.cheapMonths.length, 1, 'só março deveria contar como "barato" (>=10% abaixo da média geral) — julho está ACIMA da média');
+  assert.equal(advice.autoSeasonal.cheapMonths[0].month, 3);
+  assert.equal(advice.autoSeasonal.cheapMonths[0].monthName, 'março');
+  assert.equal(advice.autoSeasonal.cheapMonths[0].avgPrice, 700);
+  assert.equal(advice.autoSeasonal.cheapMonths[0].savings, 30);
+  assert.match(advice.autoSeasonal.message, /março/);
+});
+
+test('autoSeasonal não aponta padrão com menos de 5 amostras no mês (evita ruído)', () => {
+  const now = Date.now();
+  const entries = [];
+  for (let i = 0; i < 4; i++) {
+    entries.push({ origin: 'GRU', destination: 'CWB', program: 'CASH_TRAVELPAYOUTS', priceBRL: 500, departDate: `2026-09-0${i + 1}`, checkedAt: new Date(now - i * 86400000).toISOString() });
+  }
+  db.addHistoryEntries(entries);
+
+  const advice = getBestTimeAdvice({ origin: 'GRU', destination: 'CWB', departDate: null });
+  assert.equal(advice.autoSeasonal, null, '4 amostras é menos que o mínimo de 5 — não deveria haver padrão detectado');
+});

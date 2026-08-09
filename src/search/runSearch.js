@@ -90,7 +90,7 @@ function buildAlertHtml(search, alertOffers, splitSuggestions) {
         <td>${offer.milesRequired ?? '-'}</td>
         <td>${offer.stops === 0 ? 'direto' : offer.stops + ' parada(s)'}</td>
         <td>${offer.isHiddenCity ? 'sim' : 'não'}</td>
-        <td>${evaluation.reason || (evaluation.isAnomaly ? 'possível erro de tarifa' : 'abaixo do seu alvo')}</td>
+        <td>${evaluation.isSuddenDrop ? '📉 ' : ''}${evaluation.reason || (evaluation.isAnomaly ? 'possível erro de tarifa' : 'abaixo do seu alvo')}</td>
       </tr>`
     )
     .join('');
@@ -320,8 +320,9 @@ async function runSearch(search) {
       // numérica produziria NaN e um veredito sem sentido. Também exige
       // amostras suficientes (mesmo limiar do anomaly.js) pra não rotular
       // "bom"/"ruim" com base num único ponto de dado.
+      let last30Days = [];
       if (Number.isFinite(offer.priceBRL)) {
-        const last30Days = db.getHistoryForRoute(search.origin, r.destination).filter((h) => {
+        last30Days = db.getHistoryForRoute(search.origin, r.destination).filter((h) => {
           const daysDiff = (Date.now() - new Date(h.checkedAt).getTime()) / (1000 * 60 * 60 * 24);
           return h.program === offer.program && h.priceBRL != null && daysDiff <= 30;
         });
@@ -346,6 +347,7 @@ async function runSearch(search) {
         stops: offer.stops,
         isHiddenCity: offer.isHiddenCity,
         checkedAt: now,
+        isNewLow: offer.isNewLow,
         isAnomaly: evaluation.isAnomaly,
         isFlashSale: evaluation.isFlashSale,
       });
@@ -357,17 +359,30 @@ async function runSearch(search) {
       // "Preço Justo", só que a maioria dos usuários não define um
       // Preço-alvo, então sem isso essa informação nunca vira notificação.
       const isGoodFairnessDeal = offer.priceFairness?.verdict === 'good';
+      // "Queda súbita": caiu >=15% em relação à checagem anterior mais
+      // recente (não a média) — precisa de Number.isFinite(offer.priceBRL):
+      // sem essa guarda, "null < número" em JS vira "0 < número" por
+      // coerção de tipo, o que seria verdadeiro pra QUALQUER oferta
+      // só-em-milhas (ex: Azul, priceBRL sempre null) que tivesse qualquer
+      // histórico de dinheiro na rota — gerando alerta falso em toda oferta
+      // de milhas. Só conta como motivo PRINCIPAL do alerta se não houver
+      // já um motivo mais específico (erro de tarifa/promoção do
+      // anomaly.js) — senão o rótulo genérico "queda súbita" esconderia o
+      // aviso mais importante de possível erro de tarifa.
+      const mostRecentPrior = last30Days[last30Days.length - 1];
+      const isSuddenDrop =
+        Number.isFinite(offer.priceBRL) && last30Days.length >= 3 && mostRecentPrior && offer.priceBRL < mostRecentPrior.priceBRL * 0.85;
+      const isPrimarySuddenDrop = isSuddenDrop && !evaluation.isAnomaly && !evaluation.isFlashSale;
 
-      if (evaluation.isAnomaly || evaluation.isFlashSale || belowTarget || isGoodFairnessDeal) {
-        const alertEvaluation = evaluation.reason
-          ? evaluation
-          : {
-              ...evaluation,
-              reason: isGoodFairnessDeal
-                ? `Preço ${Math.abs(Math.round(offer.priceFairness.deviationPercent))}% abaixo da média dos últimos 30 dias nessa rota`
-                : evaluation.reason,
-            };
-        alertOffers.push({ offer, evaluation: alertEvaluation, belowTarget });
+      if (evaluation.isAnomaly || evaluation.isFlashSale || belowTarget || isGoodFairnessDeal || isSuddenDrop) {
+        let reason = evaluation.reason;
+        if (!reason && isPrimarySuddenDrop) {
+          const dropPercent = Math.abs(Math.round(((offer.priceBRL - mostRecentPrior.priceBRL) / mostRecentPrior.priceBRL) * 100));
+          reason = `Queda súbita: ${dropPercent}% abaixo da checagem anterior dessa rota`;
+        } else if (!reason && isGoodFairnessDeal) {
+          reason = `Preço ${Math.abs(Math.round(offer.priceFairness.deviationPercent))}% abaixo da média dos últimos 30 dias nessa rota`;
+        }
+        alertOffers.push({ offer, evaluation: { ...evaluation, reason, isSuddenDrop: isPrimarySuddenDrop }, belowTarget });
       }
     }
   }

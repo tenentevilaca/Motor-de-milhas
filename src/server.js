@@ -298,6 +298,40 @@ app.post('/api/hotels/search', async (req, res) => {
   }
 });
 
+app.get('/api/routes/comparison', (req, res) => {
+  const { routes } = req.query; // JSON array de {origin, destination}
+  try {
+    const parsedRoutes = JSON.parse(routes);
+    if (!Array.isArray(parsedRoutes)) throw new Error('Formato inválido');
+
+    const comparisons = parsedRoutes.map((r) => {
+      // db.getRouteBaseline(origin, destination, program) exige um
+      // programa específico pra filtrar — chamar sem ele faria o filtro
+      // `h.program === undefined` nunca bater com nenhum registro real
+      // (todo histórico tem um programa definido), zerando o mínimo
+      // histórico sempre. Comparação de ROTA (não de um programa
+      // específico) usa o histórico bruto de todos os programas direto.
+      const history = db.getHistoryForRoute(r.origin, r.destination).filter((h) => h.priceBRL != null);
+      const last30Days = history.filter((h) => {
+        const daysDiff = (Date.now() - new Date(h.checkedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysDiff <= 30;
+      });
+      const avg30d = last30Days.length > 0 ? last30Days.reduce((acc, curr) => acc + curr.priceBRL, 0) / last30Days.length : null;
+
+      return {
+        origin: r.origin,
+        destination: r.destination,
+        minPrice: history.length > 0 ? Math.min(...history.map((h) => h.priceBRL)) : null,
+        avg30d: avg30d != null ? Math.round(avg30d * 100) / 100 : null,
+        samples: history.length,
+      };
+    });
+    res.json(comparisons);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT || 3000;

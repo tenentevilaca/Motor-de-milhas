@@ -304,7 +304,59 @@ function getBestTimeAdvice({ origin, destination, departDate, program }) {
     seasonal: seasonalAdvice(origin, destination),
     historical: historicalMonthlyStats(origin, destination),
     trend,
+    autoSeasonal: detectAutoSeasonal(origin, destination),
     verdict: buyingVerdict(buyingWindow, trend),
+  };
+}
+
+// Detecção automática de padrão sazonal: agrupa o histórico por mês da data
+// de VIAGEM (departDate, não a data em que foi checado) e compara a média
+// de cada mês com a média geral da rota, sinalizando meses consistentemente
+// mais baratos (>=10% abaixo da média). Complementa seasonalAdvice() acima,
+// que é uma tabela fixa de alta/baixa temporada por região — esse aqui usa
+// SÓ dado real já coletado dessa rota específica, então só aparece quando
+// há amostra suficiente (>=5 checagens no mês) pra não ser ruído.
+function detectAutoSeasonal(origin, destination) {
+  const MIN_SAMPLES = 5;
+  const history = db.getHistoryForRoute(origin, destination);
+
+  const byMonth = {};
+  for (const entry of history) {
+    if (!entry.departDate || entry.priceBRL == null) continue;
+    const month = Number(entry.departDate.split('-')[1]);
+    if (!byMonth[month]) byMonth[month] = [];
+    byMonth[month].push(entry.priceBRL);
+  }
+
+  const validMonths = Object.entries(byMonth)
+    .filter(([, prices]) => prices.length >= MIN_SAMPLES)
+    .map(([month, prices]) => ({
+      month: Number(month),
+      avg: prices.reduce((a, b) => a + b, 0) / prices.length,
+      samples: prices.length,
+    }));
+
+  if (validMonths.length === 0) return null;
+
+  const overallAvg = validMonths.reduce((sum, m) => sum + m.avg, 0) / validMonths.length;
+
+  const cheapMonths = validMonths
+    .filter((m) => m.avg < overallAvg * 0.9)
+    .sort((a, b) => a.avg - b.avg)
+    .map((m) => ({
+      month: m.month,
+      monthName: MONTH_NAMES[m.month - 1],
+      avgPrice: Math.round(m.avg),
+      savings: Math.round(((overallAvg - m.avg) / overallAvg) * 100),
+    }));
+
+  if (cheapMonths.length === 0) return null;
+
+  return {
+    available: true,
+    cheapMonths,
+    overallAvg: Math.round(overallAvg),
+    message: `Padrão detectado: ${cheapMonths.map((m) => `${m.monthName} (−${m.savings}%)`).join(', ')} são historicamente mais baratos nessa rota.`,
   };
 }
 

@@ -109,6 +109,15 @@ test('isNewLow marca a oferta quando o preço bate o mínimo histórico da rota'
   const offer3 = result3.allOffersSorted.find((o) => o.program === 'CASH_TRAVELPAYOUTS');
   assert.equal(offer3.isNewLow, true, '700 é mais barato que qualquer checagem anterior (1000, 1200) — deveria bater recorde');
   assert.equal(result3.bestDeal.isNewLow, true);
+
+  // isNewLow também precisa ficar gravado no HISTÓRICO (não só na resposta
+  // dessa busca) — é o dado que o dashboard usa pro badge "🎉 Novo
+  // recorde!" e pro sinal +20 do score de oportunidade; sem persistir,
+  // ambos ficariam mortos (sempre false) porque dependem da ÚLTIMA entrada
+  // do histórico, não da resposta desse runSearch específico.
+  const persisted = db.getHistoryForSearch(search3.id, 1)[0];
+  assert.equal(persisted.priceBRL, 700);
+  assert.equal(persisted.isNewLow, true, 'isNewLow precisa estar gravado no histórico, não só no retorno da busca');
 });
 
 test('priceFairness exige pelo menos 3 amostras ANTERIORES nos últimos 30 dias antes de rotular "bom"/"ruim"', async () => {
@@ -183,4 +192,64 @@ test('priceFairness nunca é calculado pra ofertas só-em-milhas (priceBRL null)
   }
   const offer = result.allOffersSorted.find((o) => o.program === 'SMILES');
   assert.equal(offer.priceFairness, undefined, 'oferta sem preço em dinheiro não deve ganhar veredito de "preço justo"');
+});
+
+test('isSuddenDrop dispara alerta (1x só, sem duplicar) quando o preço cai >=15% vs a checagem anterior mais recente', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  // Baseline com 3 checagens anteriores: 1000, 1000, 1300 (a última — mais
+  // recente — é a mais cara). Escolhida pra isolar isSuddenDrop dos outros
+  // sinais: a 4ª checagem cai >=15% vs a mais recente (1300) mas fica
+  // ACIMA dos limiares de priceFairness "ruim"/"bom" (média=1100) e do
+  // isFlashSale do anomaly.js (mínimo histórico=1000) — só isSuddenDrop
+  // deveria disparar, e só UMA vez (não duplicado com isGoodFairnessDeal).
+  const prices = [1000, 1000, 1300];
+  let call = 0;
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: prices[call++], milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  for (const departDate of ['2027-03-01', '2027-03-02', '2027-03-03']) {
+    const search = db.createSearch({ origin: 'GRU', destination: 'GIG', departDate });
+    await runSearch(search);
+  }
+
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1050, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  const search4 = db.createSearch({ origin: 'GRU', destination: 'GIG', departDate: '2027-03-04' });
+  const result4 = await runSearch(search4);
+  const offer4 = result4.allOffersSorted.find((o) => o.program === 'CASH_TRAVELPAYOUTS');
+
+  assert.equal(offer4.priceFairness.verdict, 'fair', 'pré-condição: 1050 não deveria contar como "bom" vs a média (1100) — senão o teste não isola isSuddenDrop');
+  assert.equal(result4.alertCount, 1, 'deveria disparar exatamente 1 alerta (não duplicar mesmo se outro sinal também batesse)');
+});
+
+test('isSuddenDrop nunca dispara pra oferta sem preço em dinheiro nessa checagem (evita "null < número" por coerção de tipo)', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  // Smiles às vezes devolve taxa em dinheiro (priceBRL real), às vezes não
+  // (priceBRL null) — histórico misto é normal. Sem Number.isFinite(offer.priceBRL),
+  // "null < 42.5" vira "0 < 42.5" (true) em JS, disparando alerta falso de
+  // "queda súbita" numa oferta que nem tem preço pra comparar.
+  const prices = [50, 50, 50];
+  let call = 0;
+  providers.ALL_PROVIDERS.SMILES.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'SMILES', priceBRL: prices[call++], milesRequired: 20000, taxesBRL: prices[call - 1], stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  for (const departDate of ['2027-04-01', '2027-04-02', '2027-04-03']) {
+    const search = db.createSearch({ origin: 'GRU', destination: 'POA', departDate, programs: ['SMILES'] });
+    await runSearch(search);
+  }
+
+  providers.ALL_PROVIDERS.SMILES.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'SMILES', priceBRL: null, milesRequired: 20000, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  const search4 = db.createSearch({ origin: 'GRU', destination: 'POA', departDate: '2027-04-04', programs: ['SMILES'] });
+  const result4 = await runSearch(search4);
+
+  assert.equal(result4.alertCount, 0, 'oferta sem priceBRL não deveria disparar alerta de queda súbita nenhum');
 });

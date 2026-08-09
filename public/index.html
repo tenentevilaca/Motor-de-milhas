@@ -182,6 +182,18 @@
 
   <aside class="page-sidebar">
     <section class="card">
+      <h2>⚖️ Comparador de Rotas</h2>
+      <div class="status-line" style="margin-bottom: 8px;">Compare a média dos últimos 30 dias e o menor preço já visto de até 3 rotas diferentes.</div>
+      <div id="routeComparator" style="display: flex; gap: 8px; flex-direction: column;">
+        <input type="text" id="route1" placeholder="Ex: GRU-EWR" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <input type="text" id="route2" placeholder="Ex: GRU-CDG" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <input type="text" id="route3" placeholder="Ex: GRU-LAX" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <button type="button" onclick="compareRoutes()" class="secondary" style="margin-top: 8px;">Comparar médias</button>
+      </div>
+      <div id="routeComparisonResult" style="margin-top: 12px;"></div>
+    </section>
+
+    <section class="card">
       <h2>⚡ Atalhos</h2>
       <div class="sidebar-links">
         <a class="sidebar-link" href="/buscas.html">📋 Buscas ativas</a>
