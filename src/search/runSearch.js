@@ -523,8 +523,25 @@ async function runSearch(search) {
 
   const destinationDisplay = regionCode ? regionLabel(regionCode) : search.destination;
 
+  // Cooldown de notificação: sem isso, uma busca cujo preço fica parado
+  // numa faixa de alerta (ex: 12% abaixo da média de 30 dias, sem mudar)
+  // dispararia o MESMO e-mail/WhatsApp/Telegram de novo a cada rodada do
+  // agendador (até 12x/dia com o SCHEDULE_CRON_FLASHSALE padrão de 2 em 2
+  // horas) — a mesma informação, repetida, até o preço sair da faixa.
+  // Cada motivo de alerta (erro de tarifa, preço-alvo, queda súbita, preço
+  // bom vs média) já é recalculado do zero a cada busca, então não existe
+  // "resolvido" nem "novo" — só existe "ainda nessa faixa" ou não. Isso é
+  // por BUSCA (não por oferta específica): um cooldown "silencia tudo por
+  // um tempo depois do 1º alerta", não tenta rastrear se é exatamente a
+  // mesma oferta de novo.
+  const ALERT_COOLDOWN_MS = (Number(process.env.ALERT_COOLDOWN_HOURS) || 6) * 60 * 60 * 1000;
+  const hasAlertableFinding = alertOffers.length > 0 || splitSuggestions.length > 0;
+  const withinCooldown = Boolean(
+    hasAlertableFinding && search.lastAlertedAt && Date.now() - new Date(search.lastAlertedAt).getTime() < ALERT_COOLDOWN_MS
+  );
+
   const notifications = { email: null, whatsapp: null, telegram: null };
-  if (alertOffers.length > 0 || splitSuggestions.length > 0) {
+  if (hasAlertableFinding && !withinCooldown) {
     const html = buildAlertHtml({ ...search, destination: destinationDisplay }, alertOffers, splitSuggestions);
     const textLines = [
       ...alertOffers.map((a) => `${a.offer.program} (${a.offer.destination}): ${formatBRL(a.offer.priceBRL)} (${a.evaluation.reason || 'abaixo do alvo'})`),
@@ -550,6 +567,7 @@ async function runSearch(search) {
         message: `Motor de Milhas ${search.origin}->${destinationDisplay}:\n${textLines.join('\n')}`,
       });
     }
+    db.updateSearch(search.id, { lastAlertedAt: now });
   }
 
   return {
@@ -557,6 +575,7 @@ async function runSearch(search) {
     checkedAt: now,
     providerResults: results,
     alertCount: alertOffers.length,
+    alertsSuppressedByCooldown: hasAlertableFinding && withinCooldown,
     splitSuggestions,
     allOffersSorted,
     bestDeal,

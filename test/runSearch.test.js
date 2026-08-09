@@ -253,3 +253,54 @@ test('isSuddenDrop nunca dispara pra oferta sem preço em dinheiro nessa checage
 
   assert.equal(result4.alertCount, 0, 'oferta sem priceBRL não deveria disparar alerta de queda súbita nenhum');
 });
+
+test('cooldown de notificação evita reenviar o mesmo alerta a cada rodada do agendador', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  process.env.ALERT_COOLDOWN_HOURS = '1';
+  try {
+    providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+      status: 'ok',
+      offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 900, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+    });
+    const search = db.createSearch({ origin: 'GRU', destination: 'SSA', departDate: '2027-05-01', targetPrice: 1000 });
+
+    // 1ª busca: nunca alertou antes — dispara normalmente.
+    const result1 = await runSearch(search);
+    assert.equal(result1.alertCount, 1, 'preço 900 <= alvo 1000 deveria contar como alerta');
+    assert.equal(result1.alertsSuppressedByCooldown, false);
+    const afterFirst = db.getSearch(search.id);
+    assert.ok(afterFirst.lastAlertedAt, 'lastAlertedAt deveria ter sido gravado depois do 1º alerta enviado');
+
+    // 2ª busca, mesmo preço, poucos instantes depois — dentro do cooldown de 1h:
+    // o alerta continua sendo ENCONTRADO (alertCount), mas não deveria disparar
+    // notificação de novo. Rebusca a busca no db antes de rodar de novo — é
+    // exatamente o que scheduler.js/server.js fazem na prática (sempre
+    // buscam a versão atual antes de chamar runSearch), então passar o
+    // objeto já reaproveitado do passo anterior não testaria o cenário real.
+    const result2 = await runSearch(db.getSearch(search.id));
+    assert.equal(result2.alertCount, 1);
+    assert.equal(result2.alertsSuppressedByCooldown, true, 'segunda checagem dentro do cooldown não deveria reenviar');
+
+    // Simula o cooldown já ter passado (recua lastAlertedAt manualmente) —
+    // a notificação volta a ser elegível.
+    db.updateSearch(search.id, { lastAlertedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() });
+    const result3 = await runSearch(db.getSearch(search.id));
+    assert.equal(result3.alertsSuppressedByCooldown, false, 'depois do cooldown expirar, deveria voltar a notificar');
+  } finally {
+    delete process.env.ALERT_COOLDOWN_HOURS;
+  }
+});
+
+test('cooldown não silencia o alertCount quando não há nada pra alertar (não confundir "sem achado" com "suprimido")', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 5000, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  const search = db.createSearch({ origin: 'GRU', destination: 'CGH', departDate: '2027-05-02', targetPrice: 100 });
+  const result = await runSearch(search);
+  assert.equal(result.alertCount, 0);
+  assert.equal(result.alertsSuppressedByCooldown, false);
+});

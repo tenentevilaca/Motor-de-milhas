@@ -1001,7 +1001,15 @@ async function runNow(id, resultElId, metaElId) {
           }</tr>
           ${rows || `<tr><td colspan="${columnCount}">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>`}
         </table>
-        ${result.alertCount > 0 ? `<div class="warning">${result.alertCount} alerta(s) disparado(s) e enviado(s).</div>` : ''}
+        ${
+          result.alertCount > 0
+            ? `<div class="warning">${result.alertCount} alerta(s) encontrado(s)${
+                result.alertsSuppressedByCooldown
+                  ? ' — notificação NÃO reenviada (já alertamos essa busca há pouco tempo; volta a notificar depois do cooldown).'
+                  : ' e enviado(s).'
+              }</div>`
+            : ''
+        }
         ${
           result.splitSuggestions && result.splitSuggestions.length > 0
             ? `<table><tr><th>Quebra de bilhete</th><th>Ida e volta</th><th>Separado</th><th>Economia</th><th>Datas reais</th></tr>${result.splitSuggestions
