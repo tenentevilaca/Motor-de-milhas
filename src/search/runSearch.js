@@ -27,13 +27,24 @@ const PROVIDER_CACHE_TTL_MS = 15 * 60 * 1000;
 // ter seu próprio timeout de requisição recebida — sem esse teto, esperar
 // uma fonte lenta o suficiente derruba a conexão do navegador sem resposta
 // nenhuma (o mesmo "NetworkError" genérico que já corrigimos uma vez).
-const PROVIDER_SOFT_DEADLINE_MS = Number(process.env.SEARCH_PROVIDER_SOFT_DEADLINE_MS) || 10000;
+const PROVIDER_SOFT_DEADLINE_MS = Number(process.env.SEARCH_PROVIDER_SOFT_DEADLINE_MS) || 6000;
 // Teto pro tempo TOTAL da busca (soma de todas as combinações de data
 // testadas) — protege contra o caso de várias combinações de flexibilidade,
 // cada uma já limitada pelo teto acima, ainda somarem mais tempo que o
 // proxy aguenta. Checado antes de começar cada combinação nova; se estourar,
 // as combinações restantes simplesmente não são testadas nessa resposta.
-const RESPONSE_DEADLINE_MS = Number(process.env.SEARCH_RESPONSE_DEADLINE_MS) || 20000;
+//
+// PIOR CASO REAL não é só esse valor: uma combinação já em andamento quando
+// o prazo estoura ainda roda até o SEU próprio teto (PROVIDER_SOFT_DEADLINE_MS
+// acima) — então o tempo total de resposta pode chegar a
+// RESPONSE_DEADLINE_MS + PROVIDER_SOFT_DEADLINE_MS no pior caso. Os valores
+// default (8s + 6s = 14s) foram reduzidos depois de um "NetworkError" real
+// numa busca por região (8 hubs): o total anterior (20s + 10s = 30s de pior
+// caso) ficava bem em cima do teto do proxy do Render, que a comunidade
+// reporta como ~15-30s (não documentado oficialmente) — o suficiente pra
+// estourar dependendo da instância/região. 14s de pior caso garantido fica
+// com folga confortável abaixo do relato mais baixo (15s).
+const RESPONSE_DEADLINE_MS = Number(process.env.SEARCH_RESPONSE_DEADLINE_MS) || 8000;
 
 // Corre `promise` contra um cronômetro — devolve o que resolver primeiro,
 // mas NUNCA cancela `promise` (não dá pra cancelar uma promise em JS; ela
@@ -211,7 +222,12 @@ async function runSearch(search) {
   // MESMA API com N requisições simultâneas quando N hubs são consultados —
   // diferente do fan-out de providers acima, que são hosts diferentes entre
   // si e por isso roda sem teto.
-  const REGION_SEARCH_CONCURRENCY = Number(process.env.REGION_SEARCH_CONCURRENCY) || 3;
+  // Subido de 3 pra 4 junto da redução do RESPONSE_DEADLINE_MS (20s -> 8s):
+  // o teto de tempo mais curto por si só cobriria menos hubs por resposta;
+  // um pouco mais de concorrência compensa isso sem mudar a garantia de
+  // pior caso (que depende só de RESPONSE_DEADLINE_MS + PROVIDER_SOFT_DEADLINE_MS,
+  // não da concorrência).
+  const REGION_SEARCH_CONCURRENCY = Number(process.env.REGION_SEARCH_CONCURRENCY) || 4;
   const results = [];
   const searchStartedAt = Date.now();
   let combinationsAttempted = 0;
