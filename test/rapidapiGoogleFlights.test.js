@@ -60,3 +60,49 @@ test('ainda descarta ofertas sem preço válido (NaN/0/negativo)', async () => {
     delete process.env.RAPIDAPI_KEY;
   }
 });
+
+// Suspeita real (usuário confirmou voos reais existem via Google Flights,
+// mas a integração retornava 0 ofertas mesmo com chave paga funcionando):
+// o parsing só aceitava a resposta como array na raiz, nunca confirmado
+// contra a API de verdade. Se a API embrulhar a lista num objeto (padrão
+// comum em API de viagem no RapidAPI), isso silenciosamente zerava tudo
+// sem erro nenhum. Esses testes cobrem os formatos mais prováveis.
+for (const [label, wrapKey] of [['data', 'data'], ['flights', 'flights'], ['results', 'results']]) {
+  test(`aceita resposta embrulhada em { ${wrapKey}: [...] } — não só array na raiz`, async () => {
+    process.env.RAPIDAPI_KEY = 'test-key';
+    try {
+      await withMockedPost(
+        { data: { [wrapKey]: [{ price_as_number: 620, stops: 1, airline: 'Avianca' }] } },
+        async () => {
+          const result = await provider.search({ origin: 'CNF', destination: 'BOG', departDate: '2026-11-10', returnDate: null });
+          assert.equal(result.status, 'ok');
+          assert.equal(result.offers.length, 1, `deveria ter achado a oferta dentro de { ${wrapKey}: [...] }`);
+          assert.equal(result.offers[0].source, 'Google Flights via RapidAPI (Avianca)');
+        }
+      );
+    } finally {
+      delete process.env.RAPIDAPI_KEY;
+    }
+  });
+}
+
+test('formato de resposta totalmente desconhecido: mostra 0 ofertas SEM crashar, e loga as chaves reais pra diagnóstico', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  const originalError = console.error;
+  const errorLines = [];
+  console.error = (...args) => errorLines.push(args.join(' '));
+  try {
+    await withMockedPost({ data: { status: 'success', payload_that_we_dont_recognize: [{ price_as_number: 620 }] } }, async () => {
+      const result = await provider.search({ origin: 'CNF', destination: 'BOG', departDate: '2026-11-10', returnDate: null });
+      assert.equal(result.status, 'ok');
+      assert.equal(result.offers.length, 0);
+    });
+  } finally {
+    console.error = originalError;
+    delete process.env.RAPIDAPI_KEY;
+  }
+  assert.ok(
+    errorLines.some((l) => l.includes('CASH_RAPIDAPI_GFLIGHTS') && l.includes('status') && l.includes('payload_that_we_dont_recognize')),
+    `deveria ter logado as chaves reais da resposta pra diagnóstico; logs: ${JSON.stringify(errorLines)}`
+  );
+});

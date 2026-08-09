@@ -22,6 +22,25 @@ function usdToBrl(usd) {
   return usd * rate;
 }
 
+// A resposta pode vir como array na raiz (o formato assumido originalmente,
+// nunca confirmado contra a API real) ou embrulhada num objeto — comum em
+// APIs de viagem no RapidAPI (`{ data: [...] }`, `{ flights: [...] }` etc).
+// Sem aceitar essas variações, uma resposta embrulhada faria offers virar
+// [] silenciosamente — nenhum erro, nenhum "pending", só "sem oferta
+// nenhuma" pro usuário, mesmo com voos reais existindo (a chave paga
+// funcionando, só o parsing assumindo o formato errado). Se nenhum formato
+// bater, loga as chaves recebidas pra dar pra diagnosticar sem precisar de
+// acesso à conta RapidAPI de quem está rodando isso.
+function extractOffersArray(data) {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object') {
+    for (const key of ['data', 'flights', 'results', 'itineraries', 'best_flights', 'other_flights', 'offers']) {
+      if (Array.isArray(data[key])) return data[key];
+    }
+  }
+  return null;
+}
+
 async function search({ origin, destination, departDate, returnDate, allowStopover }) {
   if (!enabled()) {
     return {
@@ -65,7 +84,15 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
   // normalmente. Nenhum outro provider (Travelpayouts, Smiles, Azul) faz
   // esse filtro — todos mostram voos com conexão (a coluna "Paradas" já
   // deixa isso visível), só esse aqui filtrava por engano.
-  const offers = (Array.isArray(data) ? data : [])
+  const rawOffers = extractOffersArray(data);
+  if (rawOffers === null) {
+    const shape = data && typeof data === 'object' ? `objeto com chaves [${Object.keys(data).join(', ')}]` : typeof data;
+    console.error(
+      `[CASH_RAPIDAPI_GFLIGHTS] resposta em formato inesperado (${shape}) — nenhuma lista de voos reconhecida, mostrando 0 ofertas. Verifique o formato real da resposta dessa API pra ajustar o parsing.`
+    );
+  }
+
+  const offers = (rawOffers || [])
     .map((offer) => ({
       program: 'CASH_RAPIDAPI_GFLIGHTS',
       priceBRL: usdToBrl(Number(offer.price_as_number)),
