@@ -179,6 +179,12 @@ if (document.getElementById('originQuery')) {
     },
   });
   document.getElementById('departDate').addEventListener('change', () => updateBestTimeCard());
+  // #bestTimeCard fica posicionado DEPOIS de "Programas de milhas" no HTML
+  // de propósito: como esse listener reescreve o conteúdo do card (que
+  // pode crescer bastante — tendência, sparkline, padrão sazonal), se o
+  // card estivesse ANTES dos checkboxes de programa, clicar num checkbox
+  // faria o próprio checkbox "pular" na tela (o conteúdo acima dele muda
+  // de altura) — bug relatado por um usuário real clicando num programa.
   document.querySelectorAll('#programs input').forEach((el) => el.addEventListener('change', () => updateBestTimeCard()));
 }
 
@@ -228,6 +234,11 @@ function toggleSearchMode() {
   document.getElementById('monthFields').hidden = !isMonth;
   document.getElementById('programsSection').hidden = isMonth;
   document.getElementById('alertsSection').hidden = isMonth;
+  // bestTimeCard não é mais filho de specificDateFields (foi movido pra
+  // depois de "Programas de milhas" — ver comentário em updateBestTimeCard)
+  // — precisa ser escondido explicitamente aqui, senão fica visível com
+  // dado desatualizado quando o usuário troca pra "Mês inteiro".
+  if (isMonth) document.getElementById('bestTimeCard').hidden = true;
   document.getElementById('createBtn').textContent = isMonth ? 'Comparar mês' : 'Buscar';
   document.getElementById('createStatus').textContent = isMonth
     ? 'Consulta avulsa (não salva, não agenda) — ~5 datas amostradas no mês.'
