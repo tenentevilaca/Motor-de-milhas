@@ -54,6 +54,17 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
     timeout: 28000,
   });
 
+  // `allowStopover` é sobre a técnica de stopover GRATUITO de programas de
+  // milhas (parada estendida de propósito, ex: TAP em Lisboa) — não tem
+  // nada a ver com uma conexão comum numa passagem em dinheiro. Filtrar
+  // qualquer oferta com `stops > 0` a não ser que essa caixinha (sem
+  // relação nenhuma) estivesse marcada era um bug real: a maioria das
+  // rotas internacionais não tem voo direto, então isso descartava 100%
+  // das ofertas da fonte antes mesmo de chegar no usuário — parecendo que
+  // a API não retornou nada, mesmo com uma chave paga funcionando
+  // normalmente. Nenhum outro provider (Travelpayouts, Smiles, Azul) faz
+  // esse filtro — todos mostram voos com conexão (a coluna "Paradas" já
+  // deixa isso visível), só esse aqui filtrava por engano.
   const offers = (Array.isArray(data) ? data : [])
     .map((offer) => ({
       program: 'CASH_RAPIDAPI_GFLIGHTS',
@@ -65,7 +76,7 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
       deepLink: offer.buy_link || null,
       source: `Google Flights via RapidAPI (${offer.airline || 'dados reais'})`,
     }))
-    .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0 && (allowStopover || o.stops === 0));
+    .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);
 
   return { status: 'ok', message: null, offers };
 }
