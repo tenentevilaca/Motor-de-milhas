@@ -57,7 +57,7 @@
     "Endpoints" de qualquer uma delas, copie o valor de <code>X-RapidAPI-Key</code> (é o mesmo pra qualquer API que você
     assinar por lá) · 4. Cole abaixo. Essa única chave ativa as duas coisas: preço em dinheiro ao vivo (Google Flights —
     vem em dólar, convertido por uma taxa aproximada abaixo) e <b>milhas reais do Smiles</b> na seção "4. Milhas" logo
-    adiante (LATAM/AA não têm fonte grátis equivalente ainda; Azul tem, mas por uma fonte diferente — ver abaixo).</p>
+    adiante (LATAM continua sem fonte grátis equivalente; Azul e AA têm, mas por fontes diferentes — ver abaixo).</p>
     <p class="status-line"><b>Economia de cota:</b> por ser paga por uso, o Google Flights via RapidAPI só é consultado
     quando você busca manualmente (botão "Buscar" ou "Rodar agora") — as execuções automáticas do agendador (3x/dia +
     varredura de promoção relâmpago a cada 2h) usam só as fontes grátis, pra não gastar cota sem você pedir.</p>
@@ -83,6 +83,18 @@
     antes de cobrar por uso.</p>
     <div class="row">
       <div class="field"><label for="APIFY_TOKEN">Apify API Token</label><input type="password" id="APIFY_TOKEN" placeholder="já configurado" /></div>
+    </div>
+
+    <h3>Seats.aero: American Airlines/AAdvantage (milhas reais) <span class="badge pending" id="badge-SEATSAERO_API_KEY">verificando…</span></h3>
+    <p class="status-line"><b>Preenche a única lacuna que restava:</b> AA não tinha nenhuma fonte real (LATAM continua
+    sem — o Seats.aero não cobre esse programa). <b>Custo:</b> conta Pro em seats.aero (US$9,99/mês) — a API de
+    parceiro tem uso pessoal liberado pra assinantes Pro, mas uso comercial exige acordo à parte com a empresa; confirme
+    o que se aplica ao seu caso antes de assinar. <b>Ainda não testado com uma chave real</b> (mesma ressalva que as
+    fontes acima quando foram implementadas) — os nomes de campo foram confirmados contra a documentação pública deles,
+    não contra uma resposta ao vivo. 1. Assine em <a href="https://seats.aero" target="_blank" rel="noopener">seats.aero</a> ·
+    2. Peça acesso à Partner API (seção de conta/API) · 3. Cole a chave abaixo.</p>
+    <div class="row">
+      <div class="field"><label for="SEATSAERO_API_KEY">Seats.aero Partner API Key</label><input type="password" id="SEATSAERO_API_KEY" placeholder="já configurado" /></div>
     </div>
   </section>
 
