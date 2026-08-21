@@ -95,12 +95,16 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
   const offers = (rawOffers || [])
     .map((offer) => ({
       program: 'CASH_RAPIDAPI_GFLIGHTS',
-      priceBRL: usdToBrl(Number(offer.price_as_number)),
+      // `price_as_number` era o único nome de campo testado (nunca contra a
+      // API real) — `price` como alternativa não custa nada e cobre o caso
+      // de a API usar um nome de campo diferente do assumido. Mesma lógica
+      // pro link de compra (`buy_link` vs `deeplink`).
+      priceBRL: usdToBrl(Number(offer.price_as_number ?? offer.price)),
       milesRequired: null,
       taxesBRL: null,
       stops: Number(offer.stops) || 0,
       isHiddenCity: false,
-      deepLink: offer.buy_link || null,
+      deepLink: offer.buy_link || offer.deeplink || null,
       source: `Google Flights via RapidAPI (${offer.airline || 'dados reais'})`,
     }))
     .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);

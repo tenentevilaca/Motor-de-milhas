@@ -106,3 +106,25 @@ test('formato de resposta totalmente desconhecido: mostra 0 ofertas SEM crashar,
     `deveria ter logado as chaves reais da resposta pra diagnóstico; logs: ${JSON.stringify(errorLines)}`
   );
 });
+
+// `price_as_number` era o único nome de campo testado — nunca confirmado
+// contra a resposta real da API (só depois de uma rodada inteira sem
+// resultado é que apareceu a hipótese de o campo real se chamar só
+// `price`). Cobre os dois nomes sem custo nenhum quando o campo certo já
+// for `price_as_number`.
+test('aceita offer.price como alternativa a offer.price_as_number', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  try {
+    await withMockedPost(
+      { data: [{ price: 450, stops: 0, airline: 'Copa', deeplink: 'https://exemplo.com/comprar' }] },
+      async () => {
+        const result = await provider.search({ origin: 'CNF', destination: 'BOG', departDate: '2026-11-10', returnDate: null });
+        assert.equal(result.offers.length, 1);
+        assert.equal(result.offers[0].priceBRL, 450 * 5.5);
+        assert.equal(result.offers[0].deepLink, 'https://exemplo.com/comprar');
+      }
+    );
+  } finally {
+    delete process.env.RAPIDAPI_KEY;
+  }
+});
