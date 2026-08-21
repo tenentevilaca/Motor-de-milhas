@@ -58,6 +58,9 @@
     assinar por lá) · 4. Cole abaixo. Essa única chave ativa as duas coisas: preço em dinheiro ao vivo (Google Flights —
     vem em dólar, convertido por uma taxa aproximada abaixo) e <b>milhas reais do Smiles</b> na seção "4. Milhas" logo
     adiante (LATAM/AA não têm fonte grátis equivalente ainda; Azul tem, mas por uma fonte diferente — ver abaixo).</p>
+    <p class="status-line"><b>Economia de cota:</b> por ser paga por uso, o Google Flights via RapidAPI só é consultado
+    quando você busca manualmente (botão "Buscar" ou "Rodar agora") — as execuções automáticas do agendador (3x/dia +
+    varredura de promoção relâmpago a cada 2h) usam só as fontes grátis, pra não gastar cota sem você pedir.</p>
     <div class="row">
       <div class="field"><label for="RAPIDAPI_KEY">X-RapidAPI-Key</label><input type="password" id="RAPIDAPI_KEY" placeholder="já configurado" /></div>
       <div class="field field-narrow"><label for="USD_TO_BRL_RATE">Câmbio USD→BRL aproximado</label><input type="text" id="USD_TO_BRL_RATE" placeholder="5.5" /></div>

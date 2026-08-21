@@ -42,3 +42,27 @@ test('runAllActiveSearches roda buscas salvas em paralelo (limitado), não uma p
   // concorrência 3, deveria ficar perto de ~200ms (2 lotes de 3).
   assert.ok(elapsed < 450, `esperava bem menos que 600ms (sequencial), levou ${elapsed}ms`);
 });
+
+test('runAllActiveSearches nunca consulta o Google Flights via RapidAPI (fonte paga) — só busca manual faz isso', async () => {
+  clearCache();
+  delete require.cache[require.resolve('../src/scheduler')];
+  const scheduler = require('../src/scheduler');
+
+  let gflightsCallCount = 0;
+  providers.ALL_PROVIDERS.CASH_RAPIDAPI_GFLIGHTS.search = async () => {
+    gflightsCallCount++;
+    return { status: 'ok', offers: [{ program: 'CASH_RAPIDAPI_GFLIGHTS', priceBRL: 900, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }] };
+  };
+  for (const id of ['SMILES', 'AZUL', 'AA', 'LATAM']) {
+    providers.ALL_PROVIDERS[id].search = async () => ({ status: 'not_configured', offers: [] });
+  }
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1000, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+
+  db.createSearch({ origin: 'GRU', destination: 'CDG', departDate: '2026-12-01' });
+  await scheduler.runAllActiveSearches('teste');
+
+  assert.equal(gflightsCallCount, 0, 'agendador automático nunca deveria chamar a fonte paga');
+});

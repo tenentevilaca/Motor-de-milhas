@@ -304,3 +304,30 @@ test('cooldown não silencia o alertCount quando não há nada pra alertar (não
   assert.equal(result.alertCount, 0);
   assert.equal(result.alertsSuppressedByCooldown, false);
 });
+
+test('busca do agendador (isScheduledRun) pula o Google Flights via RapidAPI (fonte paga) — só busca manual consulta', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  let gflightsCallCount = 0;
+  providers.ALL_PROVIDERS.CASH_RAPIDAPI_GFLIGHTS.search = async () => {
+    gflightsCallCount++;
+    return { status: 'ok', offers: [{ program: 'CASH_RAPIDAPI_GFLIGHTS', priceBRL: 900, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }] };
+  };
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1000, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+
+  const search = db.createSearch({ origin: 'GRU', destination: 'LIS', departDate: '2027-06-01' });
+
+  // Execução automática do agendador: NÃO deveria consultar a fonte paga.
+  const scheduledResult = await runSearch({ ...search, isScheduledRun: true });
+  assert.equal(gflightsCallCount, 0, 'agendador não deveria ter chamado o provider pago');
+  assert.equal(scheduledResult.providerResults.some((r) => r.programId === 'CASH_RAPIDAPI_GFLIGHTS'), false);
+  assert.ok(scheduledResult.allOffersSorted.some((o) => o.program === 'CASH_TRAVELPAYOUTS'), 'fonte grátis continua funcionando normalmente no agendador');
+
+  // Execução manual (isScheduledRun ausente/false): deveria consultar normalmente.
+  const manualResult = await runSearch(db.getSearch(search.id));
+  assert.equal(gflightsCallCount, 1, 'busca manual deveria ter chamado o provider pago');
+  assert.ok(manualResult.allOffersSorted.some((o) => o.program === 'CASH_RAPIDAPI_GFLIGHTS'));
+});

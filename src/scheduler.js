@@ -53,7 +53,11 @@ async function runAllActiveSearches(label) {
   console.log(`[scheduler:${label}] rodando ${searches.length} busca(s) ativa(s) em ${now} (até ${SEARCH_CONCURRENCY} em paralelo)`);
   await mapWithConcurrencyLimit(searches, SEARCH_CONCURRENCY, async (search) => {
     try {
-      const result = await runSearch(search);
+      // Marca só nessa chamada (não persiste no registro salvo em disco) —
+      // é o que faz runSearch() pular a fonte paga (Google Flights via
+      // RapidAPI) nas execuções automáticas do agendador. Ver comentário em
+      // runSearch.js.
+      const result = await runSearch({ ...search, isScheduledRun: true });
       if (result.alertCount > 0) {
         console.log(`[scheduler:${label}] ${search.origin}->${search.destination}: ${result.alertCount} alerta(s) disparado(s)`);
       }

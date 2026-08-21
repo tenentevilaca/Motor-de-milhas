@@ -165,7 +165,21 @@ function milesValuePer1000() {
 }
 
 async function runSearch(search) {
-  const programsToQuery = [...CASH_PROVIDER_IDS, ...search.programs.filter((p) => MILE_PROGRAM_IDS.includes(p))];
+  // Google Flights via RapidAPI é serviço PAGO por uso (diferente do
+  // Travelpayouts, que é grátis). O agendador roda buscas salvas sozinho
+  // várias vezes por dia (3x principal + a cada 2h pra promoção relâmpago)
+  // — sem essa distinção, isso gastaria cota paga em checagens automáticas
+  // que o usuário nunca pediu especificamente. Busca manual (usuário
+  // clicando "Buscar" ou "Rodar agora") continua consultando essa fonte
+  // normalmente; só a execução automática do agendador
+  // (search.isScheduledRun === true, setado em scheduler.js pra essa
+  // chamada específica, nunca persistido no registro salvo) pula ela e usa
+  // só as fontes gratuitas (Travelpayouts + programas de milhas
+  // selecionados).
+  const cashProviderIds = search.isScheduledRun
+    ? CASH_PROVIDER_IDS.filter((id) => id !== 'CASH_RAPIDAPI_GFLIGHTS')
+    : CASH_PROVIDER_IDS;
+  const programsToQuery = [...cashProviderIds, ...search.programs.filter((p) => MILE_PROGRAM_IDS.includes(p))];
 
   // Destino = região inteira (ex: "REGION:SA"): em vez de um único aeroporto,
   // consulta uma lista enxuta de hubs representativos daquele continente, pra
