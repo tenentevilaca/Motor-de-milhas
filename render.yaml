@@ -26,6 +26,8 @@ services:
         value: "5.5"
       - key: APIFY_TOKEN
         sync: false
+      - key: SEATSAERO_API_KEY
+        sync: false
       - key: MILES_VALUE_PER_1000
         value: "20"
       - key: SMTP_HOST
