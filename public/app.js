@@ -178,7 +178,11 @@ if (document.getElementById('originQuery')) {
       toggleSplitTicketForRegion();
     },
   });
-  document.getElementById('departDate').addEventListener('change', () => updateBestTimeCard());
+  document.getElementById('departDate').addEventListener('change', () => {
+    updateBestTimeCard();
+    syncReturnDateMin();
+  });
+  document.getElementById('returnDate').addEventListener('change', () => syncReturnDateMin());
   // #bestTimeCard fica posicionado DEPOIS de "Programas de milhas" no HTML
   // de propósito: como esse listener reescreve o conteúdo do card (que
   // pode crescer bastante — tendência, sparkline, padrão sazonal), se o
@@ -222,6 +226,25 @@ function toggleTripType() {
   const field = document.getElementById('returnDateField');
   field.hidden = !isRoundTrip;
   if (!isRoundTrip) document.getElementById('returnDate').value = '';
+  else syncReturnDateMin();
+}
+
+// Data de volta tem que ser posterior à de ida — sem isso dava pra criar uma
+// busca com volta antes da ida (aceita pelo <input type="date"> normalmente,
+// que não sabe relacionar dois campos entre si) e as fontes de preço
+// simplesmente falhavam ou devolviam lixo pra essa combinação impossível.
+// O atributo `min` bloqueia escolher uma data inválida pelo seletor nativo,
+// mas não limpa sozinho um valor que ficou inválido depois que a ida mudou
+// pra uma data mais tarde — por isso limpa explicitamente nesse caso.
+function syncReturnDateMin() {
+  const departInput = document.getElementById('departDate');
+  const returnInput = document.getElementById('returnDate');
+  if (!departInput || !returnInput || !departInput.value) return;
+  const nextDay = new Date(`${departInput.value}T00:00:00`);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const minReturn = nextDay.toISOString().slice(0, 10);
+  returnInput.min = minReturn;
+  if (returnInput.value && returnInput.value < minReturn) returnInput.value = '';
 }
 
 // Alterna entre "Data específica" (fluxo normal de busca salva/agendada) e
@@ -745,6 +768,13 @@ async function createSearch() {
   }
   if (!document.getElementById('departDate').value) {
     status.textContent = 'Escolha uma data de ida — sem data, as fontes de preço em dinheiro não têm o que consultar.';
+    status.style.color = 'var(--danger-text)';
+    return;
+  }
+  const departDateValue = document.getElementById('departDate').value;
+  const returnDateValue = document.getElementById('returnDate').value;
+  if (returnDateValue && returnDateValue <= departDateValue) {
+    status.textContent = 'A data de volta precisa ser posterior à data de ida.';
     status.style.color = 'var(--danger-text)';
     return;
   }

@@ -184,6 +184,9 @@ app.post('/api/searches', (req, res) => {
   if (body.compareSplitTickets && !body.returnDate) {
     return res.status(400).json({ error: 'Comparar quebra de bilhete exige data de volta preenchida.' });
   }
+  if (body.returnDate && body.returnDate <= body.departDate) {
+    return res.status(400).json({ error: 'A data de volta precisa ser posterior à data de ida.' });
+  }
   const search = db.createSearch({ ...body, programs });
   res.status(201).json(search);
 });
