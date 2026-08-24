@@ -89,10 +89,10 @@
     <p class="status-line"><b>Preenche a única lacuna que restava:</b> AA não tinha nenhuma fonte real (LATAM continua
     sem — o Seats.aero não cobre esse programa). <b>Custo:</b> conta Pro em seats.aero (US$9,99/mês) — a API de
     parceiro tem uso pessoal liberado pra assinantes Pro, mas uso comercial exige acordo à parte com a empresa; confirme
-    o que se aplica ao seu caso antes de assinar. <b>Ainda não testado com uma chave real</b> (mesma ressalva que as
-    fontes acima quando foram implementadas) — os nomes de campo foram confirmados contra a documentação pública deles,
-    não contra uma resposta ao vivo. 1. Assine em <a href="https://seats.aero" target="_blank" rel="noopener">seats.aero</a> ·
-    2. Peça acesso à Partner API (seção de conta/API) · 3. Cole a chave abaixo.</p>
+    o que se aplica ao seu caso antes de assinar. 1. Assine em <a href="https://seats.aero" target="_blank" rel="noopener">seats.aero</a> ·
+    2. Configurações → aba "API" da sua conta → copie a chave (começa com <code>pro_</code>) · 3. Cole abaixo — sem
+    escrever "Bearer " na frente, o código já usa a chave direto no header (confirmado contra o exemplo oficial deles;
+    a versão inicial mandava "Bearer" por engano, causando erro <code>bad_partner_token</code>).</p>
     <div class="row">
       <div class="field"><label for="SEATSAERO_API_KEY">Seats.aero Partner API Key</label><input type="password" id="SEATSAERO_API_KEY" placeholder="já configurado" /></div>
     </div>

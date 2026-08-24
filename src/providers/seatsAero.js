@@ -12,9 +12,15 @@ const config = require('../config');
 // do formulário mandam.
 const BASE_URL = 'https://seats.aero/partnerapi';
 
-// Confirmado via documentação pública (busca web — não testado ainda com
-// uma chave real, mesma ressalva já feita pro RapidAPI Google Flights):
-//   - Auth: header "Partner-Authorization: Bearer <chave>".
+// Auth confirmada com print da documentação oficial (aba Configurações →
+// API da própria conta seats.aero, exemplo de curl deles): o header
+// "Partner-Authorization" leva a chave DIRETO, sem prefixo "Bearer " — a
+// busca web usada antes indicava (errado) "Bearer <chave>", o que causava
+// erro "bad_partner_token" na API real (chave rejeitada por vir com um
+// prefixo que não faz parte do token).
+//
+// Resto confirmado via documentação pública (busca web — não testado ainda
+// com uma chave real, mesma ressalva já feita pro RapidAPI Google Flights):
 //   - GET /search aceita origin_airport/destination_airport +
 //     start_date/end_date (janela de datas pesquisada — sem isso, a API
 //     pagina resultados por padrão e pode nunca chegar na data que o
@@ -58,7 +64,7 @@ async function searchSeatsAero({ origin, destination, departDate, programId, sou
       end_date: departDate,
     },
     headers: {
-      'Partner-Authorization': `Bearer ${config.get('SEATSAERO_API_KEY')}`,
+      'Partner-Authorization': config.get('SEATSAERO_API_KEY'),
       accept: 'application/json',
     },
     timeout: 15000,

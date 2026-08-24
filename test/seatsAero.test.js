@@ -52,7 +52,7 @@ test('AA usa Seats.aero quando SEATSAERO_API_KEY está configurada e devolve pro
   }
 });
 
-test('Seats.aero: envia start_date=end_date=departDate exata (evita paginação incorreta) e o header Partner-Authorization com Bearer', async () => {
+test('Seats.aero: envia start_date=end_date=departDate exata (evita paginação incorreta) e o header Partner-Authorization com a chave crua (sem "Bearer " — confirmado no exemplo oficial da própria conta, "Bearer" causava bad_partner_token)', async () => {
   process.env.SEATSAERO_API_KEY = 'minha-chave';
   try {
     await withMockedGet({ data: { data: [] } }, async () => {
@@ -62,7 +62,7 @@ test('Seats.aero: envia start_date=end_date=departDate exata (evita paginação 
       assert.equal(opts.params.destination_airport, 'MIA');
       assert.equal(opts.params.start_date, '2026-12-25');
       assert.equal(opts.params.end_date, '2026-12-25');
-      assert.equal(opts.headers['Partner-Authorization'], 'Bearer minha-chave');
+      assert.equal(opts.headers['Partner-Authorization'], 'minha-chave');
     });
   } finally {
     delete process.env.SEATSAERO_API_KEY;
