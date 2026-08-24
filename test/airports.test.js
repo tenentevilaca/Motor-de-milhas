@@ -37,6 +37,19 @@ test('nome completo da cidade (sem abreviação) continua funcionando normalment
   assert.ok(results.some((a) => a.iata === 'PLU'));
 });
 
+test('"curacao" (sem cedilha, como a busca normaliza) encontra CUR — base OpenFlights tinha o país desatualizado ("Netherlands Antilles", dissolvido em 2010)', () => {
+  // Regressão real: buscar "Curaçao" não devolvia nada porque nem a cidade
+  // (Willemstad) nem o país batiam com o texto digitado — o país na base
+  // ainda estava com o nome antigo. Corrigido o dado (país = "Curaçao"),
+  // a busca por país já encontra sem precisar de alias separado. Mesmo
+  // problema existia pra SXM (era "Netherlands Antilles", agora "Sint
+  // Maarten") — os dois países se tornaram independentes no mesmo evento de
+  // 2010; BON/EUX/SAB continuam como estavam (caso mais ambíguo, fora do
+  // escopo do que foi reportado).
+  const results = searchAirports('curacao');
+  assert.ok(results.some((a) => a.iata === 'CUR'), `esperava CUR entre os resultados, veio ${JSON.stringify(results.map((r) => r.iata))}`);
+});
+
 test('query sem alias nem match nenhum devolve lista vazia', () => {
   const results = searchAirports('xyzxyzxyz-nao-existe');
   assert.equal(results.length, 0);
