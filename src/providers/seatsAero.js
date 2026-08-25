@@ -70,7 +70,23 @@ async function searchSeatsAero({ origin, destination, departDate, programId, sou
     timeout: 15000,
   });
 
-  const trips = extractTrips(data).filter((t) => String(t.Source || '').toLowerCase() === sourceKey);
+  // Diagnóstico (mesmo padrão já usado no Travelpayouts e no Google Flights
+  // via RapidAPI — o endpoint/formato do Seats.aero nunca foi confirmado
+  // contra uma resposta real de verdade, só a autenticação foi, via print
+  // da própria conta): sem isso, "AA sem oferta" pode significar 3 coisas
+  // bem diferentes — API não devolveu NADA pra rota (endpoint/params
+  // errados), devolveu trips mas nenhum com Source="american" (nome de
+  // fonte diferente do esperado), ou devolveu trips certos mas sem preço
+  // em milhas legível (nome de campo de milhagem diferente do esperado).
+  const allTrips = extractTrips(data);
+  const trips = allTrips.filter((t) => String(t.Source || '').toLowerCase() === sourceKey);
+  if (allTrips.length === 0) {
+    const shape = data && typeof data === 'object' ? `objeto com chaves [${Object.keys(data).join(', ')}]` : typeof data;
+    console.log(`[SEATSAERO:${programId}] resposta pra ${origin}->${destination} não trouxe nenhuma trip (${shape}) — API respondeu, mas 0 itens no total (não filtrado por fonte ainda).`);
+  } else if (trips.length === 0) {
+    const sourcesFound = [...new Set(allTrips.map((t) => t.Source))];
+    console.log(`[SEATSAERO:${programId}] resposta trouxe ${allTrips.length} trip(s) pra ${origin}->${destination}, mas nenhuma com Source="${sourceKey}" — fontes que vieram: [${sourcesFound.join(', ')}]`);
+  }
 
   const offers = [];
   for (const trip of trips) {
@@ -89,6 +105,13 @@ async function searchSeatsAero({ origin, destination, departDate, programId, sou
       });
     }
   }
+
+  if (trips.length > 0 && offers.length === 0) {
+    console.error(
+      `[SEATSAERO:${programId}] ${trips.length} trip(s) com Source="${sourceKey}" encontradas pra ${origin}->${destination}, mas nenhuma cabine com milhagem legível — provável nome de campo diferente do esperado (YMileageCost/JMileageCost/etc). Chaves da 1ª trip: [${Object.keys(trips[0] || {}).join(', ')}]`
+    );
+  }
+
   return offers;
 }
 

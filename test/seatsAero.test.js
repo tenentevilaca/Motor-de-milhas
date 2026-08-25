@@ -84,6 +84,69 @@ test('Seats.aero: descarta cabine sem milhas válidas (0/negativo/ausente)', asy
   }
 });
 
+test('diagnóstico: resposta sem nenhuma trip loga aviso distinto de "sem trip com essa fonte"', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    await withMockedGet({ data: { data: [] } }, async () => {
+      await aa.search({ origin: 'GRU', destination: 'CUR', departDate: '2026-11-10', returnDate: null });
+    });
+  } finally {
+    console.log = originalLog;
+    delete process.env.SEATSAERO_API_KEY;
+  }
+  assert.ok(
+    logLines.some((l) => l.includes('SEATSAERO:AA') && l.includes('0 itens no total')),
+    `logs: ${JSON.stringify(logLines)}`
+  );
+});
+
+test('diagnóstico: trips vieram mas nenhuma com a fonte esperada — loga quais fontes vieram de verdade', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'united', Stops: 0, YMileageCost: 30000 }, { Source: 'delta', Stops: 0, YMileageCost: 25000 }] } },
+      async () => {
+        await aa.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
+      }
+    );
+  } finally {
+    console.log = originalLog;
+    delete process.env.SEATSAERO_API_KEY;
+  }
+  assert.ok(
+    logLines.some((l) => l.includes('SEATSAERO:AA') && l.includes('united') && l.includes('delta')),
+    `logs: ${JSON.stringify(logLines)}`
+  );
+});
+
+test('diagnóstico: trip da fonte certa existe mas sem cabine legível — loga as chaves da trip bruta', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  const originalError = console.error;
+  const errorLines = [];
+  console.error = (...args) => errorLines.push(args.join(' '));
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 0, economy_miles: 30000 }] } },
+      async () => {
+        await aa.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
+      }
+    );
+  } finally {
+    console.error = originalError;
+    delete process.env.SEATSAERO_API_KEY;
+  }
+  assert.ok(
+    errorLines.some((l) => l.includes('SEATSAERO:AA') && l.includes('economy_miles')),
+    `logs: ${JSON.stringify(errorLines)}`
+  );
+});
+
 test('AA sem SEATSAERO_API_KEY: cai pro fallback genérico (not_configured), como antes', async () => {
   delete process.env.SEATSAERO_API_KEY;
   delete process.env.AA_PROVIDER_URL;
