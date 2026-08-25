@@ -22,7 +22,7 @@ test('sem TRAVELPAYOUTS_TOKEN: not_configured, sem chamar a API', async () => {
 test('parseia ofertas normalmente quando a API devolve { data: [...] } com preço válido', async () => {
   process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
   try {
-    await withMockedGet({ data: { data: [{ price: 3200, transfers: 0 }, { price: 2800, transfers: 1 }] } }, async () => {
+    await withMockedGet({ data: { data: [{ value: 3200, number_of_changes: 0 }, { value: 2800, number_of_changes: 1 }] } }, async () => {
       const result = await provider.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-12-08', returnDate: '2026-12-16' });
       assert.equal(result.status, 'ok');
       assert.equal(result.offers.length, 2);
@@ -33,11 +33,53 @@ test('parseia ofertas normalmente quando a API devolve { data: [...] } com preç
   }
 });
 
+// Regressão real (log de produção, GRU->MIA — uma das rotas mais
+// movimentadas do Brasil, vinha zerada): os nomes de campo usados antes
+// (`price`/`transfers`) nunca bateram com a resposta real da API. Item
+// abaixo é o shape REAL confirmado no log (chaves na mesma ordem que
+// vieram), não um chute — trava esse formato como regressão.
+test('parseia o shape real confirmado em produção: value/number_of_changes, não price/transfers', async () => {
+  process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
+  try {
+    await withMockedGet(
+      {
+        data: {
+          data: [
+            {
+              depart_date: '2026-12-08',
+              origin: 'GRU',
+              destination: 'MIA',
+              gate: 112,
+              return_date: '2026-12-16',
+              found_at: '2026-08-20T10:00:00',
+              trip_class: 0,
+              value: 3450,
+              number_of_changes: 1,
+              duration: 620,
+              distance: 6600,
+              show_to_affiliates: true,
+              actual: true,
+            },
+          ],
+        },
+      },
+      async () => {
+        const result = await provider.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-12-08', returnDate: '2026-12-16' });
+        assert.equal(result.offers.length, 1);
+        assert.equal(result.offers[0].priceBRL, 3450);
+        assert.equal(result.offers[0].stops, 1);
+      }
+    );
+  } finally {
+    delete process.env.TRAVELPAYOUTS_TOKEN;
+  }
+});
+
 test('descarta itens sem preço válido (NaN/0/negativo/ausente) — não vira "oferta fantasma"', async () => {
   process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
   try {
     await withMockedGet(
-      { data: { data: [{ price: 3200 }, { price: null }, { price: 0 }, {}] } },
+      { data: { data: [{ value: 3200 }, { value: null }, { value: 0 }, {}] } },
       async () => {
         const result = await provider.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-12-08', returnDate: null });
         assert.equal(result.offers.length, 1);

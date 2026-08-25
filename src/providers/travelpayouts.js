@@ -65,13 +65,21 @@ async function search({ origin, destination, departDate, returnDate }) {
   // descarta esses aqui, senão viram ofertas fantasma com preço "NaN" que o
   // JSON serializa como null e o front-end mostra como "-" em todas as
   // linhas (bug real observado: 12 "ofertas" idênticas sem preço nenhum).
+  // Nomes de campo CONFIRMADOS contra resposta real (log de produção,
+  // GRU->MIA): o item vem com [depart_date, origin, destination, gate,
+  // return_date, found_at, trip_class, value, number_of_changes, duration,
+  // distance, show_to_affiliates, actual] — preço é `value`, não `price`;
+  // paradas é `number_of_changes`, não `transfers`. Os nomes antigos nunca
+  // bateram com a API real — essa fonte roda em TODA busca (é o provider de
+  // dinheiro incondicional), então isso zerava silenciosamente o preço em
+  // dinheiro de toda busca feita até aqui, não só rotas raras.
   const offers = (rawOffers || [])
     .map((offer) => ({
       program: 'CASH_TRAVELPAYOUTS',
-      priceBRL: Number(offer.price),
+      priceBRL: Number(offer.value),
       milesRequired: null,
       taxesBRL: null,
-      stops: offer.transfers ?? 0,
+      stops: offer.number_of_changes ?? 0,
       isHiddenCity: false,
       deepLink: null,
       source: 'Travelpayouts (dados reais, cache recente)',
