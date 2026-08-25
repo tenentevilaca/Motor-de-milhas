@@ -90,6 +90,11 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
     console.error(
       `[CASH_RAPIDAPI_GFLIGHTS] resposta em formato inesperado (${shape}) — nenhuma lista de voos reconhecida, mostrando 0 ofertas. Verifique o formato real da resposta dessa API pra ajustar o parsing.`
     );
+  } else if (rawOffers.length === 0) {
+    // Diferente do caso acima: aqui a lista foi reconhecida normalmente,
+    // só veio vazia — a API respondeu certo, mas não achou voo pra essa
+    // rota/data (não é bug de parsing, é resultado real dela).
+    console.log(`[CASH_RAPIDAPI_GFLIGHTS] resposta reconhecida (${origin}->${destination} ${departDate}), mas 0 voos na lista — sem oferta pra essa rota/data nessa fonte.`);
   }
 
   const offers = (rawOffers || [])
@@ -108,6 +113,19 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
       source: `Google Flights via RapidAPI (${offer.airline || 'dados reais'})`,
     }))
     .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);
+
+  // Caso intermediário que o log acima não cobre: a API devolveu itens de
+  // verdade (não é lista vazia), mas TODOS foram descartados no parsing —
+  // sinal forte de que o nome do campo de preço real é outro, diferente de
+  // `price_as_number`/`price` (mesma classe de problema já corrigida uma
+  // vez pro nome do link de compra). Loga as chaves do primeiro item bruto
+  // pra dar pra ajustar sem precisar de mais uma rodada perguntando pro
+  // usuário o que apareceu na resposta.
+  if (rawOffers && rawOffers.length > 0 && offers.length === 0) {
+    console.error(
+      `[CASH_RAPIDAPI_GFLIGHTS] API devolveu ${rawOffers.length} item(ns) pra ${origin}->${destination}, mas nenhum sobrou depois do parsing de preço — provável nome de campo diferente do esperado. Chaves do 1º item: [${Object.keys(rawOffers[0] || {}).join(', ')}]`
+    );
+  }
 
   return { status: 'ok', message: null, offers };
 }

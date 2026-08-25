@@ -107,6 +107,39 @@ test('formato de resposta totalmente desconhecido: mostra 0 ofertas SEM crashar,
   );
 });
 
+// Achado real (logs de produção): a rota veio com "resposta em formato
+// inesperado" nenhuma (a lista FOI reconhecida — array na raiz ou chave
+// conhecida), mas voltou 0 ofertas mesmo com voos reais confirmados fora
+// do app. Isso é um caso diferente do "formato desconhecido" acima: o
+// array existe e tem itens, só que o nome do campo de preço dentro de
+// cada item pode ser outro (nem price_as_number, nem price). Sem log
+// específico pra esse caso, fica invisível se é "API não achou nada" (0
+// itens) ou "achou mas não consigo ler o preço" (N itens, todos
+// descartados) — o segundo exige ajustar o parsing, o primeiro não.
+test('itens existem mas nenhum sobrevive ao parsing de preço: loga as chaves do item bruto pra diagnóstico (não confunde com "formato desconhecido")', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  const originalError = console.error;
+  const errorLines = [];
+  console.error = (...args) => errorLines.push(args.join(' '));
+  try {
+    await withMockedPost(
+      { data: [{ total_amount_usd: 620, airline: 'Avianca' }, { total_amount_usd: 700, airline: 'Copa' }] },
+      async () => {
+        const result = await provider.search({ origin: 'GRU', destination: 'CUR', departDate: '2026-11-10', returnDate: null });
+        assert.equal(result.status, 'ok');
+        assert.equal(result.offers.length, 0);
+      }
+    );
+  } finally {
+    console.error = originalError;
+    delete process.env.RAPIDAPI_KEY;
+  }
+  assert.ok(
+    errorLines.some((l) => l.includes('2 item(ns)') && l.includes('total_amount_usd')),
+    `deveria ter logado que 2 itens vieram mas nenhum sobrou, com as chaves reais; logs: ${JSON.stringify(errorLines)}`
+  );
+});
+
 // `price_as_number` era o único nome de campo testado — nunca confirmado
 // contra a resposta real da API (só depois de uma rodada inteira sem
 // resultado é que apareceu a hipótese de o campo real se chamar só
