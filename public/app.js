@@ -739,7 +739,7 @@ async function loadSearches() {
           .map((l) => `<a href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`)
           .join(' · ')}</div>
         <div class="actions">
-          <button onclick="runNow('${d.id}')">Rodar agora</button>
+          <button onclick="runNow('${d.id}', null, null, 0, ${isRegionDestination(d.destination)})">Rodar agora</button>
           <button class="secondary" onclick="viewHistory('${d.id}')">Ver histórico</button>
           <button class="secondary" onclick="exportHistory('${d.id}')">Exportar CSV</button>
           <button class="danger" onclick="removeSearch('${d.id}')">Excluir</button>
@@ -803,7 +803,7 @@ async function createSearch() {
     const resultBlock = document.getElementById('searchResultBlock');
     if (resultBlock) {
       resultBlock.hidden = false;
-      await runNow(created.id, 'searchResult', null);
+      await runNow(created.id, 'searchResult', null, 0, isRegionDestination(destination));
       status.textContent = 'Busca criada e resultado abaixo. Ela também fica salva em "Buscas ativas" pra rodar de novo depois.';
     }
   } catch (err) {
@@ -893,14 +893,24 @@ function calcArbInline(id) {
 const AUTO_RETRY_DELAY_MS = 8000;
 const MAX_AUTO_RETRIES = 2;
 
-async function runNow(id, resultElId, metaElId, autoRetryCount = 0) {
+async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSearch = false) {
   const el = document.getElementById(resultElId || `result-${id}`);
   const meta = metaElId === null ? null : document.getElementById(metaElId || `meta-${id}`);
   el.innerHTML = '<div class="status-line">Buscando nas fontes configuradas e nos blogs de promoção…</div>';
   try {
     const result = await api(`/api/searches/${id}/run`, { method: 'POST' });
     const sorted = result.allOffersSorted || [];
-    const showDestinationColumn = sorted.some((o) => o.destination) && new Set(sorted.map((o) => o.destination)).size > 1;
+    // Busca por região (ex: "América do Sul") consulta vários hubs — mesmo
+    // quando só UM hub acha oferta nessa rodada, o usuário não escolheu
+    // aquele aeroporto especificamente, então precisa ver qual foi. A
+    // condição de "só mostra se houver mais de 1 destino distinto" (abaixo)
+    // existia pra não repetir uma coluna óbvia numa busca de aeroporto
+    // fixo — mas escondia justamente a informação que mais importa quando é
+    // busca por região e só sobrou 1 destino com resultado nessa rodada
+    // (bug real reportado: usuário buscou "América do Sul" e não tinha
+    // como saber pra qual cidade o preço/milhas encontrados eram).
+    const showDestinationColumn =
+      isRegionSearch || (sorted.some((o) => o.destination) && new Set(sorted.map((o) => o.destination)).size > 1);
     // Com "Flexibilidade (± dias)" a busca testa várias datas de uma vez só
     // e mistura tudo no mesmo resultado — sem essa coluna não dá pra saber
     // a qual data cada oferta pertence (mais de 1 data de ida OU de volta
@@ -1091,7 +1101,7 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0) {
         // Se o elemento não existe mais (usuário saiu da página/trocou de
         // busca), não faz sentido continuar rechecando em segundo plano.
         if (document.getElementById(resultElId || `result-${id}`)) {
-          runNow(id, resultElId, metaElId, autoRetryCount + 1);
+          runNow(id, resultElId, metaElId, autoRetryCount + 1, isRegionSearch);
         }
       }, AUTO_RETRY_DELAY_MS);
     }
