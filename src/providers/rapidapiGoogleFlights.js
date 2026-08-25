@@ -110,6 +110,13 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
       stops: Number(offer.stops) || 0,
       isHiddenCity: false,
       deepLink: offer.buy_link || offer.deeplink || null,
+      // Companhia e número do voo como campos próprios (não só dentro do
+      // texto de "source") — pra aparecer como coluna separada na tabela de
+      // resultado, igual já acontece pro Azul (Apify). `flightNumber` é uma
+      // tentativa nunca confirmada contra a API real (mesma ressalva de
+      // sempre pra essa fonte) — nomes alternativos custam nada testar.
+      airline: offer.airline || null,
+      flightNumber: offer.flight_number ?? offer.flightNumber ?? offer.flightNo ?? null,
       source: `Google Flights via RapidAPI (${offer.airline || 'dados reais'})`,
     }))
     .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);

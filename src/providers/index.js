@@ -20,6 +20,7 @@ const azul = require('./azul');
 //   departureTime: string | null,  // ex: "18:25" — hora local de partida
 //   arrivalTime: string | null,
 //   partnerAirlines: string[] | null | undefined,  // companhias que aceitam essa milhagem, quando a fonte fornecer
+//   airline: string | null | undefined,  // companhia OPERANDO o voo (oferta em dinheiro), quando a fonte fornecer
 //   source: string,
 // }
 

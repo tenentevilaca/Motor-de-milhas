@@ -12,6 +12,26 @@ function withMockedPost(response, fn) {
   });
 }
 
+// Pedido do usuário: essa fonte devolve companhia/voo (diferente do
+// Travelpayouts e do Seats.aero, que não trazem esse detalhe) — mas antes
+// só aparecia dentro do texto de "source", sem virar coluna própria na
+// tabela de resultado. Expõe como campos separados (airline/flightNumber).
+test('expõe airline e flightNumber como campos próprios (não só dentro do texto de "source")', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  try {
+    await withMockedPost(
+      { data: [{ price_as_number: 500, stops: 0, airline: 'LATAM', flight_number: 'LA8084' }] },
+      async () => {
+        const result = await provider.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
+        assert.equal(result.offers[0].airline, 'LATAM');
+        assert.equal(result.offers[0].flightNumber, 'LA8084');
+      }
+    );
+  } finally {
+    delete process.env.RAPIDAPI_KEY;
+  }
+});
+
 test('inclui ofertas com conexão mesmo sem "Aceitar stopover" marcado — regressão real reportada pelo usuário', async () => {
   process.env.RAPIDAPI_KEY = 'test-key';
   try {
