@@ -32,6 +32,15 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
   );
 
   const items = Array.isArray(data) ? data : [];
+  // Diagnóstico (mesmo padrão já usado no Travelpayouts/Google Flights via
+  // RapidAPI/Seats.aero): esse ator já foi testado com dado real uma vez
+  // (comentário acima), mas isso não garante que toda rota/data tenha
+  // resultado — sem log nenhum, "AZUL sem oferta" não distingue "o ator não
+  // achou nada pra essa rota/data" de "achou item(ns) mas nenhuma cabine
+  // bateu no filtro de disponibilidade/milhagem".
+  if (items.length === 0) {
+    console.log(`[AZUL:apify] resposta pra ${origin}->${destination} veio sem nenhum item — ator não achou nada pra essa rota/data (não é bug de parsing).`);
+  }
   const offers = [];
   for (const item of items) {
     const itinerary = (item.itineraries || [])[0];
@@ -62,6 +71,15 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
       });
     }
   }
+
+  if (items.length > 0 && offers.length === 0) {
+    const sample = items[0];
+    const cabinKeys = (sample.cabins || [])[0] ? Object.keys(sample.cabins[0]) : [];
+    console.error(
+      `[AZUL:apify] ${items.length} item(ns) pra ${origin}->${destination}, mas nenhuma cabine passou no filtro (available && mileage válido) — chaves do item: [${Object.keys(sample || {}).join(', ')}], chaves da 1ª cabine: [${cabinKeys.join(', ')}]`
+    );
+  }
+
   return offers;
 }
 
