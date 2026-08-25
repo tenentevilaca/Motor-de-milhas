@@ -1,6 +1,7 @@
 const axios = require('axios');
 const config = require('../config');
 const { createProgramProvider } = require('./programProvider');
+const seatsAero = require('./seatsAero');
 
 const APIFY_ACTOR_ID = 'igolaizola~flight-award-scraper';
 const APIFY_RUN_URL = `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items`;
@@ -94,26 +95,66 @@ const fallback = createProgramProvider({
 });
 
 function enabled() {
-  return Boolean(config.get('APIFY_TOKEN')) || fallback.enabled();
+  return Boolean(config.get('APIFY_TOKEN')) || seatsAero.enabled() || fallback.enabled();
+}
+
+// Achado real (log de produção, CNF->MAO): o robô Apify não achou nada
+// pra essa rota, mas o Seats.aero achou — trouxe uma trip com
+// Source="azul" pra EXATAMENTE a mesma rota/data. Ou seja, os dois cobrem
+// a Azul, mas nem sempre concordam (scraping de site é inerentemente
+// instável); rodar o Seats.aero como complemento quando o Apify não
+// achar nada aumenta a chance real de achar a oferta, em vez de depender
+// de uma fonte só. Só tenta o Seats.aero quando o Apify não trouxe
+// oferta nenhuma (sucesso vazio OU erro) — se o Apify já achou, não
+// gasta uma chamada a mais à toa.
+async function searchSeatsAeroAzul(params) {
+  return seatsAero.searchSeatsAero({
+    ...params,
+    programId: 'AZUL',
+    sourceKey: 'azul',
+    label: 'TudoAzul',
+    deepLinkBuilder: ({ origin, destination, departDate }) =>
+      `https://www.voeazul.com.br/br/pt/home/selecao-voo?tp=ONEWAY&og=${origin}&ds=${destination}&dtIda=${departDate}`,
+  });
 }
 
 async function search(params) {
-  if (!config.get('APIFY_TOKEN')) return fallback.search(params);
+  const apifyConfigured = Boolean(config.get('APIFY_TOKEN'));
+  const seatsConfigured = Boolean(config.get('SEATSAERO_API_KEY'));
+  if (!apifyConfigured && !seatsConfigured) return fallback.search(params);
 
-  try {
-    const offers = await searchApifyAzul(params);
-    return { status: 'ok', message: null, offers, manualCheckUrl: fallback.homepageUrl };
-  } catch (err) {
-    if (fallback.enabled()) return fallback.search(params);
-    const body = err.response?.data;
-    const bodyMsg = typeof body === 'string' ? body : body?.error?.message || body?.message || err.message;
-    return {
-      status: 'error',
-      message: `Flight Award & Itinerary Scraper (Azul, via Apify): ${bodyMsg}`.slice(0, 300),
-      offers: [],
-      manualCheckUrl: fallback.homepageUrl,
-    };
+  let offers = [];
+  let errorMsg = null;
+
+  if (apifyConfigured) {
+    try {
+      offers = await searchApifyAzul(params);
+    } catch (err) {
+      const body = err.response?.data;
+      const bodyMsg = typeof body === 'string' ? body : body?.error?.message || body?.message || err.message;
+      errorMsg = `Flight Award & Itinerary Scraper (Azul, via Apify): ${bodyMsg}`.slice(0, 300);
+    }
   }
+
+  if (offers.length === 0 && seatsConfigured) {
+    try {
+      offers = await searchSeatsAeroAzul(params);
+      errorMsg = null; // resposta válida da 2ª fonte — não importa se a 1ª deu erro
+    } catch (err) {
+      if (!errorMsg) {
+        const body = err.response?.data;
+        const bodyMsg = typeof body === 'string' ? body : body?.message || err.message;
+        errorMsg = `Seats.aero (TudoAzul): ${bodyMsg}`.slice(0, 300);
+      }
+    }
+  }
+
+  if (errorMsg && offers.length === 0) {
+    if (fallback.enabled()) return fallback.search(params);
+    return { status: 'error', message: errorMsg, offers: [], manualCheckUrl: fallback.homepageUrl };
+  }
+
+  return { status: 'ok', message: null, offers, manualCheckUrl: fallback.homepageUrl };
 }
 
 module.exports = { id: 'AZUL', label: 'TudoAzul', enabled, search, homepageUrl: fallback.homepageUrl };
