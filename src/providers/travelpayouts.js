@@ -46,11 +46,26 @@ async function search({ origin, destination, departDate, returnDate }) {
     timeout: 20000,
   });
 
+  // Achado real (GRU->MIA, rota das mais movimentadas do Brasil, veio 0
+  // ofertas — suspeito, já que essa fonte é cache de preços recentes e uma
+  // rota tão popular dificilmente estaria sem NENHUM preço cacheado):
+  // sem log nenhum aqui, ficava impossível saber se `data.data` veio vazio
+  // de verdade, veio em outro formato, ou veio com itens que o parsing
+  // descartou por outro motivo — mesma classe de problema já resolvida pro
+  // Google Flights via RapidAPI, replicada aqui.
+  const rawOffers = Array.isArray(data?.data) ? data.data : null;
+  if (rawOffers === null) {
+    const shape = data && typeof data === 'object' ? `objeto com chaves [${Object.keys(data).join(', ')}]` : typeof data;
+    console.error(`[CASH_TRAVELPAYOUTS] resposta em formato inesperado (${shape}) — esperava { data: [...] }, mostrando 0 ofertas.`);
+  } else if (rawOffers.length === 0) {
+    console.log(`[CASH_TRAVELPAYOUTS] resposta reconhecida (${origin}->${destination} ${departDate}), mas 0 itens na lista — sem preço cacheado pra essa rota/data agora.`);
+  }
+
   // Alguns registros do cache vêm sem preço válido (campo ausente ou nulo) —
   // descarta esses aqui, senão viram ofertas fantasma com preço "NaN" que o
   // JSON serializa como null e o front-end mostra como "-" em todas as
   // linhas (bug real observado: 12 "ofertas" idênticas sem preço nenhum).
-  const offers = (data.data || [])
+  const offers = (rawOffers || [])
     .map((offer) => ({
       program: 'CASH_TRAVELPAYOUTS',
       priceBRL: Number(offer.price),
@@ -62,6 +77,12 @@ async function search({ origin, destination, departDate, returnDate }) {
       source: 'Travelpayouts (dados reais, cache recente)',
     }))
     .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);
+
+  if (rawOffers && rawOffers.length > 0 && offers.length === 0) {
+    console.error(
+      `[CASH_TRAVELPAYOUTS] API devolveu ${rawOffers.length} item(ns) pra ${origin}->${destination}, mas nenhum sobrou depois do parsing de preço — provável nome de campo diferente do esperado. Chaves do 1º item: [${Object.keys(rawOffers[0] || {}).join(', ')}]`
+    );
+  }
 
   return { status: 'ok', message: null, offers };
 }
