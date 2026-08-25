@@ -112,6 +112,16 @@ async function searchSeatsAero({ origin, destination, departDate, programId, sou
     );
   }
 
+  // Log de sucesso (não só dos casos "zero" acima) — sem isso, não dava
+  // pra saber quantas trips a API realmente devolveu quando funciona
+  // (achado real: usuário esperava várias ofertas/dia pra uma rota e só
+  // veio 1; sem esse log não tinha como confirmar se a API só devolve 1
+  // trip por rota/data — resumo de "melhor achado", não voo-a-voo — ou se
+  // o código estava perdendo trips que vieram de verdade).
+  if (offers.length > 0) {
+    console.log(`[SEATSAERO:${programId}] ${trips.length} trip(s) com Source="${sourceKey}" pra ${origin}->${destination} -> ${offers.length} oferta(s) geradas.`);
+  }
+
   return offers;
 }
 
