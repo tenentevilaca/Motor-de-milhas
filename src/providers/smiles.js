@@ -1,6 +1,7 @@
 const axios = require('axios');
 const config = require('../config');
 const { createProgramProvider } = require('./programProvider');
+const seatsAero = require('./seatsAero');
 
 const RAPIDAPI_BASE_URL = 'https://award-flight-miles-search-api.p.rapidapi.com/api/v1/search/';
 const RAPIDAPI_HOST = 'award-flight-miles-search-api.p.rapidapi.com';
@@ -106,27 +107,63 @@ const fallback = createProgramProvider({
 });
 
 function enabled() {
-  return Boolean(config.get('RAPIDAPI_KEY')) || fallback.enabled();
+  return Boolean(config.get('RAPIDAPI_KEY')) || seatsAero.enabled() || fallback.enabled();
+}
+
+// Seats.aero como fonte complementar (mesmo padrão já usado no Azul): roda
+// quando a RapidAPI não achou nada — sucesso vazio OU erro (ex: cota
+// mensal estourada, que já vimos acontecer de verdade). "gol" é o Source
+// que o Seats.aero usa pro Smiles/Gol (confirmado na lista pública de
+// programas suportados).
+async function searchSeatsAeroSmiles(params) {
+  return seatsAero.searchSeatsAero({
+    ...params,
+    programId: 'SMILES',
+    sourceKey: 'gol',
+    label: 'Smiles (Gol)',
+    deepLinkBuilder: ({ origin, destination, departDate }) =>
+      `https://www.smiles.com.br/m3/emissao-com-milhas?origin=${origin}&destination=${destination}&departureDate=${departDate}`,
+  });
 }
 
 async function search(params) {
-  if (!config.get('RAPIDAPI_KEY')) return fallback.search(params);
+  const rapidApiConfigured = Boolean(config.get('RAPIDAPI_KEY'));
+  const seatsConfigured = Boolean(config.get('SEATSAERO_API_KEY'));
+  if (!rapidApiConfigured && !seatsConfigured) return fallback.search(params);
 
-  try {
-    const offers = await searchRapidApiSmiles(params);
-    return { status: 'ok', message: null, offers, manualCheckUrl: fallback.homepageUrl };
-  } catch (err) {
-    if (fallback.enabled()) return fallback.search(params);
-    const body = err.response?.data;
-    const bodyMsg =
-      typeof body === 'string' ? body : body?.property ? `${body.property}: ${body.message}` : body?.message || err.message;
-    return {
-      status: 'error',
-      message: `Award Flight & Miles Search API (Smiles): ${bodyMsg}`.slice(0, 300),
-      offers: [],
-      manualCheckUrl: fallback.homepageUrl,
-    };
+  let offers = [];
+  let errorMsg = null;
+
+  if (rapidApiConfigured) {
+    try {
+      offers = await searchRapidApiSmiles(params);
+    } catch (err) {
+      const body = err.response?.data;
+      const bodyMsg =
+        typeof body === 'string' ? body : body?.property ? `${body.property}: ${body.message}` : body?.message || err.message;
+      errorMsg = `Award Flight & Miles Search API (Smiles): ${bodyMsg}`.slice(0, 300);
+    }
   }
+
+  if (offers.length === 0 && seatsConfigured) {
+    try {
+      offers = await searchSeatsAeroSmiles(params);
+      errorMsg = null; // resposta válida da 2ª fonte — não importa se a 1ª deu erro (ex: cota estourada)
+    } catch (err) {
+      if (!errorMsg) {
+        const body = err.response?.data;
+        const bodyMsg = typeof body === 'string' ? body : body?.message || err.message;
+        errorMsg = `Seats.aero (Smiles/Gol): ${bodyMsg}`.slice(0, 300);
+      }
+    }
+  }
+
+  if (errorMsg && offers.length === 0) {
+    if (fallback.enabled()) return fallback.search(params);
+    return { status: 'error', message: errorMsg, offers: [], manualCheckUrl: fallback.homepageUrl };
+  }
+
+  return { status: 'ok', message: null, offers, manualCheckUrl: fallback.homepageUrl };
 }
 
 module.exports = { id: 'SMILES', label: 'Smiles (Gol)', enabled, search, homepageUrl: fallback.homepageUrl };

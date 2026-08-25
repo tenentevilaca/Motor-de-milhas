@@ -85,9 +85,12 @@
       <div class="field"><label for="APIFY_TOKEN">Apify API Token</label><input type="password" id="APIFY_TOKEN" placeholder="já configurado" /></div>
     </div>
 
-    <h3>Seats.aero: American Airlines/AAdvantage (milhas reais) <span class="badge pending" id="badge-SEATSAERO_API_KEY">verificando…</span></h3>
-    <p class="status-line"><b>Preenche a única lacuna que restava:</b> AA não tinha nenhuma fonte real (LATAM continua
-    sem — o Seats.aero não cobre esse programa). <b>Custo:</b> conta Pro em seats.aero (US$9,99/mês) — a API de
+    <h3>Seats.aero: American, TudoAzul e Smiles (milhas reais) <span class="badge pending" id="badge-SEATSAERO_API_KEY">verificando…</span></h3>
+    <p class="status-line"><b>Cobre AA</b> (única fonte real que existe pra ele) <b>e reforça Azul/Smiles</b> — pra
+    esses dois entra como fonte complementar: só é consultada quando a fonte principal (Apify pra Azul, RapidAPI pra
+    Smiles) não achar nada, seja porque a rota não tem resultado nela ou porque deu erro (ex: cota estourada).
+    LATAM continua sem nenhuma fonte — o Seats.aero não cobre esse programa. <b>Custo:</b> conta Pro em seats.aero
+    (US$9,99/mês) — a API de
     parceiro tem uso pessoal liberado pra assinantes Pro, mas uso comercial exige acordo à parte com a empresa; confirme
     o que se aplica ao seu caso antes de assinar. 1. Assine em <a href="https://seats.aero" target="_blank" rel="noopener">seats.aero</a> ·
     2. Configurações → aba "API" da sua conta → copie a chave (começa com <code>pro_</code>) · 3. Cole abaixo — sem
