@@ -39,10 +39,23 @@ async function searchRapidApiSmiles({ origin, destination, departDate, returnDat
   const outbound = Array.isArray(data?.outboundFlights) ? data.outboundFlights : [];
   const inbound = Array.isArray(data?.returnFlights) ? data.returnFlights : [];
 
+  // Diagnóstico (mesmo padrão já usado nos outros providers nesta sessão —
+  // Travelpayouts, Google Flights via RapidAPI, Seats.aero, Azul/Apify):
+  // sem isso, "Smiles sem oferta" não distingue "essa rota/data não tem
+  // voo Gol/Smiles" de "veio resposta em formato diferente do esperado"
+  // (a cota mensal estourada, por exemplo, já mascarou isso uma vez — vale
+  // ter visibilidade pro que acontece quando a cota estiver ok de novo).
+  if (!Array.isArray(data?.outboundFlights)) {
+    const shape = data && typeof data === 'object' ? `objeto com chaves [${Object.keys(data).join(', ')}]` : typeof data;
+    console.error(`[SMILES:rapidapi] resposta em formato inesperado (${shape}) — esperava outboundFlights como array, mostrando 0 ofertas.`);
+  } else if (outbound.length === 0) {
+    console.log(`[SMILES:rapidapi] resposta reconhecida (${origin}->${destination} ${departDate}), mas 0 voos em outboundFlights — sem oferta Gol/Smiles pra essa rota/data.`);
+  }
+
   // A API devolve ida e volta como listas separadas — soma as duas pernas só
   // quando o usuário pediu ida e volta (senão "returnFlights" pode vir
   // duplicando a ida, como visto no teste real).
-  return outbound
+  const parsed = outbound
     .map((out, i) => {
       const back = returnDate ? inbound[i] : null;
       const miles = Number(out.adultPricePoints || 0) + (back ? Number(back.adultPricePoints || 0) : 0);
@@ -72,6 +85,14 @@ async function searchRapidApiSmiles({ origin, destination, departDate, returnDat
       };
     })
     .filter((o) => o.priceBRL != null || o.milesRequired != null);
+
+  if (outbound.length > 0 && parsed.length === 0) {
+    console.error(
+      `[SMILES:rapidapi] ${outbound.length} voo(s) em outboundFlights pra ${origin}->${destination}, mas nenhum sobrou (sem adultPricePoints nem adultPriceCash válidos) — provável nome de campo diferente do esperado. Chaves do 1º voo: [${Object.keys(outbound[0] || {}).join(', ')}]`
+    );
+  }
+
+  return parsed;
 }
 
 // Fallback: se RAPIDAPI_KEY não estiver configurada (ou a chamada falhar),

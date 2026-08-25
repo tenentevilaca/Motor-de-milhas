@@ -40,6 +40,14 @@ function createProgramProvider({ id, label, envPrefix, homepageUrl }) {
 
     try {
       const { data } = await axios.post(providerUrl, params, { timeout: 20000 });
+      // Diagnóstico (mesmo padrão dos outros providers nesta sessão): essa
+      // integração é a SUA própria (LATAM_PROVIDER_URL etc.) — se ela não
+      // devolver { offers: [...] } no formato esperado, isso avisa em vez
+      // de silenciosamente mostrar 0 ofertas sem pista nenhuma do motivo.
+      if (!Array.isArray(data?.offers)) {
+        const shape = data && typeof data === 'object' ? `objeto com chaves [${Object.keys(data).join(', ')}]` : typeof data;
+        console.error(`[${id}:custom] resposta de ${providerUrl} em formato inesperado (${shape}) — esperava { offers: [...] }, mostrando 0 ofertas.`);
+      }
       const offers = (data.offers || []).map((o) => ({ ...o, program: id }));
       return { status: 'ok', message: null, offers, manualCheckUrl: homepageUrl };
     } catch (err) {
