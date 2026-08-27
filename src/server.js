@@ -175,6 +175,14 @@ app.post('/api/searches', (req, res) => {
   if (destinationIsRegion && body.compareSplitTickets) {
     return res.status(400).json({ error: 'Comparar quebra de bilhete exige um destino específico (não é possível com busca por região).' });
   }
+  if (body.excludeDestination) {
+    if (!destinationIsRegion) {
+      return res.status(400).json({ error: '"Menos..." só faz sentido com destino por região (ex: "Mundo todo") — com destino específico não há o que excluir.' });
+    }
+    if (!isRegionValue(body.excludeDestination) && !/^[A-Za-z]{3}$/.test(body.excludeDestination)) {
+      return res.status(400).json({ error: '"Menos..." deve ser um código IATA de 3 letras ou uma região — escolha uma opção na lista sugerida.' });
+    }
+  }
   const programs = (body.programs || []).filter((p) => MILE_PROGRAMS.includes(p));
   if (body.allowHiddenCity && !body.hiddenCityRiskAcknowledged) {
     return res.status(400).json({

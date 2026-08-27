@@ -176,8 +176,17 @@ if (document.getElementById('originQuery')) {
     onSelect: () => {
       updateBestTimeCard();
       toggleSplitTicketForRegion();
+      toggleExcludeDestinationField();
     },
   });
+  if (document.getElementById('excludeDestinationQuery')) {
+    setupAirportCombobox({
+      queryInputId: 'excludeDestinationQuery',
+      hiddenInputId: 'excludeDestination',
+      listId: 'excludeDestinationList',
+      allowRegions: true,
+    });
+  }
   document.getElementById('departDate').addEventListener('change', () => {
     updateBestTimeCard();
     syncReturnDateMin();
@@ -206,6 +215,21 @@ function toggleSplitTicketForRegion() {
   const isRegion = isRegionDestination(destination);
   checkbox.disabled = isRegion;
   if (isRegion) checkbox.checked = false;
+}
+
+// "Menos..." (excluir aeroporto/região da varredura) só faz sentido com
+// destino por região ("qualquer lugar do mundo, menos X") — com destino
+// específico não há o que excluir. Some e limpa o campo quando o destino
+// deixa de ser região, pra não mandar uma exclusão órfã escondida.
+function toggleExcludeDestinationField() {
+  const row = document.getElementById('excludeDestinationRow');
+  if (!row) return;
+  const isRegion = isRegionDestination(document.getElementById('destination').value);
+  row.hidden = !isRegion;
+  if (!isRegion) {
+    document.getElementById('excludeDestinationQuery').value = '';
+    document.getElementById('excludeDestination').value = '';
+  }
 }
 
 
@@ -782,6 +806,7 @@ async function createSearch() {
   const body = {
     origin,
     destination,
+    excludeDestination: document.getElementById('excludeDestination')?.value || null,
     departDate: document.getElementById('departDate').value || null,
     returnDate: document.getElementById('returnDate').value || null,
     flexDays: document.getElementById('flexDays').value,

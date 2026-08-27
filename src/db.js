@@ -41,6 +41,10 @@ function createSearch(input) {
     id: crypto.randomUUID(),
     origin: input.origin.toUpperCase(),
     destination: input.destination.toUpperCase(),
+    // Só faz sentido junto de destino por região ("qualquer lugar, menos
+    // X") — aceita aeroporto específico (ex: "GIG") ou outra região (ex:
+    // "REGION:EU"), no mesmo formato do campo de destino.
+    excludeDestination: input.excludeDestination ? String(input.excludeDestination).toUpperCase() : null,
     departDate: input.departDate || null,
     returnDate: input.returnDate || null,
     flexDays: Number(input.flexDays || 0),

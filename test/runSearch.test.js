@@ -372,6 +372,46 @@ test('falha ao enviar e-mail não derruba a busca inteira — resultados continu
   }
 });
 
+// Pedido real: "qualquer lugar do mundo, menos uma região/país/continente/
+// cidade específico" — excludeDestination filtra a lista de hubs candidatos
+// de uma busca por região, depois do teto de 8 já aplicado (exclusão não
+// busca substituto pra preencher a vaga — comportamento aceito pra essa
+// 1ª versão da funcionalidade).
+test('excludeDestination (região): exclui todos os hubs de um continente da busca por "Mundo todo"', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  const queriedDestinations = new Set();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async ({ destination }) => {
+    queriedDestinations.add(destination);
+    return {
+      status: 'ok',
+      offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1000, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+    };
+  };
+  const search = db.createSearch({ origin: 'GRU', destination: 'REGION:WO', excludeDestination: 'REGION:EU', departDate: '2027-08-01' });
+  await runSearch(search);
+  assert.ok(!queriedDestinations.has('CDG'), 'CDG (França) não deveria ter sido consultado — excluído junto da Europa');
+  assert.ok(!queriedDestinations.has('LHR'), 'LHR (Reino Unido) não deveria ter sido consultado — excluído junto da Europa');
+  assert.ok(queriedDestinations.has('JFK'), 'JFK (EUA) deveria continuar sendo consultado — não é Europa');
+});
+
+test('excludeDestination (aeroporto específico): exclui só aquele aeroporto, mantém os demais continentes', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  const queriedDestinations = new Set();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async ({ destination }) => {
+    queriedDestinations.add(destination);
+    return {
+      status: 'ok',
+      offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1000, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+    };
+  };
+  const search = db.createSearch({ origin: 'GRU', destination: 'REGION:WO', excludeDestination: 'JFK', departDate: '2027-08-01' });
+  await runSearch(search);
+  assert.ok(!queriedDestinations.has('JFK'), 'JFK não deveria ter sido consultado — excluído explicitamente');
+  assert.ok(queriedDestinations.has('LHR'), 'LHR deveria continuar sendo consultado — só JFK foi excluído, não a Europa inteira');
+});
+
 test('busca do agendador (isScheduledRun) pula o Google Flights via RapidAPI (fonte paga) — só busca manual consulta', async () => {
   clearCache();
   stubAllNotConfigured();

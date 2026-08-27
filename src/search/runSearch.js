@@ -5,6 +5,7 @@ const { generateFlexDates } = require('./flexDates');
 const { describeProviderError } = require('../providerError');
 const { cached } = require('../cache');
 const { regionCodeFromValue, getHubAirportsForRegion, listRegions, getAirportByIata } = require('../airports');
+const { getRegionForCountry } = require('../data/continents');
 const { mapWithConcurrencyLimit } = require('../concurrency');
 const config = require('../config');
 const db = require('../db');
@@ -193,10 +194,22 @@ async function runSearch(search) {
   // achar o mais barato sem estourar a cota das APIs gratuitas consultando
   // milhares de aeroportos.
   const regionCode = regionCodeFromValue(search.destination);
+  // "Menos..." (excludeDestination) — pedido real: "qualquer lugar do
+  // mundo, menos uma região/país/continente/cidade específico". Aceita o
+  // mesmo formato do campo de destino: um aeroporto específico (exclui só
+  // ele — como cada país normalmente contribui 1 único hub candidato numa
+  // busca por região, excluir o aeroporto já exclui o país na prática) ou
+  // outra região/continente (exclui todo hub cujo país pertença a ela). Só
+  // faz sentido junto de destino por região — sem região, `destinations`
+  // nem passa por esse filtro.
+  const excludeRegionCode = regionCodeFromValue(search.excludeDestination);
+  const excludeIata = !excludeRegionCode && search.excludeDestination ? search.excludeDestination.toUpperCase() : null;
   const destinations = regionCode
     ? getHubAirportsForRegion(regionCode)
+        .filter((a) => a.iata !== search.origin.toUpperCase())
+        .filter((a) => !excludeIata || a.iata !== excludeIata)
+        .filter((a) => !excludeRegionCode || getRegionForCountry(a.country) !== excludeRegionCode)
         .map((a) => a.iata)
-        .filter((iata) => iata !== search.origin.toUpperCase())
     : [search.destination];
 
   // Combinações de data (ida × volta) pra essa busca — só mais de uma quando
