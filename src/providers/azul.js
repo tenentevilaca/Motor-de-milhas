@@ -113,8 +113,14 @@ async function searchSeatsAeroAzul(params) {
     programId: 'AZUL',
     sourceKey: 'azul',
     label: 'TudoAzul',
-    deepLinkBuilder: ({ origin, destination, departDate }) =>
-      `https://www.voeazul.com.br/br/pt/home/selecao-voo?tp=ONEWAY&og=${origin}&ds=${destination}&dtIda=${departDate}`,
+    // Achado real: esse link sempre montava "tp=ONEWAY" (só ida), mesmo
+    // quando a busca era de ida e volta — usuário clicava esperando ver o
+    // itinerário completo e o site da Azul buscava só a ida, parecendo
+    // "não encontrei o voo". O formato do parâmetro de volta nunca foi
+    // confirmado, então com returnDate cai pro link genérico
+    // (manualCheckUrl) em vez de arriscar montar algo errado.
+    deepLinkBuilder: ({ origin, destination, departDate, returnDate }) =>
+      returnDate ? null : `https://www.voeazul.com.br/br/pt/home/selecao-voo?tp=ONEWAY&og=${origin}&ds=${destination}&dtIda=${departDate}`,
   });
 }
 

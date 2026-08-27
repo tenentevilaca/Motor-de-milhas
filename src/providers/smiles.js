@@ -121,8 +121,11 @@ async function searchSeatsAeroSmiles(params) {
     programId: 'SMILES',
     sourceKey: 'gol',
     label: 'Smiles (Gol)',
-    deepLinkBuilder: ({ origin, destination, departDate }) =>
-      `https://www.smiles.com.br/m3/emissao-com-milhas?origin=${origin}&destination=${destination}&departureDate=${departDate}`,
+    // Mesmo cuidado do AA/Azul: formato do parâmetro de volta nunca foi
+    // confirmado — com returnDate cai pro link genérico em vez de montar
+    // um link de ida e volta que pode buscar errado.
+    deepLinkBuilder: ({ origin, destination, departDate, returnDate }) =>
+      returnDate ? null : `https://www.smiles.com.br/m3/emissao-com-milhas?origin=${origin}&destination=${destination}&departureDate=${departDate}`,
   });
 }
 

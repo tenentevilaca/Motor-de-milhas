@@ -55,7 +55,7 @@ function taxesToBRL(amount, currency) {
   return null;
 }
 
-async function searchSeatsAero({ origin, destination, departDate, programId, sourceKey, label, deepLinkBuilder }) {
+async function searchSeatsAero({ origin, destination, departDate, returnDate, programId, sourceKey, label, deepLinkBuilder }) {
   const { data } = await axios.get(`${BASE_URL}/search`, {
     params: {
       origin_airport: origin.toUpperCase(),
@@ -100,7 +100,15 @@ async function searchSeatsAero({ origin, destination, departDate, programId, sou
         taxesBRL: taxesToBRL(Number(trip[`${letter}TotalTaxes`]), trip.TaxesCurrency),
         stops: Number(trip.Stops) || 0,
         isHiddenCity: false,
-        deepLink: deepLinkBuilder ? deepLinkBuilder({ origin, destination, departDate }) : null,
+        // Achado real: o link chegava a existir pra buscas de ida e volta,
+        // mas apontava sempre pra uma pesquisa SÓ DE IDA (returnDate nunca
+        // era repassado até aqui) — o usuário clicava esperando ver o
+        // itinerário de ida e volta que o app mostrou, e o site da
+        // companhia buscava outra coisa, parecendo "não encontrei o voo".
+        // deepLinkBuilder decide o que fazer com returnDate — ver cada
+        // provider (aa.js/azul.js/smiles.js) pra saber se ele sabe montar
+        // link de ida e volta ou se prefere cair pro link genérico do site.
+        deepLink: deepLinkBuilder ? deepLinkBuilder({ origin, destination, departDate, returnDate }) : null,
         source: `${label} — ${cabinLabel} (Seats.aero)`,
       });
     }

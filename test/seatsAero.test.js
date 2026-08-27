@@ -52,6 +52,41 @@ test('AA usa Seats.aero quando SEATSAERO_API_KEY está configurada e devolve pro
   }
 });
 
+// Achado real (usuário reportou): o link da Azul (mesmo deepLinkBuilder do
+// AA/Smiles) apontava sempre pra uma busca só de ida, mesmo em busca de
+// ida e volta — clicar levava a uma pesquisa diferente da que o app
+// mostrou, parecendo "não encontrei o voo". Com volta, deveria cair pro
+// link genérico (manualCheckUrl) em vez de montar um link errado.
+test('AA: com returnDate (ida e volta), deepLink vem null (cai pro link genérico) em vez de montar link de só ida errado', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 0, YMileageCost: 30000 }] } },
+      async () => {
+        const result = await aa.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: '2026-11-20' });
+        assert.equal(result.offers[0].deepLink, null);
+      }
+    );
+  } finally {
+    delete process.env.SEATSAERO_API_KEY;
+  }
+});
+
+test('AA: sem returnDate (só ida), deepLink continua montado normalmente', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 0, YMileageCost: 30000 }] } },
+      async () => {
+        const result = await aa.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
+        assert.ok(result.offers[0].deepLink && result.offers[0].deepLink.includes('aa.com'));
+      }
+    );
+  } finally {
+    delete process.env.SEATSAERO_API_KEY;
+  }
+});
+
 test('Seats.aero: envia start_date=end_date=departDate exata (evita paginação incorreta) e o header Partner-Authorization com a chave crua (sem "Bearer " — confirmado no exemplo oficial da própria conta, "Bearer" causava bad_partner_token)', async () => {
   process.env.SEATSAERO_API_KEY = 'minha-chave';
   try {

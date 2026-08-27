@@ -28,8 +28,14 @@ async function search(params) {
       programId: 'AA',
       sourceKey: 'american',
       label: 'American Airlines (AAdvantage)',
-      deepLinkBuilder: ({ origin, destination, departDate }) =>
-        `https://www.aa.com/booking/search?locale=pt_BR&origin=${origin}&destination=${destination}&departDate=${departDate}`,
+      // Só monta link direto pra busca de IDA (sem returnDate) — o formato
+      // de parâmetro de volta do site da AA nunca foi confirmado, e um link
+      // errado (buscando só ida quando o usuário pediu ida e volta) é pior
+      // que nenhum link: parece que o site "não encontrou o voo" que o app
+      // mostrou. Com returnDate, cai pro link genérico (manualCheckUrl,
+      // repassado por search()) em vez de arriscar.
+      deepLinkBuilder: ({ origin, destination, departDate, returnDate }) =>
+        returnDate ? null : `https://www.aa.com/booking/search?locale=pt_BR&origin=${origin}&destination=${destination}&departDate=${departDate}`,
     });
     return { status: 'ok', message: null, offers, manualCheckUrl: fallback.homepageUrl };
   } catch (err) {
