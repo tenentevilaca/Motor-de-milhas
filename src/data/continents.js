@@ -82,8 +82,23 @@ const REGIONS = {
   },
 };
 
+// "Mundo todo": pra permitir buscar "qualquer destino, a partir da minha
+// origem" sem escolher um continente — usa a união de todos os países dos
+// outros continentes. É construída DEPOIS de REGIONS já ter os outros 8
+// (precisa deles prontos pra fazer a união) e fica de FORA do mapeamento
+// país->região abaixo (ver o `if (code === 'WO') continue`) — se entrasse,
+// cada país (que já pertence ao seu continente real) teria seu código
+// sobrescrito pra "WO", quebrando a busca por região normal (ex: "Brasil"
+// pararia de resolver pra "SA"). getHubAirportsForRegion() trata 'WO' como
+// caso especial (aceita hub de qualquer país) em vez de usar esse mapa.
+REGIONS.WO = {
+  label: 'Mundo todo (qualquer continente)',
+  countries: Object.values(REGIONS).flatMap((r) => r.countries),
+};
+
 const COUNTRY_TO_REGION = {};
 for (const [code, region] of Object.entries(REGIONS)) {
+  if (code === 'WO') continue;
   for (const country of region.countries) {
     COUNTRY_TO_REGION[country] = code;
   }

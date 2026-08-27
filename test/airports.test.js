@@ -1,7 +1,8 @@
 require('./helpers/setup');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { searchAirports } = require('../src/airports');
+const { searchAirports, searchRegions, getHubAirportsForRegion, regionCodeFromValue } = require('../src/airports');
+const { getRegionForCountry } = require('../src/data/continents');
 
 test('abreviações comuns de cidades brasileiras (BH, SP, RJ) resolvem pro aeroporto certo em primeiro lugar', () => {
   // Regressão real: "BH" não sugeria nada de Belo Horizonte — só aeroportos
@@ -53,4 +54,32 @@ test('"curacao" (sem cedilha, como a busca normaliza) encontra CUR — base Open
 test('query sem alias nem match nenhum devolve lista vazia', () => {
   const results = searchAirports('xyzxyzxyz-nao-existe');
   assert.equal(results.length, 0);
+});
+
+// Pedido do usuário: buscar "o mundo todo" (equivalente a "só a origem,
+// qualquer destino") como destino. Implementado como mais uma região
+// (código 'WO'), reaproveitando a mesma infraestrutura de região existente
+// — mas com um cuidado real: a lista de países do "mundo todo" não pode
+// sobrescrever o mapa país->continente real, senão "Brasil" pararia de
+// resolver pra "SA" (ver comentário em src/data/continents.js).
+test('"mundo todo" aparece na busca de região e não quebra o mapeamento país->continente existente', () => {
+  const results = searchRegions('mundo');
+  assert.ok(results.some((r) => r.code === 'WO'), `esperava a região WO entre os resultados, veio ${JSON.stringify(results)}`);
+
+  // Brasil precisa continuar resolvendo pra América do Sul (SA), não pra
+  // "WO" — essa é a regressão que essa feature poderia ter causado se a
+  // lista de países do "mundo todo" entrasse no mapa país->região.
+  assert.equal(getRegionForCountry('Brazil'), 'SA');
+  assert.equal(getRegionForCountry('Portugal'), 'EU');
+});
+
+test('getHubAirportsForRegion("WO") devolve hubs de continentes DIFERENTES, não só um continente', () => {
+  const hubs = getHubAirportsForRegion('WO', 8);
+  assert.ok(hubs.length > 1, 'esperava mais de 1 hub');
+  const regionsFound = new Set(hubs.map((h) => getRegionForCountry(h.country)));
+  assert.ok(regionsFound.size > 1, `esperava hubs de continentes diferentes, mas todos vieram do mesmo: ${JSON.stringify([...regionsFound])}`);
+});
+
+test('regionCodeFromValue reconhece "REGION:WO"', () => {
+  assert.equal(regionCodeFromValue('REGION:WO'), 'WO');
 });

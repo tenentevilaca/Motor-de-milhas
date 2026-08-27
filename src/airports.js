@@ -149,11 +149,15 @@ function regionCodeFromValue(value) {
 // cobrir a região inteira.
 function getHubAirportsForRegion(regionCode, limit = 8) {
   if (!REGIONS[regionCode]) return [];
+  // 'WO' ("Mundo todo") é um pseudo-continente — não está no mapa
+  // país->região (de propósito, ver comentário em continents.js), então
+  // aceita hub de QUALQUER país em vez de filtrar por continente.
+  const isWorld = regionCode === 'WO';
   const seenCountries = new Set();
   const hubs = [];
   for (const iata of MAJOR_HUBS) {
     const a = byIata.get(iata);
-    if (!a || getRegionForCountry(a.country) !== regionCode || seenCountries.has(a.country)) continue;
+    if (!a || (!isWorld && getRegionForCountry(a.country) !== regionCode) || seenCountries.has(a.country)) continue;
     seenCountries.add(a.country);
     hubs.push({ iata: a.iata, name: a.name, city: a.city, country: a.country });
     if (hubs.length >= limit) break;
