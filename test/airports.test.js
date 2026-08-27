@@ -51,6 +51,11 @@ test('"curacao" (sem cedilha, como a busca normaliza) encontra CUR — base Open
   assert.ok(results.some((a) => a.iata === 'CUR'), `esperava CUR entre os resultados, veio ${JSON.stringify(results.map((r) => r.iata))}`);
 });
 
+test('Jericoacoara (JJD) é encontrado — aeroporto inaugurado em 2019, faltando na base OpenFlights (não é atualizada há anos)', () => {
+  const results = searchAirports('jericoacoara');
+  assert.ok(results.some((a) => a.iata === 'JJD'), `esperava JJD entre os resultados, veio ${JSON.stringify(results.map((r) => r.iata))}`);
+});
+
 test('query sem alias nem match nenhum devolve lista vazia', () => {
   const results = searchAirports('xyzxyzxyz-nao-existe');
   assert.equal(results.length, 0);

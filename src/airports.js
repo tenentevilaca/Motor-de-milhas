@@ -6,6 +6,14 @@ const { REGIONS, getRegionForCountry, listRegions } = require('./data/continents
 // Base de ~6000 aeroportos (OpenFlights, ODbL) para permitir buscar por
 // cidade ou país e não só por código IATA — nem todo mundo sabe de cor que
 // "Nova York" é JFK/LGA/EWR.
+//
+// OpenFlights não é atualizado há anos — aeroportos abertos recentemente não
+// existem na base (achado real: Jericoacoara/JJD, inaugurado em 2019,
+// faltando por completo — usuário reportou não conseguir selecionar como
+// origem/destino). Corrigido adicionando manualmente ao final de
+// data/airports.json (não veio do OpenFlights, dado verificado à parte). Se
+// aparecer outro aeroporto faltando, é o mesmo tipo de lacuna — adicionar do
+// mesmo jeito, um por vez, e não assumir sem verificar as coordenadas.
 
 function normalize(str) {
   return String(str)
