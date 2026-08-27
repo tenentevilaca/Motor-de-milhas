@@ -13,6 +13,39 @@ function stubAllNotConfigured() {
   }
 }
 
+// Pedido real do usuário: o voo mais barato em dinheiro nem sempre é o
+// mais barato em milhas (comum na Azul) — bestDeal e bestMilesDeal
+// precisam ser calculados de forma independente, não um "vencedor único"
+// que sempre prioriza dinheiro.
+test('bestDeal (dinheiro) e bestMilesDeal (milhas) são calculados independentemente — programa mais barato em dinheiro pode não ser o mais barato em milhas', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 500, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  providers.ALL_PROVIDERS.AZUL.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'AZUL', priceBRL: null, milesRequired: 8000, taxesBRL: 30, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  providers.ALL_PROVIDERS.SMILES.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'SMILES', priceBRL: null, milesRequired: 25000, taxesBRL: 90, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+
+  const search = db.createSearch({ origin: 'GRU', destination: 'CGH', departDate: '2027-07-01', programs: ['AZUL', 'SMILES'] });
+  const result = await runSearch(search);
+
+  assert.equal(result.bestDeal.program, 'CASH_TRAVELPAYOUTS');
+  assert.equal(result.bestDeal.priceBRL, 500);
+  // O melhor achado em milhas tem que ser a Azul (8000 milhas), mesmo com
+  // uma oferta em dinheiro existindo e mais barata em termos absolutos —
+  // os dois "melhor achado" não competem entre si.
+  assert.equal(result.bestMilesDeal.program, 'AZUL');
+  assert.equal(result.bestMilesDeal.milesRequired, 8000);
+  assert.equal(result.bestMilesDeal.taxesBRL, 30);
+});
+
 test('passageiros > 1 escala preço, milhas e taxas — não só o preço', async () => {
   clearCache();
   stubAllNotConfigured();

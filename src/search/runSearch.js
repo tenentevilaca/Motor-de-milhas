@@ -558,6 +558,37 @@ async function runSearch(search) {
     };
   }
 
+  // "Melhor achado em milhas" — separado do "menor preço em dinheiro"
+  // (bestDeal acima), de propósito. Pedido real: o voo mais barato em
+  // dinheiro não é sempre o mais barato em milhas, e vice-versa (comum na
+  // Azul) — antes só existia UM "melhor achado", e ele sempre priorizava
+  // dinheiro quando qualquer oferta em dinheiro existisse, escondendo um
+  // achado em milhas genuinamente melhor. Ranqueado por MENOR QUANTIDADE
+  // DE MILHAS pura (mesmo critério que allOffersSorted já usa pra ordenar
+  // ofertas em milhas entre si) — não por um valor em R$ estimado via
+  // MILES_VALUE_PER_1000, porque programas com resgate híbrido
+  // pontos+dinheiro (ex: Azul: uma quantia pequena de pontos pode reduzir
+  // a tarifa por uma fração desproporcional) não têm uma relação linear
+  // entre pontos e desconto em dinheiro — uma "conversão" linear seria
+  // enganosa nesses casos. Isso não compara com nem substitui o preço em
+  // dinheiro: são dois "melhor achado" independentes, cabe à pessoa decidir.
+  const cheapestMilesOffer = allOffersSorted
+    .filter((o) => Number.isFinite(o.milesRequired))
+    .reduce((min, o) => (min == null || o.milesRequired < min.milesRequired ? o : min), null);
+  const bestMilesDeal = cheapestMilesOffer
+    ? {
+        milesRequired: cheapestMilesOffer.milesRequired,
+        milesRequiredTotal: cheapestMilesOffer.milesRequiredTotal ?? null,
+        taxesBRL: cheapestMilesOffer.taxesBRL ?? null,
+        program: cheapestMilesOffer.program,
+        stops: cheapestMilesOffer.stops,
+        destination: cheapestMilesOffer.destination,
+        destinationLabel: cheapestMilesOffer.destinationLabel,
+        departDate: cheapestMilesOffer.departDate,
+        returnDate: cheapestMilesOffer.returnDate,
+      }
+    : null;
+
   const destinationDisplay = regionCode ? regionLabel(regionCode) : search.destination;
 
   // Cooldown de notificação: sem isso, uma busca cujo preço fica parado
@@ -652,6 +683,7 @@ async function runSearch(search) {
     splitSuggestions,
     allOffersSorted,
     bestDeal,
+    bestMilesDeal,
     notifications,
     flexDatesChecked: dateCombinations.length,
     passengers,

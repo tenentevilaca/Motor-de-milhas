@@ -1043,9 +1043,32 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
                 : ''
             }</div>`
           : '';
+      // Separado do "menor preço em dinheiro" de propósito — o voo mais
+      // barato em dinheiro não é sempre o mais barato em milhas (comum na
+      // Azul), e antes só existia UM "melhor achado" que sempre priorizava
+      // dinheiro, escondendo um achado em milhas genuinamente melhor.
+      const bestMilesDealHtml =
+        result.bestMilesDeal
+          ? `<div class="best-deal">🎫 <b>Melhor achado em milhas: ${result.bestMilesDeal.milesRequired.toLocaleString('pt-BR')} milhas${
+              result.bestMilesDeal.milesRequiredTotal != null
+                ? ` (${result.bestMilesDeal.milesRequiredTotal.toLocaleString('pt-BR')} total pra ${result.passengers} passageiros)`
+                : ''
+            }${result.bestMilesDeal.taxesBRL != null ? ` + ${formatBRL(result.bestMilesDeal.taxesBRL)} de taxas` : ''}</b> via ${
+              result.bestMilesDeal.program
+            }${
+              result.bestMilesDeal.destinationLabel && showDestinationColumn ? ` — destino: <b>${escapeHtml(result.bestMilesDeal.destinationLabel)}</b>` : ''
+            }${
+              result.bestMilesDeal.departDate && showDateColumn
+                ? ` — data: <b>${formatDateBR(result.bestMilesDeal.departDate)}${
+                    result.bestMilesDeal.returnDate ? ` → ${formatDateBR(result.bestMilesDeal.returnDate)}` : ''
+                  }</b>`
+                : ''
+            }</div>`
+          : '';
       el.innerHTML = `
         ${dealHtml}
         ${bestDealHtml}
+        ${bestMilesDealHtml}
         ${
           result.flexDatesChecked > 1
             ? `<div class="status-line">Flexibilidade de datas: ${result.flexDatesChecked} combinação(ões) de ida/volta testada(s) nessa busca.</div>`
