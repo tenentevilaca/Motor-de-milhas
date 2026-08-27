@@ -255,7 +255,12 @@ app.get('/api/deal-feed/latest', async (req, res) => {
     const sorted = posts
       .filter((p) => p.publishedAt)
       .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
-      .slice(0, 40)
+      // Pedido real: em meses com muita promoção, 40 posts (somando os
+      // blogs monitorados) cobria só uma janela curta antes de cortar
+      // achados ainda relevantes. Subir esse número é praticamente de graça
+      // — a busca RSS já trouxe tudo, isso só corta quantos itens voltam
+      // pro front.
+      .slice(0, 150)
       .map((p) => ({ ...p, related: relatedLinks.has(p.link) }));
     res.json({ posts: sorted, hasActiveSearches: db.listSearches().some((s) => s.active) });
   } catch (err) {
