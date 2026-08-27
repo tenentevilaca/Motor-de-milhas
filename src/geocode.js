@@ -38,7 +38,11 @@ async function geocodePlace(query) {
     const result = data && data[0] ? { lat: Number(data[0].lat), lon: Number(data[0].lon), displayName: data[0].display_name } : null;
     cache.set(key, { result, expiresAt: Date.now() + CACHE_TTL_MS });
     return result;
-  } catch {
+  } catch (err) {
+    // Antes falhava em silêncio total — sem log, uma falha real (rate
+    // limit, timeout, mudança na API do Nominatim) parecia pro usuário só
+    // "distância não calculada", sem pista nenhuma do motivo.
+    console.error(`[geocode] falha ao geocodificar "${query}": ${err.message}`);
     return null;
   }
 }

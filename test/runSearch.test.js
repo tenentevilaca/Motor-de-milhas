@@ -5,6 +5,7 @@ const providers = require('../src/providers');
 const { runSearch } = require('../src/search/runSearch');
 const db = require('../src/db');
 const { clearCache } = require('../src/cache');
+const emailNotify = require('../src/notify/email');
 
 function stubAllNotConfigured() {
   for (const id of ['CASH_TRAVELPAYOUTS', 'CASH_RAPIDAPI_GFLIGHTS', 'SMILES', 'AZUL', 'AA', 'LATAM']) {
@@ -303,6 +304,39 @@ test('cooldown não silencia o alertCount quando não há nada pra alertar (não
   const result = await runSearch(search);
   assert.equal(result.alertCount, 0);
   assert.equal(result.alertsSuppressedByCooldown, false);
+});
+
+// Achado real de revisão de código: nenhum dos 3 envios de notificação
+// (e-mail/WhatsApp/Telegram) estava protegido por try/catch — uma falha em
+// QUALQUER canal (SMTP fora do ar, token inválido, etc.) derrubava a
+// promise até a rota HTTP, que devolve 500 e ESCONDE os resultados de
+// preço/milhas que a busca já tinha encontrado com sucesso. Também
+// impedia os outros canais configurados de sequer serem tentados.
+test('falha ao enviar e-mail não derruba a busca inteira — resultados continuam vindo, e o erro fica visível em notifications.email', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 900, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  const originalSendEmailAlert = emailNotify.sendEmailAlert;
+  emailNotify.sendEmailAlert = async () => {
+    throw new Error('SMTP: connection timeout');
+  };
+  try {
+    const search = db.createSearch({ origin: 'GRU', destination: 'SSA', departDate: '2027-06-01', targetPrice: 1000, email: 'voce@exemplo.com' });
+    const result = await runSearch(search); // não deveria lançar/rejeitar
+    assert.equal(result.alertCount, 1, 'a busca deveria ter encontrado a oferta normalmente');
+    assert.ok(result.allOffersSorted.some((o) => o.priceBRL === 900), 'os resultados reais não deveriam sumir só porque o e-mail falhou');
+    assert.equal(result.notifications.email.status, 'error');
+    assert.match(result.notifications.email.message, /SMTP/);
+    // Nenhum canal entregou de verdade — não deveria entrar em cooldown
+    // (senão o usuário nunca recebe nada E ainda fica 6h sem nova tentativa).
+    const afterRun = db.getSearch(search.id);
+    assert.ok(!afterRun.lastAlertedAt, 'sem nenhum canal ter entregado, não deveria marcar cooldown');
+  } finally {
+    emailNotify.sendEmailAlert = originalSendEmailAlert;
+  }
 });
 
 test('busca do agendador (isScheduledRun) pula o Google Flights via RapidAPI (fonte paga) — só busca manual consulta', async () => {

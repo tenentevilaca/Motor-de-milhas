@@ -81,9 +81,16 @@ function raceWithSoftDeadline(promise, ms) {
   });
 }
 
-const { sendEmailAlert } = require('../notify/email');
-const { sendWhatsAppAlert } = require('../notify/whatsapp');
-const { sendTelegramAlert } = require('../notify/telegram');
+// Sem desestruturar (`const { sendEmailAlert } = ...`) de propósito — assim
+// como os providers de preço fazem com `axios.post`/`axios.get`, chamar
+// como propriedade (`emailNotify.sendEmailAlert(...)`) lê o valor atual do
+// módulo a cada chamada, o que permite mockar em teste sobrescrevendo a
+// propriedade do módulo. Desestruturado, o teste não conseguiria substituir
+// a função depois que runSearch.js já foi carregado uma vez (comportamento
+// real do Node — destructuring copia o valor, não cria um binding vivo).
+const emailNotify = require('../notify/email');
+const whatsappNotify = require('../notify/whatsapp');
+const telegramNotify = require('../notify/telegram');
 
 function formatBRL(value) {
   if (value == null) return '-';
@@ -578,26 +585,62 @@ async function runSearch(search) {
       ...splitSuggestions.map((s) => `Quebra de bilhete ${s.program}: economize ${formatBRL(s.savingsBRL)} comprando separado`),
     ];
 
+    // Cada canal isolado no seu próprio try/catch: sem isso, uma falha em
+    // QUALQUER um (SMTP fora do ar, CallMeBot sem opt-in, token do Telegram
+    // inválido) derrubava a promise até a rota em server.js, que devolve
+    // 500 pro navegador — escondendo os resultados de preço/milhas que a
+    // busca já tinha encontrado com sucesso, só porque o efeito colateral
+    // (notificar) falhou. Também impedia os OUTROS canais configurados de
+    // sequer serem tentados (um `await` sem catch para a execução ali).
+    let anyNotificationSent = false;
     if (search.email) {
-      notifications.email = await sendEmailAlert({
-        to: search.email,
-        subject: `✈️ Alerta de preço: ${search.origin} → ${destinationDisplay}`,
-        html,
-      });
+      try {
+        notifications.email = await emailNotify.sendEmailAlert({
+          to: search.email,
+          subject: `✈️ Alerta de preço: ${search.origin} → ${destinationDisplay}`,
+          html,
+        });
+        if (notifications.email?.status === 'sent') anyNotificationSent = true;
+      } catch (err) {
+        console.error(`[notify:email] falha ao enviar alerta pra busca ${search.id}: ${err.message}`);
+        notifications.email = { status: 'error', message: err.message };
+      }
     }
     if (search.whatsapp) {
-      notifications.whatsapp = await sendWhatsAppAlert({
-        to: search.whatsapp,
-        message: `Motor de Milhas ${search.origin}->${destinationDisplay}:\n${textLines.join('\n')}`,
-      });
+      try {
+        notifications.whatsapp = await whatsappNotify.sendWhatsAppAlert({
+          to: search.whatsapp,
+          message: `Motor de Milhas ${search.origin}->${destinationDisplay}:\n${textLines.join('\n')}`,
+        });
+        if (notifications.whatsapp?.status === 'sent') anyNotificationSent = true;
+      } catch (err) {
+        console.error(`[notify:whatsapp] falha ao enviar alerta pra busca ${search.id}: ${err.message}`);
+        notifications.whatsapp = { status: 'error', message: err.message };
+      }
     }
     if (search.telegramChatId) {
-      notifications.telegram = await sendTelegramAlert({
-        chatId: search.telegramChatId,
-        message: `Motor de Milhas ${search.origin}->${destinationDisplay}:\n${textLines.join('\n')}`,
-      });
+      try {
+        notifications.telegram = await telegramNotify.sendTelegramAlert({
+          chatId: search.telegramChatId,
+          message: `Motor de Milhas ${search.origin}->${destinationDisplay}:\n${textLines.join('\n')}`,
+        });
+        if (notifications.telegram?.status === 'sent') anyNotificationSent = true;
+      } catch (err) {
+        console.error(`[notify:telegram] falha ao enviar alerta pra busca ${search.id}: ${err.message}`);
+        notifications.telegram = { status: 'error', message: err.message };
+      }
     }
-    db.updateSearch(search.id, { lastAlertedAt: now });
+    // Só entra em cooldown se ALGUM canal realmente entregou a notificação —
+    // se todos falharam (ex: SMTP com credencial errada), marcar
+    // lastAlertedAt do mesmo jeito faria o usuário nunca receber nada E
+    // ainda ficar 6h sem nova tentativa, com o mesmo achado esperando pra
+    // ser avisado. Sem nenhum canal configurado (email/whatsapp/telegram
+    // todos vazios), não há o que "reenviar" — marca normalmente, senão o
+    // cooldown nunca teria efeito nenhum pra essa busca.
+    const noChannelConfigured = !search.email && !search.whatsapp && !search.telegramChatId;
+    if (anyNotificationSent || noChannelConfigured) {
+      db.updateSearch(search.id, { lastAlertedAt: now });
+    }
   }
 
   return {
