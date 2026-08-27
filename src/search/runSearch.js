@@ -4,7 +4,14 @@ const { compareSplitTickets } = require('./splitTicketCompare');
 const { generateFlexDates } = require('./flexDates');
 const { describeProviderError } = require('../providerError');
 const { cached } = require('../cache');
-const { regionCodeFromValue, getHubAirportsForRegion, listRegions, getAirportByIata } = require('../airports');
+const {
+  regionCodeFromValue,
+  getHubAirportsForRegion,
+  listRegions,
+  getAirportByIata,
+  countryFromValue,
+  getHubAirportsForCountry,
+} = require('../airports');
 const { getRegionForCountry } = require('../data/continents');
 const { mapWithConcurrencyLimit } = require('../concurrency');
 const config = require('../config');
@@ -189,26 +196,32 @@ async function runSearch(search) {
     : CASH_PROVIDER_IDS;
   const programsToQuery = [...cashProviderIds, ...search.programs.filter((p) => MILE_PROGRAM_IDS.includes(p))];
 
-  // Destino = região inteira (ex: "REGION:SA"): em vez de um único aeroporto,
-  // consulta uma lista enxuta de hubs representativos daquele continente, pra
-  // achar o mais barato sem estourar a cota das APIs gratuitas consultando
-  // milhares de aeroportos.
+  // Destino = região inteira (ex: "REGION:SA") OU país inteiro (ex:
+  // "COUNTRY:France"): em vez de um único aeroporto, consulta uma lista
+  // enxuta de hubs representativos, pra achar o mais barato sem estourar a
+  // cota das APIs gratuitas consultando milhares de aeroportos.
   const regionCode = regionCodeFromValue(search.destination);
+  const destinationCountry = countryFromValue(search.destination);
+  const isMultiHubDestination = Boolean(regionCode || destinationCountry);
   // "Menos..." (excludeDestination) — pedido real: "qualquer lugar do
   // mundo, menos uma região/país/continente/cidade específico". Aceita o
   // mesmo formato do campo de destino: um aeroporto específico (exclui só
   // ele — como cada país normalmente contribui 1 único hub candidato numa
-  // busca por região, excluir o aeroporto já exclui o país na prática) ou
-  // outra região/continente (exclui todo hub cujo país pertença a ela). Só
-  // faz sentido junto de destino por região — sem região, `destinations`
-  // nem passa por esse filtro.
+  // busca por região, excluir o aeroporto já exclui o país na prática),
+  // outra região/continente, ou um país inteiro (exclui todo hub daquele
+  // país exato, independente de quantos hubs ele tivesse). Só faz sentido
+  // junto de destino por região/país — sem isso, `destinations` nem passa
+  // por esse filtro.
   const excludeRegionCode = regionCodeFromValue(search.excludeDestination);
-  const excludeIata = !excludeRegionCode && search.excludeDestination ? search.excludeDestination.toUpperCase() : null;
-  const destinations = regionCode
-    ? getHubAirportsForRegion(regionCode)
+  const excludeCountry = countryFromValue(search.excludeDestination);
+  const excludeIata =
+    !excludeRegionCode && !excludeCountry && search.excludeDestination ? search.excludeDestination.toUpperCase() : null;
+  const destinations = isMultiHubDestination
+    ? (regionCode ? getHubAirportsForRegion(regionCode) : getHubAirportsForCountry(destinationCountry))
         .filter((a) => a.iata !== search.origin.toUpperCase())
         .filter((a) => !excludeIata || a.iata !== excludeIata)
         .filter((a) => !excludeRegionCode || getRegionForCountry(a.country) !== excludeRegionCode)
+        .filter((a) => !excludeCountry || a.country !== excludeCountry)
         .map((a) => a.iata)
     : [search.destination];
 
@@ -442,7 +455,7 @@ async function runSearch(search) {
 
   // Quebra de bilhete exige um destino específico — não roda pra busca por
   // região (ver validação em server.js, que já bloqueia essa combinação).
-  const splitComparisons = regionCode ? [] : await compareSplitTickets(search);
+  const splitComparisons = isMultiHubDestination ? [] : await compareSplitTickets(search);
   const splitSuggestions = [];
   for (const cmp of splitComparisons) {
     const roundTripOffers = results.find((r) => r.programId === cmp.program)?.offers || [];
@@ -602,7 +615,7 @@ async function runSearch(search) {
       }
     : null;
 
-  const destinationDisplay = regionCode ? regionLabel(regionCode) : search.destination;
+  const destinationDisplay = regionCode ? regionLabel(regionCode) : destinationCountry || search.destination;
 
   // Cooldown de notificação: sem isso, uma busca cujo preço fica parado
   // numa faixa de alerta (ex: 12% abaixo da média de 30 dias, sem mudar)

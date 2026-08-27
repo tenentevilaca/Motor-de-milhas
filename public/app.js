@@ -61,13 +61,21 @@ const REGION_LABELS = {
   OC: 'Oceania',
 };
 
+// "Multi-hub": destino que representa VÁRIOS aeroportos possíveis
+// (continente/região OU país inteiro), não um único código IATA — trata
+// os dois formatos igual em todo lugar que precisa saber "isso é destino
+// por região/país, não um aeroporto específico" (esconder/mostrar campos,
+// desabilitar quebra de bilhete, etc.).
 function isRegionDestination(d) {
-  return /^REGION:[A-Z]{2}$/.test(d || '');
+  return /^REGION:[A-Z]{2}$/.test(d || '') || /^COUNTRY:.+$/.test(d || '');
 }
 
 function regionLabelFor(d) {
-  const m = /^REGION:([A-Z]{2})$/.exec(d || '');
-  return m ? REGION_LABELS[m[1]] || d : d;
+  const regionMatch = /^REGION:([A-Z]{2})$/.exec(d || '');
+  if (regionMatch) return REGION_LABELS[regionMatch[1]] || d;
+  const countryMatch = /^COUNTRY:(.+)$/.exec(d || '');
+  if (countryMatch) return countryMatch[1];
+  return d;
 }
 
 // --- Combobox de aeroporto: digita cidade/país/código, escolhe da lista ---

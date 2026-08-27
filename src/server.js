@@ -4,7 +4,7 @@ const express = require('express');
 const db = require('./db');
 const { runSearch } = require('./search/runSearch');
 const { listProviderStatus } = require('./providers');
-const { searchAirports, nearestAirports, searchRegions, isRegionValue } = require('./airports');
+const { searchAirports, nearestAirports, searchRegions, isRegionValue, searchCountries, isCountryValue } = require('./airports');
 const { geocodePlace } = require('./geocode');
 const scheduler = require('./scheduler');
 const email = require('./notify/email');
@@ -32,12 +32,18 @@ app.get('/api/airports', async (req, res) => {
   const q = String(req.query.q || '');
   if (q.trim().length < 2) return res.json({ airports: [], nearby: false });
 
-  // Regiões/continentes (ex: "américa do sul") só fazem sentido como destino
-  // — o front só manda allowRegions=1 pro campo de destino.
+  // Regiões/continentes (ex: "américa do sul") e países inteiros (ex:
+  // "frança") só fazem sentido como destino/exclusão — o front só manda
+  // allowRegions=1 nesses dois campos. Achado real: digitar um país só
+  // sugeria aeroportos individuais dele, sem opção de selecionar/excluir o
+  // país inteiro de uma vez — por isso searchCountries entra junto.
   const regions = req.query.allowRegions ? searchRegions(q) : [];
+  const countries = req.query.allowRegions ? searchCountries(q) : [];
 
   const direct = searchAirports(q);
-  if (direct.length > 0 || regions.length > 0) return res.json({ airports: [...regions, ...direct], nearby: false });
+  if (direct.length > 0 || regions.length > 0 || countries.length > 0) {
+    return res.json({ airports: [...regions, ...countries, ...direct], nearby: false });
+  }
 
   // Nenhum aeroporto bate diretamente com a busca (ex: cidade pequena sem
   // aeroporto próprio) — tenta geocodificar o texto e sugerir os aeroportos
@@ -162,25 +168,29 @@ app.post('/api/searches', (req, res) => {
     // 422 (departure_date nulo) em vez de dar um erro claro pro usuário.
     return res.status(400).json({ error: 'departDate é obrigatório — escolha uma data de ida.' });
   }
-  const destinationIsRegion = isRegionValue(body.destination);
+  // "Multi-hub": destino/exclusão que representa VÁRIOS aeroportos
+  // possíveis (região/continente OU país inteiro), não um único código
+  // IATA — trata os dois tipos igual em toda validação abaixo.
+  const isMultiHubValue = (v) => isRegionValue(v) || isCountryValue(v);
+  const destinationIsRegion = isMultiHubValue(body.destination);
   if (!/^[A-Za-z]{3}$/.test(body.origin)) {
     return res.status(400).json({ error: 'origin deve ser um código IATA de 3 letras — escolha um aeroporto na lista sugerida' });
   }
   if (!destinationIsRegion && !/^[A-Za-z]{3}$/.test(body.destination)) {
-    return res.status(400).json({ error: 'destination deve ser um código IATA de 3 letras ou uma região — escolha uma opção na lista sugerida' });
+    return res.status(400).json({ error: 'destination deve ser um código IATA de 3 letras, um país ou uma região — escolha uma opção na lista sugerida' });
   }
   if (!destinationIsRegion && body.origin.toUpperCase() === body.destination.toUpperCase()) {
     return res.status(400).json({ error: 'origem e destino não podem ser iguais' });
   }
   if (destinationIsRegion && body.compareSplitTickets) {
-    return res.status(400).json({ error: 'Comparar quebra de bilhete exige um destino específico (não é possível com busca por região).' });
+    return res.status(400).json({ error: 'Comparar quebra de bilhete exige um destino específico (não é possível com busca por região/país).' });
   }
   if (body.excludeDestination) {
     if (!destinationIsRegion) {
-      return res.status(400).json({ error: '"Menos..." só faz sentido com destino por região (ex: "Mundo todo") — com destino específico não há o que excluir.' });
+      return res.status(400).json({ error: '"Menos..." só faz sentido com destino por região/país (ex: "Mundo todo") — com destino específico não há o que excluir.' });
     }
-    if (!isRegionValue(body.excludeDestination) && !/^[A-Za-z]{3}$/.test(body.excludeDestination)) {
-      return res.status(400).json({ error: '"Menos..." deve ser um código IATA de 3 letras ou uma região — escolha uma opção na lista sugerida.' });
+    if (!isMultiHubValue(body.excludeDestination) && !/^[A-Za-z]{3}$/.test(body.excludeDestination)) {
+      return res.status(400).json({ error: '"Menos..." deve ser um código IATA de 3 letras, um país ou uma região — escolha uma opção na lista sugerida.' });
     }
   }
   const programs = (body.programs || []).filter((p) => MILE_PROGRAMS.includes(p));

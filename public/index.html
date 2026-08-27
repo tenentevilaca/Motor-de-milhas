@@ -58,18 +58,18 @@
           <input type="text" id="destinationQuery" placeholder="Cidade, país, código (JFK) ou continente (ex: América do Sul)" autocomplete="off" />
           <input type="hidden" id="destination" />
           <div class="combobox-list" id="destinationList"></div>
-          <div class="status-line">Também aceita um continente inteiro (América do Sul, Europa, Ásia etc.) — o motor
-          busca nos principais hubs da região e mostra o mais barato.</div>
+          <div class="status-line">Também aceita um país inteiro (ex: "França") ou um continente inteiro (América do
+          Sul, Europa, Ásia etc.) — o motor busca nos principais hubs e mostra o mais barato.</div>
         </div>
       </div>
       <div class="row" id="excludeDestinationRow" hidden>
         <div class="field combobox-field">
           <label for="excludeDestinationQuery">Menos... (opcional)</label>
-          <input type="text" id="excludeDestinationQuery" placeholder="Um aeroporto ou continente pra excluir da busca (ex: Europa)" autocomplete="off" />
+          <input type="text" id="excludeDestinationQuery" placeholder="Um aeroporto, país ou continente pra excluir da busca (ex: França)" autocomplete="off" />
           <input type="hidden" id="excludeDestination" />
           <div class="combobox-list" id="excludeDestinationList"></div>
-          <div class="status-line">Só aparece com destino "qualquer lugar"/continente — exclui um aeroporto, país ou
-          continente específico da varredura (ex: destino "Mundo todo", menos "Europa").</div>
+          <div class="status-line">Só aparece com destino por região/país — exclui um aeroporto, um país inteiro (ex:
+          "França") ou um continente inteiro (ex: "Europa") da varredura.</div>
         </div>
       </div>
     </div>

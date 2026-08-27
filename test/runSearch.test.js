@@ -412,6 +412,43 @@ test('excludeDestination (aeroporto específico): exclui só aquele aeroporto, m
   assert.ok(queriedDestinations.has('LHR'), 'LHR deveria continuar sendo consultado — só JFK foi excluído, não a Europa inteira');
 });
 
+// Pedido real: excluir um PAÍS inteiro (não um continente, não um
+// aeroporto só) da busca por região.
+test('excludeDestination (país): exclui todos os hubs daquele país, mantém os outros países da mesma região', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  const queriedDestinations = new Set();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async ({ destination }) => {
+    queriedDestinations.add(destination);
+    return {
+      status: 'ok',
+      offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1000, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+    };
+  };
+  const search = db.createSearch({ origin: 'GRU', destination: 'REGION:WO', excludeDestination: 'COUNTRY:United Kingdom', departDate: '2027-08-01' });
+  await runSearch(search);
+  assert.ok(!queriedDestinations.has('LHR'), 'LHR (Reino Unido) não deveria ter sido consultado — país excluído');
+  assert.ok(queriedDestinations.has('CDG'), 'CDG (França) deveria continuar sendo consultado — só o Reino Unido foi excluído');
+});
+
+// Pedido real: destino = um PAÍS inteiro (não região, não aeroporto único).
+test('destination = COUNTRY: consulta os hubs daquele país específico', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  const queriedDestinations = new Set();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async ({ destination }) => {
+    queriedDestinations.add(destination);
+    return {
+      status: 'ok',
+      offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 1000, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+    };
+  };
+  const search = db.createSearch({ origin: 'GIG', destination: 'COUNTRY:France', departDate: '2027-08-01' });
+  await runSearch(search);
+  assert.ok(queriedDestinations.has('CDG'), `esperava consultar hub(s) da França, veio ${JSON.stringify([...queriedDestinations])}`);
+  assert.ok(!queriedDestinations.has('LHR'), 'não deveria consultar Reino Unido — destino é só a França');
+});
+
 test('busca do agendador (isScheduledRun) pula o Google Flights via RapidAPI (fonte paga) — só busca manual consulta', async () => {
   clearCache();
   stubAllNotConfigured();

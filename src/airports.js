@@ -148,6 +148,78 @@ function regionCodeFromValue(value) {
   return m && REGIONS[m[1]] ? m[1] : null;
 }
 
+// Busca por país inteiro (ex: "frança" -> France) — pra selecionar/excluir
+// um país inteiro de uma vez, não só um aeroporto específico dentro dele.
+// Achado real: digitar um país no campo "Menos..." só sugeria aeroportos
+// individuais daquele país, sem opção de excluir o país inteiro — usuário
+// tinha que adivinhar/saber qual aeroporto específico é o "representante"
+// do país numa busca por região, o que não é óbvio de fora.
+const countryToPtAliases = {};
+for (const [alias, country] of Object.entries(countryAliases)) {
+  (countryToPtAliases[country] ||= []).push(normalize(alias));
+}
+const uniqueCountries = [...new Set(airports.map((a) => a.country))].map((country) => ({
+  country,
+  _country: normalize(country),
+  _aliases: countryToPtAliases[country] || [],
+}));
+
+function searchCountries(query, limit = 6) {
+  const q = normalize(query);
+  if (!q || q.length < 3) return [];
+  return uniqueCountries
+    .filter((c) => c._country.includes(q) || c._aliases.some((al) => al.includes(q) || q.includes(al)))
+    .slice(0, limit)
+    .map((c) => ({
+      code: c.country,
+      label: c.country,
+      value: `COUNTRY:${c.country}`,
+      isRegion: true,
+      label_full: `${c.country} (país inteiro)`,
+    }));
+}
+
+// Comparação por versão normalizada (não o texto cru após "COUNTRY:") de
+// propósito: db.createSearch() deixa origin/destination/excludeDestination
+// em MAIÚSCULO (mesmo tratamento dado a "GRU"/"REGION:SA") — um valor tipo
+// "COUNTRY:France" viraria "COUNTRY:FRANCE", que nunca bateria com o nome
+// exato ("France", maiúscula só na inicial) salvo na base se a comparação
+// fosse case-sensitive. countryFromValue devolve o nome CANÔNICO (com a
+// grafia certa da base), não o texto recebido, pra quem usar o resultado
+// (ex: getHubAirportsForCountry) sempre comparar certo.
+function isCountryValue(value) {
+  const v = String(value || '');
+  if (!v.startsWith('COUNTRY:')) return false;
+  const q = normalize(v.slice('COUNTRY:'.length));
+  return uniqueCountries.some((c) => c._country === q);
+}
+
+function countryFromValue(value) {
+  const v = String(value || '');
+  if (!v.startsWith('COUNTRY:')) return null;
+  const q = normalize(v.slice('COUNTRY:'.length));
+  return uniqueCountries.find((c) => c._country === q)?.country || null;
+}
+
+// Igual getHubAirportsForRegion, mas filtrando por país exato — mesmo teto
+// de custo (limit). Países sem nenhum hub curado em MAJOR_HUBS caem pro
+// maior aeroporto real do país (senão "destino = esse país" nunca acharia
+// nada pra países pequenos).
+function getHubAirportsForCountry(country, limit = 8) {
+  const hubs = [];
+  for (const iata of MAJOR_HUBS) {
+    const a = byIata.get(iata);
+    if (!a || a.country !== country) continue;
+    hubs.push({ iata: a.iata, name: a.name, city: a.city, country: a.country });
+    if (hubs.length >= limit) break;
+  }
+  if (hubs.length === 0) {
+    const any = airports.find((a) => a.country === country);
+    if (any) hubs.push({ iata: any.iata, name: any.name, city: any.city, country: any.country });
+  }
+  return hubs;
+}
+
 // Retorna uma lista enxuta de aeroportos-hub representativos da região, pra
 // manter o custo de chamadas às APIs de preço sob controle — em vez de
 // consultar todos os ~6000 aeroportos, olha só os grandes hubs (MAJOR_HUBS)
@@ -182,4 +254,8 @@ module.exports = {
   regionCodeFromValue,
   getHubAirportsForRegion,
   listRegions,
+  searchCountries,
+  isCountryValue,
+  countryFromValue,
+  getHubAirportsForCountry,
 };

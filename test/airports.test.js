@@ -1,7 +1,16 @@
 require('./helpers/setup');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { searchAirports, searchRegions, getHubAirportsForRegion, regionCodeFromValue } = require('../src/airports');
+const {
+  searchAirports,
+  searchRegions,
+  getHubAirportsForRegion,
+  regionCodeFromValue,
+  searchCountries,
+  isCountryValue,
+  countryFromValue,
+  getHubAirportsForCountry,
+} = require('../src/airports');
 const { getRegionForCountry } = require('../src/data/continents');
 
 test('abreviações comuns de cidades brasileiras (BH, SP, RJ) resolvem pro aeroporto certo em primeiro lugar', () => {
@@ -67,6 +76,31 @@ test('Berlim (BER) é encontrado — o aeroporto ativo hoje; os antigos (TXL/SXF
   const sxf = results.find((a) => a.iata === 'SXF');
   assert.ok(txl.name.includes('FECHADO'), 'TXL deveria estar marcado como fechado no nome');
   assert.ok(sxf.name.includes('FECHADO'), 'SXF deveria estar marcado como fechado no nome');
+});
+
+// Pedido real: digitar um país no campo "Menos..." só sugeria aeroportos
+// individuais dele, sem opção de excluir/selecionar o país inteiro de uma
+// vez — o usuário tinha que adivinhar qual aeroporto é o "representante"
+// do país numa busca por região.
+test('searchCountries encontra país por nome em português (alias) e devolve valor COUNTRY:<nome>', () => {
+  const results = searchCountries('franca');
+  assert.ok(results.some((c) => c.value === 'COUNTRY:France'), `esperava COUNTRY:France, veio ${JSON.stringify(results)}`);
+});
+
+test('isCountryValue/countryFromValue funcionam mesmo com o valor em MAIÚSCULO (db.createSearch uppercase o campo)', () => {
+  // Achado real durante a implementação: destination/excludeDestination
+  // ficam em maiúsculo ao salvar a busca (mesmo tratamento de "GRU"), o
+  // que vira "COUNTRY:FRANCE" — comparação case-sensitive contra "France"
+  // (grafia real da base) nunca bateria.
+  assert.equal(isCountryValue('COUNTRY:FRANCE'), true);
+  assert.equal(countryFromValue('COUNTRY:FRANCE'), 'France');
+  assert.equal(countryFromValue('COUNTRY:pais-que-nao-existe'), null);
+});
+
+test('getHubAirportsForCountry devolve só hubs do país pedido', () => {
+  const hubs = getHubAirportsForCountry('France', 8);
+  assert.ok(hubs.length > 0, 'esperava pelo menos 1 hub da França');
+  assert.ok(hubs.every((h) => h.country === 'France'), `todos deveriam ser da França, veio ${JSON.stringify(hubs)}`);
 });
 
 test('query sem alias nem match nenhum devolve lista vazia', () => {
