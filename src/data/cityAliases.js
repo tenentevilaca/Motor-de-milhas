@@ -15,6 +15,7 @@ module.exports = {
   floripa: 'Florianopolis',
   lisboa: 'Lisbon',
   londres: 'London',
+  berlim: 'Berlin',
   'nova york': 'New York',
   'nova iorque': 'New York',
   moscou: 'Moscow',

@@ -56,6 +56,19 @@ test('Jericoacoara (JJD) é encontrado — aeroporto inaugurado em 2019, faltand
   assert.ok(results.some((a) => a.iata === 'JJD'), `esperava JJD entre os resultados, veio ${JSON.stringify(results.map((r) => r.iata))}`);
 });
 
+test('Berlim (BER) é encontrado — o aeroporto ativo hoje; os antigos (TXL/SXF, fechados em 2020) aparecem marcados como fechados', () => {
+  // Achado real na mesma revisão que trouxe JJD: OpenFlights tinha só os
+  // aeroportos antigos de Berlim (Tegel/TXL e Schönefeld/SXF), os dois
+  // fechados desde 2020 quando o BER abriu — quem buscasse "Berlim" só
+  // via aeroporto que não existe mais.
+  const results = searchAirports('berlim');
+  assert.ok(results.some((a) => a.iata === 'BER'), `esperava BER entre os resultados, veio ${JSON.stringify(results.map((r) => r.iata))}`);
+  const txl = results.find((a) => a.iata === 'TXL');
+  const sxf = results.find((a) => a.iata === 'SXF');
+  assert.ok(txl.name.includes('FECHADO'), 'TXL deveria estar marcado como fechado no nome');
+  assert.ok(sxf.name.includes('FECHADO'), 'SXF deveria estar marcado como fechado no nome');
+});
+
 test('query sem alias nem match nenhum devolve lista vazia', () => {
   const results = searchAirports('xyzxyzxyz-nao-existe');
   assert.equal(results.length, 0);
