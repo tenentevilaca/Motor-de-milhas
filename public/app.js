@@ -893,6 +893,23 @@ function calcArbInline(id) {
 const AUTO_RETRY_DELAY_MS = 8000;
 const MAX_AUTO_RETRIES = 2;
 
+// Filtro "Todos/Só dinheiro/Só milhas" da tabela de resultado — filtra na
+// hora (mostra/esconde linha), sem precisar buscar de novo, porque o
+// resultado já veio inteiro da resposta anterior. Recebe o próprio botão
+// clicado (não um id de busca) e sobe até o bloco que engloba a tabela —
+// funciona igual em qualquer página que renderize resultado (Buscar,
+// Buscas ativas), sem precisar saber o id do elemento de resultado, que
+// muda de nome dependendo de onde a busca foi disparada.
+function filterOfferRows(btn, kind) {
+  const block = btn.closest('.offer-filter-block');
+  if (!block) return;
+  block.querySelectorAll('tr[data-cash], tr[data-miles]').forEach((tr) => {
+    const show = kind === 'all' || tr.hasAttribute(`data-${kind}`);
+    tr.style.display = show ? '' : 'none';
+  });
+  block.querySelectorAll('.offer-filter-pill').forEach((b) => b.classList.toggle('active', b === btn));
+}
+
 async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSearch = false) {
   const el = document.getElementById(resultElId || `result-${id}`);
   const meta = metaElId === null ? null : document.getElementById(metaElId || `meta-${id}`);
@@ -922,6 +939,11 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
     // Nem toda fonte devolve número de voo/horário/duração/veredito milhas x
     // dinheiro (ex: provider custom via URL própria pode não mandar nada
     // disso) — cada coluna extra só aparece se pelo menos uma oferta tiver.
+    // Filtro "Todos/Só dinheiro/Só milhas" acima da tabela — só faz sentido
+    // mostrar quando a busca realmente tem os dois tipos de oferta juntos;
+    // com só um tipo, filtrar não muda nada, é ruído a mais na tela.
+    const hasCashOffers = sorted.some((o) => Number.isFinite(o.priceBRL));
+    const hasMilesOffers = sorted.some((o) => Number.isFinite(o.milesRequired));
     const showAirlineColumn = sorted.some((o) => o.airline);
     const showFlightColumn = sorted.some((o) => o.flightNumber);
     const showTimeColumn = sorted.some((o) => o.departureTime || o.arrivalTime);
@@ -1000,7 +1022,13 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
         const milesCell = o.milesRequiredTotal != null
           ? `<td>${o.milesRequired.toLocaleString('pt-BR')} <span class="status-line" style="margin:0;" title="Estimativa: milhas por pessoa × ${result.passengers} passageiros">(${o.milesRequiredTotal.toLocaleString('pt-BR')} total)</span></td>`
           : `<td>${o.milesRequired ?? '-'}</td>`;
-        return `<tr${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}${priceCell}${fairnessCell}${milesCell}${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${airlineCell}${flightCell}${timeCell}${durationCell}</tr>`;
+        // data-cash/data-miles: usados pelo filtro "Todos/Só dinheiro/Só
+        // milhas" acima da tabela — uma oferta pode ter os dois ao mesmo
+        // tempo (ex: Smiles às vezes devolve preço em dinheiro E em
+        // milhas pro mesmo voo), então são 2 atributos independentes, não
+        // um só "tipo".
+        const rowFlags = `${Number.isFinite(o.priceBRL) ? ' data-cash="1"' : ''}${Number.isFinite(o.milesRequired) ? ' data-miles="1"' : ''}`;
+        return `<tr${rowFlags}${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}${priceCell}${fairnessCell}${milesCell}${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${airlineCell}${flightCell}${timeCell}${durationCell}</tr>`;
       })
       .join('');
     // Busca por região consulta os mesmos provedores em vários hubs — deduplica
@@ -1079,6 +1107,16 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
             ? `<div class="status-line">⏳ Busca parcial: ${result.combinationsSkipped} combinação(ões) de data não deu tempo de testar dentro do orçamento da resposta — rode de novo pra continuar (o que já foi buscado fica em cache).</div>`
             : ''
         }
+        <div class="offer-filter-block">
+        ${
+          hasCashOffers && hasMilesOffers
+            ? `<div class="pill-row" style="margin-bottom:8px;">
+                <button type="button" class="pill offer-filter-pill active" onclick="filterOfferRows(this, 'all')">Todos</button>
+                <button type="button" class="pill offer-filter-pill" onclick="filterOfferRows(this, 'cash')">💰 Só dinheiro</button>
+                <button type="button" class="pill offer-filter-pill" onclick="filterOfferRows(this, 'miles')">🎫 Só milhas</button>
+              </div>`
+            : ''
+        }
         <table>
           <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}${
             showDateColumn ? '<th>Data</th>' : ''
@@ -1089,6 +1127,7 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
           }</tr>
           ${rows || `<tr><td colspan="${columnCount}">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>`}
         </table>
+        </div>
         ${
           result.alertCount > 0
             ? `<div class="warning">${result.alertCount} alerta(s) encontrado(s)${
