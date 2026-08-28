@@ -999,16 +999,16 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
 
     function arbitrageCellHtml(o) {
       if (!showArbitrageColumn) return '';
-      if (!Number.isFinite(o.milesRequired)) return '<td>-</td>'; // oferta em dinheiro — não se compara com ela mesma
+      if (!Number.isFinite(o.milesRequired)) return '<td data-label="Vale mais">-</td>'; // oferta em dinheiro — não se compara com ela mesma
       if (!o.arbitrage) {
-        return '<td title="Nenhuma fonte em dinheiro achou preço pra esse destino nessa busca — sem referência pra comparar.">sem ref. em R$</td>';
+        return '<td data-label="Vale mais" title="Nenhuma fonte em dinheiro achou preço pra esse destino nessa busca — sem referência pra comparar.">sem ref. em R$</td>';
       }
       const better = o.arbitrage.verdict === 'miles_better';
       const label = better ? '🎫 Milhas' : '💰 Dinheiro';
       const title = `Milhas: ${formatBRL(o.arbitrage.milesCostBRL)} (a R$${o.arbitrage.milesValuePer1000}/1000 milhas, sua estimativa) vs. dinheiro: ${formatBRL(
         o.arbitrage.cashReferenceBRL
       )}`;
-      return `<td title="${escapeHtml(title)}">${label}</td>`;
+      return `<td data-label="Vale mais" title="${escapeHtml(title)}">${label}</td>`;
     }
 
     function stopsCellHtml(o) {
@@ -1031,37 +1031,37 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
           o.partnerAirlines && o.partnerAirlines.length > 0
             ? `<div class="status-line" style="margin:2px 0 0;">Aceita em: ${escapeHtml(o.partnerAirlines.join(', '))}</div>`
             : '';
-        const programCell = `<td>${i === 0 ? '🏆 ' : ''}${programLabel}${partnersLine}</td>`;
-        const destinationCell = showDestinationColumn ? `<td>${escapeHtml(o.destinationLabel || o.destination || '-')}</td>` : '';
+        const programCell = `<td data-label="Programa">${i === 0 ? '🏆 ' : ''}${programLabel}${partnersLine}</td>`;
+        const destinationCell = showDestinationColumn ? `<td data-label="Destino">${escapeHtml(o.destinationLabel || o.destination || '-')}</td>` : '';
         const dateCell = showDateColumn
-          ? `<td>${formatDateBR(o.departDate)}${o.returnDate ? ` → ${formatDateBR(o.returnDate)}` : ''}</td>`
+          ? `<td data-label="Data">${formatDateBR(o.departDate)}${o.returnDate ? ` → ${formatDateBR(o.returnDate)}` : ''}</td>`
           : '';
-        const airlineCell = showAirlineColumn ? `<td>${o.airline ? escapeHtml(o.airline) : '-'}</td>` : '';
-        const flightCell = showFlightColumn ? `<td>${o.flightNumber ? escapeHtml(o.flightNumber) : '-'}</td>` : '';
+        const airlineCell = showAirlineColumn ? `<td data-label="Companhia">${o.airline ? escapeHtml(o.airline) : '-'}</td>` : '';
+        const flightCell = showFlightColumn ? `<td data-label="Voo">${o.flightNumber ? escapeHtml(o.flightNumber) : '-'}</td>` : '';
         const timeCell = showTimeColumn
-          ? `<td>${o.departureTime && o.arrivalTime ? `${o.departureTime}–${o.arrivalTime}` : '-'}</td>`
+          ? `<td data-label="Horário">${o.departureTime && o.arrivalTime ? `${o.departureTime}–${o.arrivalTime}` : '-'}</td>`
           : '';
-        const durationCell = showDurationColumn ? `<td>${o.durationLabel ? escapeHtml(o.durationLabel) : '-'}</td>` : '';
+        const durationCell = showDurationColumn ? `<td data-label="Duração">${o.durationLabel ? escapeHtml(o.durationLabel) : '-'}</td>` : '';
         const priceCell = o.priceBRLTotal != null
-          ? `<td>${formatBRL(o.priceBRL)} <span class="status-line" style="margin:0;" title="Estimativa: preço por pessoa × ${result.passengers} passageiros">(${formatBRL(o.priceBRLTotal)} total)</span></td>`
-          : `<td>${formatBRL(o.priceBRL)}</td>`;
+          ? `<td data-label="Preço">${formatBRL(o.priceBRL)} <span class="status-line" style="margin:0;" title="Estimativa: preço por pessoa × ${result.passengers} passageiros">(${formatBRL(o.priceBRLTotal)} total)</span></td>`
+          : `<td data-label="Preço">${formatBRL(o.priceBRL)}</td>`;
         const fairnessCell = o.priceFairness
-          ? `<td title="Média dos últimos 30 dias: ${formatBRL(o.priceFairness.avg30d)}">
+          ? `<td data-label="Preço Justo (30d)" title="Média dos últimos 30 dias: ${formatBRL(o.priceFairness.avg30d)}">
               <span style="color: ${o.priceFairness.verdict === 'good' ? 'var(--success-text)' : o.priceFairness.verdict === 'bad' ? 'var(--danger-text)' : 'inherit'}; font-weight: bold;">
                 ${o.priceFairness.verdict === 'good' ? '🟢' : o.priceFairness.verdict === 'bad' ? '🔴' : '⚪'} ${o.priceFairness.deviationPercent > 0 ? '+' : ''}${o.priceFairness.deviationPercent.toFixed(0)}%
               </span>
             </td>`
-          : `<td>-</td>`;
+          : `<td data-label="Preço Justo (30d)">-</td>`;
         const milesCell = o.milesRequiredTotal != null
-          ? `<td>${o.milesRequired.toLocaleString('pt-BR')} <span class="status-line" style="margin:0;" title="Estimativa: milhas por pessoa × ${result.passengers} passageiros">(${o.milesRequiredTotal.toLocaleString('pt-BR')} total)</span></td>`
-          : `<td>${o.milesRequired ?? '-'}</td>`;
+          ? `<td data-label="Milhas">${o.milesRequired.toLocaleString('pt-BR')} <span class="status-line" style="margin:0;" title="Estimativa: milhas por pessoa × ${result.passengers} passageiros">(${o.milesRequiredTotal.toLocaleString('pt-BR')} total)</span></td>`
+          : `<td data-label="Milhas">${o.milesRequired ?? '-'}</td>`;
         // data-cash/data-miles: usados pelo filtro "Todos/Só dinheiro/Só
         // milhas" acima da tabela — uma oferta pode ter os dois ao mesmo
         // tempo (ex: Smiles às vezes devolve preço em dinheiro E em
         // milhas pro mesmo voo), então são 2 atributos independentes, não
         // um só "tipo".
         const rowFlags = `${Number.isFinite(o.priceBRL) ? ' data-cash="1"' : ''}${Number.isFinite(o.milesRequired) ? ' data-miles="1"' : ''}`;
-        return `<tr${rowFlags}${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}${priceCell}${fairnessCell}${milesCell}${arbitrageCellHtml(o)}<td>${stopsCellHtml(o)}</td>${airlineCell}${flightCell}${timeCell}${durationCell}</tr>`;
+        return `<tr${rowFlags}${i === 0 ? ' style="font-weight:600;"' : ''}>${programCell}${destinationCell}${dateCell}${priceCell}${fairnessCell}${milesCell}${arbitrageCellHtml(o)}<td data-label="Paradas">${stopsCellHtml(o)}</td>${airlineCell}${flightCell}${timeCell}${durationCell}</tr>`;
       })
       .join('');
     // Busca por região consulta os mesmos provedores em vários hubs — deduplica
@@ -1150,8 +1150,8 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
               </div>`
             : ''
         }
-        <table>
-          <tr><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}${
+        <table class="responsive-cards">
+          <tr class="table-head-row"><th>Programa</th>${showDestinationColumn ? '<th>Destino</th>' : ''}${
             showDateColumn ? '<th>Data</th>' : ''
           }<th>Preço</th><th>Preço Justo (30d)</th><th>Milhas</th>${
             showArbitrageColumn ? '<th>Vale mais</th>' : ''
@@ -1272,16 +1272,16 @@ async function viewHistory(id) {
 
     el.innerHTML = `
       ${chartHtml}
-      <table class="history-table">
-        <tr><th>Data</th><th>Programa</th><th>Preço</th><th>Milhas</th><th>Anomalia</th><th>Promo</th></tr>
+      <table class="history-table responsive-cards">
+        <tr class="table-head-row"><th>Data</th><th>Programa</th><th>Preço</th><th>Milhas</th><th>Anomalia</th><th>Promo</th></tr>
         ${history
           .slice()
           .reverse()
           .map(
             (h) =>
-              `<tr><td>${new Date(h.checkedAt).toLocaleString('pt-BR')}</td><td>${h.program}</td><td>${formatBRL(
+              `<tr><td data-label="Data">${new Date(h.checkedAt).toLocaleString('pt-BR')}</td><td data-label="Programa">${h.program}</td><td data-label="Preço">${formatBRL(
                 h.priceBRL
-              )}</td><td>${h.milesRequired ?? '-'}</td><td>${h.isAnomaly ? '⚠️' : ''}</td><td>${h.isFlashSale ? '⚡' : ''}</td></tr>`
+              )}</td><td data-label="Milhas">${h.milesRequired ?? '-'}</td><td data-label="Anomalia">${h.isAnomaly ? '⚠️' : ''}</td><td data-label="Promo">${h.isFlashSale ? '⚡' : ''}</td></tr>`
           )
           .join('')}
       </table>`;
@@ -1341,4 +1341,15 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
+
+// Marca o link da página atual como ativo (menu do topo + barra inferior
+// no celular) — o CSS pra ".active" já existia, mas nada nunca aplicava a
+// classe; achado revisando a barra de navegação inferior nova.
+(function highlightActiveNav() {
+  const page = document.body.dataset.page;
+  if (!page) return;
+  document.querySelectorAll('[data-page]').forEach((el) => {
+    if (el !== document.body && el.dataset.page === page) el.classList.add('active');
+  });
+})();
 if (document.getElementById('searchList')) loadSearches();

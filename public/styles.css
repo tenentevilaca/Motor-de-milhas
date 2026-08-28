@@ -134,6 +134,41 @@ body {
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
+/* --- Navegação inferior (só em celular) --- */
+.bottom-nav { display: none; }
+@media (max-width: 560px) {
+  /* Menu de texto no topo não é como apps de celular se navegam — some
+     daqui e vira uma barra fixa embaixo, ao alcance do polegar, igual
+     qualquer app nativo. Só a marca (logo) fica no topo. */
+  .topnav-links { display: none; }
+  body { padding-bottom: 64px; }
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 20;
+    background: var(--white);
+    border-top: 1px solid var(--gray-200);
+    padding: 6px max(6px, env(safe-area-inset-left)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-right));
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+  }
+  .bottom-nav a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 2px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--gray-500);
+    font-size: 0.66rem;
+    font-weight: 600;
+  }
+  .bottom-nav a .bottom-nav-icon { font-size: 1.25rem; line-height: 1; }
+  .bottom-nav a.active { color: var(--blue-700); }
+}
+
 .hero {
   text-align: center;
   padding: 56px 24px 36px;
@@ -434,6 +469,43 @@ table {
 th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--gray-100); white-space: nowrap; }
 th { color: var(--gray-500); font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.04em; }
 tr:hover td { background: var(--blue-50); }
+
+/* Tabela de resultados (.responsive-cards) e de histórico viram uma pilha
+   de cards em celular — rolagem lateral funciona, mas ler 11 colunas de
+   lado é ruim; cada linha de oferta vira um cartão com "rótulo: valor"
+   por campo, como um app de verdade mostraria. data-label em cada <td>
+   (gerado em app.js) alimenta o ::before via attr(). */
+@media (max-width: 560px) {
+  table.responsive-cards { overflow-x: visible; border: none; }
+  table.responsive-cards .table-head-row { display: none; }
+  table.responsive-cards tr {
+    display: block;
+    margin: 0 0 12px;
+    padding: 4px 14px;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    background: var(--white);
+  }
+  table.responsive-cards tr:hover td { background: none; }
+  table.responsive-cards td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    white-space: normal;
+    text-align: right;
+  }
+  table.responsive-cards td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-500);
+  }
+}
 
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
 .badge.ok { background: #dcfce7; color: #166534; }
