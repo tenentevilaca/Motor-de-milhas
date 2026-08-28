@@ -63,6 +63,14 @@
 
 * { box-sizing: border-box; }
 
+/* Sem isso, o atributo `hidden` é ignorado em qualquer elemento cuja classe
+   também define `display` (ex: .row, .field, .best-time-card) — a
+   declaração do autor sempre vence a do user-agent em caso de empate de
+   especificidade, então elementos "escondidos" (campo "Menos...", aviso de
+   hidden-city, bloco de resultado, etc.) ficavam visíveis mesmo antes de
+   qualquer busca/seleção. Achado real testando o layout em viewport mobile. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -408,8 +416,22 @@ button.danger:hover {
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
 }
 
-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.85rem; }
-th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--gray-100); }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+  font-size: 0.85rem;
+  /* Tabela de resultados chega a ter ~11 colunas — sem isso ela estoura a
+     largura da tela e quebra o layout em celular (achado real na revisão
+     mobile: não havia nenhum overflow-x em lugar nenhum). display:block
+     no <table> + overflow-x:auto é a técnica padrão pra permitir rolagem
+     horizontal só da tabela sem precisar mexer no HTML gerado pelo JS. */
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--gray-100); white-space: nowrap; }
 th { color: var(--gray-500); font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.04em; }
 tr:hover td { background: var(--blue-50); }
 
@@ -794,4 +816,30 @@ tr:hover td { background: var(--blue-50); }
   .hero { padding: 36px 16px 24px; }
   .card { padding: 20px 18px; }
   .topnav { padding: 14px 16px 0; }
+
+  /* iOS Safari dá zoom automático ao focar num input com font-size <16px —
+     os inputs usam 0.95rem (~15px), gatilho clássico desse comportamento
+     em celular. 16px só nessa faixa evita o zoom sem mudar o visual no
+     desktop. */
+  input[type=text], input[type=date], input[type=number], input[type=email],
+  input[type=password], select, textarea {
+    font-size: 16px;
+  }
+
+  /* Alvo de toque mínimo recomendado (~44px) pros botões secundários
+     pequenos usados inline (ex: "Atualizar", "Descobrir meu Chat ID") —
+     no desktop o tamanho compacto já é confortável de clicar com mouse. */
+  button.secondary {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .row { gap: 12px; }
+  .row > .field, .field-narrow { min-width: 100%; }
+
+  /* Área segura de notch/home-indicator (iPhone) — viewport-fit=cover no
+     meta viewport faz o conteúdo ir atrás dessas áreas sem isso aqui. */
+  .topnav { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .container { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(40px, env(safe-area-inset-bottom)); }
 }

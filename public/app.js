@@ -1335,4 +1335,10 @@ async function compareRoutes() {
 if (document.getElementById('providerStatus')) loadProviderStatus();
 if (document.getElementById('schedulerStatus')) loadSchedulerStatus();
 if (document.getElementById('dealFeedList')) loadDealFeed();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
 if (document.getElementById('searchList')) loadSearches();
