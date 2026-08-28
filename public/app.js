@@ -2,10 +2,6 @@
 // Promoções, Configurações) — cada bloco abaixo só mexe em elementos que
 // existem na página atual, então guardas com "if (el)" são necessárias.
 
-document.querySelectorAll('.topnav-links a').forEach((a) => {
-  if (a.dataset.page === document.body.dataset.page) a.classList.add('active');
-});
-
 const hiddenCityCheckbox = document.getElementById('allowHiddenCity');
 const hiddenCityWarning = document.getElementById('hiddenCityWarning');
 if (hiddenCityCheckbox) {
@@ -1343,8 +1339,8 @@ if ('serviceWorker' in navigator) {
 }
 
 // Marca o link da página atual como ativo (menu do topo + barra inferior
-// no celular) — o CSS pra ".active" já existia, mas nada nunca aplicava a
-// classe; achado revisando a barra de navegação inferior nova.
+// no celular) — substitui um bloco equivalente que só cobria o menu do
+// topo (agora cobre os dois lugares com o mesmo código).
 (function highlightActiveNav() {
   const page = document.body.dataset.page;
   if (!page) return;
