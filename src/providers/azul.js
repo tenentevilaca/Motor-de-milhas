@@ -20,6 +20,15 @@ function minutesToLabel(min) {
 // Termos de Uso/bloqueio que está em programProvider.js) — só ativa se você
 // mesmo configurar o APIFY_TOKEN, é opt-in explícito, nunca automático.
 async function searchApifyAzul({ origin, destination, departDate, returnDate }) {
+  // Achado real (usuário testou de verdade): o "link" que o ator devolve
+  // por item aponta pro "Azul Fidelidade"/"Azul Pelo Mundo" e não abre —
+  // provavelmente exige sessão logada que uma aba anônima não tem. Sem
+  // controle sobre o que esse link de terceiro devolve, mais seguro
+  // montar o mesmo link de busca simples (ida) que já é usado no fallback
+  // do Seats.aero pra Azul — confirmado funcionando pra ida; ida e volta
+  // continua sem formato confirmado, cai pro link genérico
+  // (manualCheckUrl) igual o resto do arquivo já faz.
+  const deepLink = returnDate ? null : `https://www.voeazul.com.br/br/pt/home/selecao-voo?tp=ONEWAY&og=${origin}&ds=${destination}&dtIda=${departDate}`;
   const { data } = await axios.post(
     APIFY_RUN_URL,
     {
@@ -59,7 +68,7 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
         stopLocations: itinerary?.connections || [],
         durationLabel: minutesToLabel(itinerary?.totalDuration),
         isHiddenCity: false,
-        deepLink: item.link || null,
+        deepLink,
         flightNumber: (itinerary?.flightNumbers || []).join(', ') || null,
         departureTime: itinerary?.departure ? itinerary.departure.slice(11, 16) : null,
         arrivalTime: itinerary?.arrival ? itinerary.arrival.slice(11, 16) : null,

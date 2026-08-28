@@ -47,6 +47,59 @@ test('parseia oferta normalmente quando o ator devolve item com cabine disponív
   }
 });
 
+// Achado real (usuário testou no site de verdade): o "link" que o ator
+// Apify devolve por item aponta pro Azul Fidelidade/Pelo Mundo e não abre.
+// Não dá mais pra confiar nesse link de terceiro — usa o mesmo link de
+// busca simples (só ida) que o resto do arquivo já usa no fallback do
+// Seats.aero, ignorando item.link.
+test('deepLink ignora o "link" que o ator Apify devolve (confirmado quebrado) e usa o link de busca direta — só ida', async () => {
+  process.env.APIFY_TOKEN = 'test-token';
+  try {
+    await withMockedPost(
+      {
+        data: [
+          {
+            link: 'https://exemplo.com/nao-funciona',
+            itineraries: [{ stops: 0, totalDuration: 90, flightNumbers: ['AD123'], departure: '2026-12-08T10:00:00', arrival: '2026-12-08T11:30:00' }],
+            cabins: [{ name: 'Econômica', available: true, mileage: 12000, taxes: 3194 }],
+          },
+        ],
+      },
+      async () => {
+        const result = await azul.search({ origin: 'CNF', destination: 'MAO', departDate: '2026-12-08', returnDate: null });
+        assert.equal(
+          result.offers[0].deepLink,
+          'https://www.voeazul.com.br/br/pt/home/selecao-voo?tp=ONEWAY&og=CNF&ds=MAO&dtIda=2026-12-08'
+        );
+      }
+    );
+  } finally {
+    delete process.env.APIFY_TOKEN;
+  }
+});
+
+test('deepLink fica null (cai pro link genérico) quando a busca é ida e volta — formato de volta nunca foi confirmado', async () => {
+  process.env.APIFY_TOKEN = 'test-token';
+  try {
+    await withMockedPost(
+      {
+        data: [
+          {
+            link: 'https://exemplo.com/nao-funciona',
+            cabins: [{ name: 'Econômica', available: true, mileage: 12000 }],
+          },
+        ],
+      },
+      async () => {
+        const result = await azul.search({ origin: 'CNF', destination: 'MAO', departDate: '2026-12-08', returnDate: '2026-12-15' });
+        assert.equal(result.offers[0].deepLink, null);
+      }
+    );
+  } finally {
+    delete process.env.APIFY_TOKEN;
+  }
+});
+
 test('diagnóstico: ator devolve lista vazia — loga que não achou nada pra essa rota/data', async () => {
   process.env.APIFY_TOKEN = 'test-token';
   const originalLog = console.log;
