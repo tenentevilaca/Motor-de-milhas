@@ -75,6 +75,25 @@ test('parseia o shape real confirmado em produção: value/number_of_changes, n�
   }
 });
 
+// Pergunta real do usuário: "por que não aparece o voo/companhia?" — essa
+// API só devolve o menor preço em cache pra rota, sem companhia nem voo
+// (limitação real do endpoint, não bug de parsing). Sem link nenhum, não
+// tinha como o usuário nem conferir qual voo é. manualCheckUrl aponta pro
+// Google Flights com origem/destino/data já preenchidos.
+test('devolve manualCheckUrl (Google Flights com a rota/data preenchida) já que a API não traz companhia/voo', async () => {
+  process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
+  try {
+    await withMockedGet({ data: { data: [{ value: 734, number_of_changes: 0 }] } }, async () => {
+      const result = await provider.search({ origin: 'UDI', destination: 'CNF', departDate: '2026-10-09', returnDate: '2026-10-12' });
+      assert.ok(result.manualCheckUrl.startsWith('https://www.google.com/travel/flights?q='));
+      assert.ok(result.manualCheckUrl.includes(encodeURIComponent('UDI')));
+      assert.ok(decodeURIComponent(result.manualCheckUrl).includes('through 2026-10-12'));
+    });
+  } finally {
+    delete process.env.TRAVELPAYOUTS_TOKEN;
+  }
+});
+
 test('descarta itens sem preço válido (NaN/0/negativo/ausente) — não vira "oferta fantasma"', async () => {
   process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
   try {

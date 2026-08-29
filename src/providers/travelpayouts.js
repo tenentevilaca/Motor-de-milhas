@@ -92,7 +92,18 @@ async function search({ origin, destination, departDate, returnDate }) {
     );
   }
 
-  return { status: 'ok', message: null, offers };
+  // Achado real (usuário perguntou "por que não aparece o voo/companhia"):
+  // essa API devolve só o menor preço já visto em cache pra rota, sem
+  // companhia nem número de voo — não é uma falha de parsing, o endpoint
+  // /v2/prices/latest simplesmente não tem esse dado (documentado no
+  // comentário do topo do arquivo). Sem link nenhum, a oferta ficava sem
+  // nenhum jeito de o usuário achar/conferir qual voo é esse. Google
+  // Flights com a rota/data pré-preenchida (mesmo padrão de link já usado
+  // no comparador de rotas do front-end) resolve isso.
+  const gfQuery = `Flights from ${origin} to ${destination} on ${departDate}` + (returnDate ? ` through ${returnDate}` : '');
+  const manualCheckUrl = `https://www.google.com/travel/flights?q=${encodeURIComponent(gfQuery)}`;
+
+  return { status: 'ok', message: null, offers, manualCheckUrl };
 }
 
 module.exports = { id: 'CASH_TRAVELPAYOUTS', label: 'Comparação em dinheiro (Travelpayouts)', enabled, search };
