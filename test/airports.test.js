@@ -103,6 +103,26 @@ test('getHubAirportsForCountry devolve só hubs do país pedido', () => {
   assert.ok(hubs.every((h) => h.country === 'France'), `todos deveriam ser da França, veio ${JSON.stringify(hubs)}`);
 });
 
+// Achado real: busca "Indonésia inteira" não trouxe nenhuma oferta — o
+// fallback pra país sem hub curado pegava o 1º aeroporto na ordem bruta do
+// arquivo (Ujung Pandang), não Jacarta, uma rota sem cobertura em nenhuma
+// fonte de preço/milhas. Indonésia ganhou hub curado (igual outros países
+// populosos que tinham a mesma lacuna); trava isso como regressão.
+test('getHubAirportsForCountry("Indonesia") devolve Jacarta (CGK), não um aeroporto regional obscuro', () => {
+  const hubs = getHubAirportsForCountry('Indonesia', 8);
+  assert.ok(hubs.some((h) => h.iata === 'CGK'), `esperava CGK entre os hubs, veio ${JSON.stringify(hubs)}`);
+});
+
+// País sem hub curado nenhum: fallback deve preferir um aeroporto com
+// "International" no nome em vez do 1º da ordem bruta do arquivo — melhor
+// aproximação de "aeroporto principal" sem ter dado de porte/tráfego na base.
+test('getHubAirportsForCountry prefere aeroporto "International" no fallback pra país sem hub curado', () => {
+  // Marrocos não está em MAJOR_HUBS — testa o fallback genérico de verdade.
+  const hubs = getHubAirportsForCountry('Morocco', 8);
+  assert.equal(hubs.length, 1);
+  assert.match(hubs[0].name, /international/i);
+});
+
 test('query sem alias nem match nenhum devolve lista vazia', () => {
   const results = searchAirports('xyzxyzxyz-nao-existe');
   assert.equal(results.length, 0);

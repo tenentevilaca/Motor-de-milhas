@@ -33,6 +33,13 @@ const MAJOR_HUBS = new Set([
   'EZE', 'AEP', 'SCL', 'LIM', 'BOG', 'MEX', 'CUN', 'PTY', 'UIO', 'GYE', 'MVD', 'ASU',
   'DXB', 'DOH', 'IST', 'HND', 'NRT', 'ICN', 'PEK', 'PVG', 'HKG', 'SIN', 'BKK', 'DEL', 'BOM',
   'SYD', 'MEL', 'AKL', 'JNB', 'CPT', 'CAI',
+  // Achado real: busca "Indonésia inteira" não trouxe nenhuma oferta —
+  // sem hub curado, o fallback (ver getHubAirportsForCountry) pegava o
+  // primeiro aeroporto na ordem bruta do arquivo (Ujung Pandang, não
+  // Jacarta), rota obscura sem cobertura em nenhuma fonte de preço/milhas.
+  // Aproveitando pra cobrir outras lacunas óbvias do mesmo tipo (capitais
+  // de países populosos, sem hub curado nenhum antes disso).
+  'CGK', 'SGN', 'MNL', 'KUL', 'LOS', 'NBO', 'WAW', 'ADD',
 ]);
 
 const normalizedAirports = airports.map((a) => ({
@@ -214,8 +221,19 @@ function getHubAirportsForCountry(country, limit = 8) {
     if (hubs.length >= limit) break;
   }
   if (hubs.length === 0) {
-    const any = airports.find((a) => a.country === country);
-    if (any) hubs.push({ iata: any.iata, name: any.name, city: any.city, country: any.country });
+    // Achado real (Indonésia): `airports.find` pega o 1º da ordem BRUTA do
+    // arquivo, que não tem relação nenhuma com qual aeroporto é o principal
+    // do país — pra Indonésia isso pegava uma cidade regional (Ujung
+    // Pandang) em vez de Jacarta. Sem dado de porte/tráfego na base
+    // (OpenFlights não tem isso), "o nome contém 'International'" é uma
+    // aproximação melhor que a ordem do arquivo — não é perfeito (alguns
+    // países têm mais de um aeroporto "International"), mas evita cair
+    // direto num aeroportinho regional. Todo país onde isso ainda escolher
+    // errado deveria ganhar uma entrada própria em MAJOR_HUBS, igual foi
+    // feito pra Indonésia/Vietnã/Filipinas/etc. acima.
+    const inCountry = airports.filter((a) => a.country === country);
+    const best = inCountry.find((a) => /international/i.test(a.name)) || inCountry[0];
+    if (best) hubs.push({ iata: best.iata, name: best.name, city: best.city, country: best.country });
   }
   return hubs;
 }
