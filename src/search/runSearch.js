@@ -2,6 +2,7 @@ const { ALL_PROVIDERS, MILE_PROGRAM_IDS, CASH_PROVIDER_IDS } = require('../provi
 const { evaluateOffer } = require('./anomaly');
 const { compareSplitTickets } = require('./splitTicketCompare');
 const { generateFlexDates } = require('./flexDates');
+const { summarizeZeroOffersReason } = require('./zeroOffersReason');
 const { describeProviderError, logProviderError } = require('../providerError');
 const { cached } = require('../cache');
 const {
@@ -705,6 +706,7 @@ async function runSearch(search) {
     searchId: search.id,
     checkedAt: now,
     providerResults: results,
+    zeroOffersReason: allOffersSorted.length === 0 ? summarizeZeroOffersReason(results) : null,
     alertCount: alertOffers.length,
     alertsSuppressedByCooldown: hasAlertableFinding && withinCooldown,
     splitSuggestions,

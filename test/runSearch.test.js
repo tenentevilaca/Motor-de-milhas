@@ -475,3 +475,34 @@ test('busca do agendador (isScheduledRun) pula o Google Flights via RapidAPI (fo
   assert.equal(gflightsCallCount, 1, 'busca manual deveria ter chamado o provider pago');
   assert.ok(manualResult.allOffersSorted.some((o) => o.program === 'CASH_RAPIDAPI_GFLIGHTS'));
 });
+
+// Item B do pedido de revisão: zero ofertas precisa vir com uma causa
+// agregada legível, não só a tabela vazia. Testa o fluxo de ponta a ponta
+// (não só a função pura isolada em zeroOffersReason.test.js) pra confirmar
+// que runSearch() de verdade calcula e devolve o campo certo.
+test('zeroOffersReason: nenhuma fonte configurada -> "nenhuma_fonte_configurada", e fica null quando a busca acha oferta', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  const search = db.createSearch({ origin: 'GRU', destination: 'CGH', departDate: '2027-07-01' });
+
+  const emptyResult = await runSearch(search);
+  assert.equal(emptyResult.allOffersSorted.length, 0);
+  assert.equal(emptyResult.zeroOffersReason?.code, 'nenhuma_fonte_configurada');
+
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 500, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  const okResult = await runSearch(db.getSearch(search.id));
+  assert.ok(okResult.allOffersSorted.length > 0);
+  assert.equal(okResult.zeroOffersReason, null, 'não deveria calcular motivo nenhum quando a busca achou oferta');
+});
+
+test('zeroOffersReason: fontes configuradas respondem ok mas sem oferta -> "sem_cobertura"', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({ status: 'ok', offers: [] });
+  const search = db.createSearch({ origin: 'GRU', destination: 'CGH', departDate: '2027-07-01' });
+  const result = await runSearch(search);
+  assert.equal(result.zeroOffersReason?.code, 'sem_cobertura');
+});

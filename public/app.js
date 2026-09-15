@@ -1154,7 +1154,12 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
           }<th>Paradas</th>${showAirlineColumn ? '<th>Companhia</th>' : ''}${showFlightColumn ? '<th>Voo</th>' : ''}${showTimeColumn ? '<th>Horário</th>' : ''}${
             showDurationColumn ? '<th>Duração</th>' : ''
           }</tr>
-          ${rows || `<tr><td colspan="${columnCount}">Nenhuma oferta encontrada para essa rota/data agora.</td></tr>`}
+          ${
+            rows ||
+            `<tr><td colspan="${columnCount}">Nenhuma oferta encontrada para essa rota/data agora.${
+              result.zeroOffersReason ? ` ${escapeHtml(result.zeroOffersReason.label)}` : ''
+            }</td></tr>`
+          }
         </table>
         </div>
         ${
