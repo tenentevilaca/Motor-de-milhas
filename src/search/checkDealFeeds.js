@@ -27,8 +27,16 @@ function buildEmailHtml(search, posts) {
 // Busca por região não tem um único aeroporto de destino — considera match
 // se o post mencionar QUALQUER país daquele continente (ex: destino "Europa"
 // casa com um post sobre promoção pra Portugal, França, etc).
+// Achado real (falso positivo reportado): o resumo do RSS às vezes traz
+// texto agregado/recomendações de outras matérias — um post sobre Belo
+// Horizonte podia "bater" com uma busca pra Cancún só porque o resumo
+// mencionava Cancún de passagem, sem o post ser sobre isso. Usa só o
+// título pra decidir relação com a rota (o resumo continua indo pro
+// e-mail/WhatsApp do alerta, só não entra no critério de match).
 function postMatchesRegion(post, regionCode) {
-  return REGIONS[regionCode].countries.some((country) => postMatchesPlace(post, { country }));
+  return REGIONS[regionCode].countries.some((country) =>
+    postMatchesPlace({ ...post, summary: '' }, { country })
+  );
 }
 
 function findMatchesForSearch(search, posts) {
@@ -37,7 +45,7 @@ function findMatchesForSearch(search, posts) {
   const destAirport = regionCode ? null : getAirportByIata(search.destination);
   return posts.filter(
     (post) =>
-      (destAirport && postMatchesPlace(post, destAirport)) ||
+      (destAirport && postMatchesPlace({ ...post, summary: '' }, destAirport)) ||
       (regionCode && postMatchesRegion(post, regionCode)) ||
       (originAirport && postMatchesPlace(post, originAirport))
   );
@@ -129,4 +137,4 @@ function findMatchesForAllActiveSearches(posts) {
   return [...matched.values()];
 }
 
-module.exports = { checkDealFeedsForAllSearches, checkDealFeedsForSearch, findMatchesForAllActiveSearches };
+module.exports = { checkDealFeedsForAllSearches, checkDealFeedsForSearch, findMatchesForAllActiveSearches, findMatchesForSearch };

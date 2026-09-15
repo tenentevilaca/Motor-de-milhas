@@ -4,6 +4,11 @@ const assert = require('node:assert/strict');
 const Parser = require('rss-parser');
 const dealFeeds = require('../src/dealFeeds');
 const config = require('../src/config');
+const { findMatchesForSearch } = require('../src/search/checkDealFeeds');
+
+function post(title, summary = '') {
+  return { title, summary, link: `https://blog.com/${Math.random()}`, source: 'stub' };
+}
 
 function withMockedParseURL(itemsByUrl, fn) {
   const original = Parser.prototype.parseURL;
@@ -107,4 +112,27 @@ test('postMatchesPlace: post em português bate com cidade cujo nome na base est
 
 test('postMatchesPlace: cidade sem alias em português continua funcionando pelo nome em inglês (regressão)', () => {
   assert.equal(dealFeeds.postMatchesPlace({ title: 'Promoção pra Miami', summary: '' }, { city: 'Miami', country: 'United States' }), true);
+});
+
+// Falso positivo real reportado: o resumo do RSS às vezes traz texto
+// agregado/recomendação de outras matérias — um post sobre Belo Horizonte
+// "batia" com uma busca pra Cancún só porque o resumo mencionava Cancún de
+// passagem (junto de outras cidades/assuntos sem relação). Match de
+// aeroporto de destino passou a usar só o título.
+test('não usa menção solta no resumo RSS para relacionar post à rota', () => {
+  const matches = findMatchesForSearch(
+    { origin: 'GRU', destination: 'CUN' },
+    [post('Passagens promocionais para Belo Horizonte', 'Veja também dicas e ofertas para Cancun.')]
+  );
+
+  assert.equal(matches.length, 0);
+});
+
+test('promoção cujo título menciona Cancun continua relacionada', () => {
+  const matches = findMatchesForSearch(
+    { origin: 'GRU', destination: 'CUN' },
+    [post('Passagens promocionais para Cancun')]
+  );
+
+  assert.equal(matches.length, 1);
 });
