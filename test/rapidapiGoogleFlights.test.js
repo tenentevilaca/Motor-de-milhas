@@ -181,3 +181,36 @@ test('aceita offer.price como alternativa a offer.price_as_number', async () => 
     delete process.env.RAPIDAPI_KEY;
   }
 });
+
+// Achado real da revisão (item D): `allowStopover` é recebido por essa
+// função (e por TODOS os providers de milhas — nenhum outro arquivo do
+// projeto referencia esse parâmetro além de passá-lo adiante) mas não tem
+// NENHUM código que o leia pra filtrar/marcar nada — nem aqui, nem em
+// aa.js/azul.js/smiles.js/seatsAero.js. O checkbox "Aceitar stopover" da
+// tela de busca hoje não muda o resultado de forma nenhuma. Isso não é uma
+// regressão (o comentário acima deste teste já documenta que o filtro
+// ANTERIOR — que descartava toda oferta com stops>0 — era o bug real, e
+// foi corretamente removido); é a constatação de que a funcionalidade
+// "detectar parada estendida gratuita" descrita no README nunca chegou a
+// ser implementada de fato, só o parâmetro foi encanado até aqui. Fica
+// registrado como teste pra não regredir mais ainda (e pra não fingir que
+// existe um filtro que não existe) — ver relatório final sobre decidir se
+// vale implementar a detecção de verdade (exigiria lista curada de
+// hub+companhia com stopover gratuito conhecido, cruzada com
+// stopLocations de cada oferta).
+test('allowStopover ainda não filtra nem marca nada — true e false devolvem exatamente a mesma coisa (documentando lacuna real, não fingindo que funciona)', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  try {
+    await withMockedPost(
+      { data: [{ price_as_number: 900, stops: 1, airline: 'TAP', flight_number: 'TP123' }] },
+      async () => {
+        const withStopover = await provider.search({ origin: 'GRU', destination: 'CDG', departDate: '2026-11-10', returnDate: null, allowStopover: true });
+        const withoutStopover = await provider.search({ origin: 'GRU', destination: 'CDG', departDate: '2026-11-10', returnDate: null, allowStopover: false });
+        assert.deepEqual(withStopover.offers, withoutStopover.offers);
+        assert.equal(withStopover.offers.length, 1, 'oferta com conexão (stops=1) não deveria ser descartada em nenhum dos dois casos');
+      }
+    );
+  } finally {
+    delete process.env.RAPIDAPI_KEY;
+  }
+});
