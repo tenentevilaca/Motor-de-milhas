@@ -205,6 +205,33 @@ test('diagnóstico: loga aviso se aparecer campo nunca visto que pareça indicar
   );
 });
 
+// Ponto real levantado pelo usuário: parceiras costumam aparecer em rotas
+// INTERNACIONAIS, não domésticas — uma busca doméstica pode devolver só a
+// companhia principal mesmo quando o programa tem vários parceiros. Esse
+// teste confirma que, pra essa fonte específica (RapidAPI), isso não muda
+// o resultado: o teste real já feito nesta sessão (ver comentário no topo
+// de smiles.js) mostrou que a API só devolve voos da própria Gol mesmo
+// numa rota internacional (GRU->MIA) — não é um bug, é uma limitação já
+// confirmada da fonte. Sem chave real configurada nesta sandbox (sem
+// egress pra RapidAPI/Seats.aero/Apify), não dá pra reconfirmar isso ao
+// vivo — esse teste documenta o comportamento já observado.
+test('Smiles/RapidAPI: mesmo numa rota internacional (GRU->MIA), a fonte continua só devolvendo Gol — sem parceira (limitação confirmada da fonte, não é geografia)', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  try {
+    await withMockedPost(
+      { data: { outboundFlights: [{ adultPricePoints: 45000, adultBoardingTax: 210, flightNumber: 'G3700', segments: [{ destinationCode: 'MIA' }] }] } },
+      async () => {
+        const result = await smiles.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-12-08', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.operatingAirline, 'Gol');
+        assert.equal(offer.partnerAirlines, null);
+      }
+    );
+  } finally {
+    delete process.env.RAPIDAPI_KEY;
+  }
+});
+
 test('quando a RapidAPI já achou oferta, não gasta uma chamada a mais no Seats.aero', async () => {
   process.env.RAPIDAPI_KEY = 'test-key';
   process.env.SEATSAERO_API_KEY = 'test-key';

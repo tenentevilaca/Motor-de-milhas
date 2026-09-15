@@ -190,11 +190,16 @@ test('AA sem SEATSAERO_API_KEY: cai pro fallback genérico (not_configured), com
   assert.equal(result.offers.length, 0);
 });
 
-// Item 3 do pedido do usuário: "Emitido com AAdvantage · operado por Qatar
-// Airways" — exatamente 1 código em {letra}Airlines é o único caso em que
-// dá pra afirmar uma companhia operadora concreta (ver comentário em
-// seatsAero.js sobre por que 2+ não vira uma "afirmação única").
-test('AA: 1 código em YAirlines vira operatingAirline (nome mapeado via airlineNames.js) — "emitido com AAdvantage, operado por Qatar Airways"', async () => {
+// REVISADO a pedido do usuário: o nome do campo {letra}Airlines nunca foi
+// confirmado contra uma resposta real do Seats.aero (só a autenticação foi,
+// via print da própria conta) — por isso operatingAirline NUNCA é afirmado
+// a partir dele, não importa quantos códigos vierem. Quando o campo existe
+// (1 ou mais códigos), vira só uma lista NEUTRA em partnerAirlines
+// ("companhias disponíveis para emissão" no front), nunca "operado por".
+// Fixture abaixo é baseada só no formato descrito na documentação pública
+// do Seats.aero (developers.seats.aero) — NÃO é uma resposta real capturada
+// (esta sandbox não tem chave/egress pra confirmar isso ao vivo).
+test('AA: campo {letra}Airlines (não confirmado) NUNCA vira operatingAirline, mesmo com 1 código só — fica em partnerAirlines como lista neutra', async () => {
   process.env.SEATSAERO_API_KEY = 'test-key';
   try {
     await withMockedGet(
@@ -203,8 +208,8 @@ test('AA: 1 código em YAirlines vira operatingAirline (nome mapeado via airline
         const result = await aa.search({ origin: 'GRU', destination: 'DOH', departDate: '2026-11-10', returnDate: null });
         const offer = result.offers[0];
         assert.equal(offer.loyaltyProgram, 'American Airlines (AAdvantage)');
-        assert.equal(offer.operatingAirline, 'Qatar Airways');
-        assert.equal(offer.partnerAirlines, null);
+        assert.equal(offer.operatingAirline, null, 'nunca afirma "operado por" a partir de campo não confirmado');
+        assert.deepEqual(offer.partnerAirlines, ['Qatar Airways']);
         assert.equal(offer.cabin, 'Econômica');
         assert.equal(offer.availabilitySource, 'seatsaero');
         assert.equal(offer.isLiveAwardAvailability, true);
@@ -215,7 +220,7 @@ test('AA: 1 código em YAirlines vira operatingAirline (nome mapeado via airline
   }
 });
 
-test('AA: 2+ códigos em YAirlines vira partnerAirlines (opções paralelas) — nunca afirma qual delas é "a" operadora', async () => {
+test('AA: 2+ códigos em YAirlines também ficam em partnerAirlines (lista neutra), operatingAirline continua null', async () => {
   process.env.SEATSAERO_API_KEY = 'test-key';
   try {
     await withMockedGet(
@@ -232,6 +237,14 @@ test('AA: 2+ códigos em YAirlines vira partnerAirlines (opções paralelas) —
   }
 });
 
+// Nota sobre doméstico vs. internacional pra esse programa específico:
+// AAdvantage não tem rota doméstica brasileira (AA não voa dentro do
+// Brasil) — o uso real desse programa neste projeto já É sempre
+// internacional (GRU->MIA/DOH/LHR nos testes deste arquivo). Esse caso
+// aqui mostra que MESMO em rota internacional, a ausência do campo
+// {letra}Airlines/Airlines na trip específica (não a rota em si) é o que
+// decide se sai companhia ou não — sem esse campo, fica null de qualquer
+// jeito, não é geografia que garante o dado.
 test('AA: sem YAirlines/Airlines na trip, operatingAirline e partnerAirlines ficam null (não inventa companhia)', async () => {
   process.env.SEATSAERO_API_KEY = 'test-key';
   try {
@@ -251,14 +264,15 @@ test('AA: sem YAirlines/Airlines na trip, operatingAirline e partnerAirlines fic
   }
 });
 
-test('AA: código IATA sem entrada em airlineNames.js aparece pelo próprio código (não inventa nome)', async () => {
+test('AA: código IATA sem entrada em airlineNames.js aparece pelo próprio código (não inventa nome) — em partnerAirlines, nunca operatingAirline', async () => {
   process.env.SEATSAERO_API_KEY = 'test-key';
   try {
     await withMockedGet(
       { data: { data: [{ Source: 'american', Stops: 0, YMileageCost: 30000, YAirlines: ['ZZ'] }] } },
       async () => {
         const result = await aa.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
-        assert.equal(result.offers[0].operatingAirline, 'ZZ');
+        assert.equal(result.offers[0].operatingAirline, null);
+        assert.deepEqual(result.offers[0].partnerAirlines, ['ZZ']);
       }
     );
   } finally {
@@ -266,14 +280,15 @@ test('AA: código IATA sem entrada em airlineNames.js aparece pelo próprio cód
   }
 });
 
-test('AA: usa Airlines genérico como fallback quando não existe {letra}Airlines específico da cabine', async () => {
+test('AA: usa Airlines genérico como fallback quando não existe {letra}Airlines específico da cabine — ainda assim só em partnerAirlines', async () => {
   process.env.SEATSAERO_API_KEY = 'test-key';
   try {
     await withMockedGet(
       { data: { data: [{ Source: 'american', Stops: 0, YMileageCost: 30000, Airlines: ['QR'] }] } },
       async () => {
         const result = await aa.search({ origin: 'GRU', destination: 'DOH', departDate: '2026-11-10', returnDate: null });
-        assert.equal(result.offers[0].operatingAirline, 'Qatar Airways');
+        assert.equal(result.offers[0].operatingAirline, null);
+        assert.deepEqual(result.offers[0].partnerAirlines, ['Qatar Airways']);
       }
     );
   } finally {
@@ -281,7 +296,7 @@ test('AA: usa Airlines genérico como fallback quando não existe {letra}Airline
   }
 });
 
-test('diagnóstico: loga quantas cabines tiveram companhia identificada vs. não, sem imprimir token/headers', async () => {
+test('diagnóstico: loga presença/ausência do campo {letra}Airlines por cabine e as chaves reais da 1ª trip, sem imprimir token/headers', async () => {
   process.env.SEATSAERO_API_KEY = 'chave-secreta-nao-pode-vazar';
   const originalLog = console.log;
   const logLines = [];
@@ -297,8 +312,10 @@ test('diagnóstico: loga quantas cabines tiveram companhia identificada vs. não
     console.log = originalLog;
     delete process.env.SEATSAERO_API_KEY;
   }
-  const summaryLine = logLines.find((l) => l.includes('SEATSAERO:AA') && l.includes('companhia identificada'));
+  const summaryLine = logLines.find((l) => l.includes('SEATSAERO:AA') && l.includes('NÃO confirmado contra resposta real'));
   assert.ok(summaryLine, `logs: ${JSON.stringify(logLines)}`);
-  assert.ok(summaryLine.includes('companhia identificada em 1 cabine(s)') && summaryLine.includes('sem dado de companhia em 1'));
+  assert.ok(summaryLine.includes('presente em 1 cabine(s)') && summaryLine.includes('ausente em 1'));
+  const keysLine = logLines.find((l) => l.includes('SEATSAERO:AA') && l.includes('chaves da 1ª trip'));
+  assert.ok(keysLine && keysLine.includes('YAirlines'), `esperava log das chaves reais da trip, veio: ${JSON.stringify(logLines)}`);
   assert.ok(!logLines.some((l) => l.includes('chave-secreta-nao-pode-vazar')), 'chave da API não pode aparecer em log nenhum');
 });

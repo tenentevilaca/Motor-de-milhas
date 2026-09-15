@@ -51,6 +51,12 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
   // bateu no filtro de disponibilidade/milhagem".
   if (items.length === 0) {
     console.log(`[AZUL:apify] resposta pra ${origin}->${destination} veio sem nenhum item — ator não achou nada pra essa rota/data (não é bug de parsing).`);
+  } else if (items[0].cabins?.[0]) {
+    // Chaves reais da 1ª cabine do 1º item — pra confirmar/reconfirmar
+    // contra resposta real se "airlines" (e o shape de cada entrada nela)
+    // continua existindo do jeito que o código espera. Nunca imprime
+    // token nem corpo bruto inteiro, só os nomes das chaves.
+    console.log(`[AZUL:apify] chaves da 1ª cabine (pra confirmar campo de companhia): [${Object.keys(items[0].cabins[0]).join(', ')}]`);
   }
   const offers = [];
   let cabinsWithAirlineData = 0;
@@ -60,13 +66,13 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
     for (const cabin of item.cabins || []) {
       if (!cabin.available || !Number.isFinite(cabin.mileage) || cabin.mileage <= 0) continue;
 
-      // "airlines" nesse campo do cabin já é confirmado (comentário acima)
-      // como concreto pra ESSE trecho/cabine específico — não uma lista
-      // genérica de elegibilidade do programa. Mesmo critério conservador
-      // usado no Seats.aero (ver seatsAero.js): exatamente 1 companhia =
-      // afirmação confiável de quem opera; 2+ = tratadas como opções
-      // paralelas (partnerAirlines), sem apontar qual delas é "a"
-      // operadora; 0 = nenhum dado, não inventa.
+      // Revisão explícita pedida pelo usuário: mesmo com o comentário
+      // acima (de uma sessão anterior) dizendo que "airlines" já foi visto
+      // num teste real, essa lista NUNCA vira operatingAirline — fica só
+      // como uma lista NEUTRA ("companhias disponíveis nessa cabine"),
+      // sem afirmar quem opera o voo, até essa validação ser reconfirmada
+      // nesta revisão (não foi — esta sandbox não tem chave real nem
+      // egress pro Apify). 0 código = nenhum dado, não inventa.
       const airlineNamesInCabin = Array.isArray(cabin.airlines) ? cabin.airlines.map((a) => a?.name).filter(Boolean) : [];
       if (airlineNamesInCabin.length > 0) cabinsWithAirlineData += 1;
       else cabinsWithoutAirlineData += 1;
@@ -89,9 +95,9 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
         arrivalTime: itinerary?.arrival ? itinerary.arrival.slice(11, 16) : null,
         loyaltyProgram: 'TudoAzul',
         cabin: cabin.name || null,
-        operatingAirline: airlineNamesInCabin.length === 1 ? airlineNamesInCabin[0] : null,
+        operatingAirline: null, // nunca afirma quem opera a partir de cabin.airlines — ver comentário acima
         marketingAirline: null, // ator não distingue marketing de operating — sem dado confirmado, não inventa
-        partnerAirlines: airlineNamesInCabin.length > 1 ? airlineNamesInCabin : null,
+        partnerAirlines: airlineNamesInCabin.length > 0 ? airlineNamesInCabin : null, // lista neutra de "companhias disponíveis nessa cabine"
         // Ator devolve flightNumbers/connections agregados da itinerary
         // inteira, não um trecho-a-trecho com companhia por perna — sem
         // esse detalhe confirmado, não monta um array de "segments".

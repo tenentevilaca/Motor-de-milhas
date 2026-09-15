@@ -222,10 +222,16 @@ test('erro do Apify (401, chave inválida) loga categoria "auth" — mensagem pr
   }
 });
 
-// Item 5 do pedido do usuário: cabin.airlines já é confirmado (comentário no
-// código) como concreto pra esse trecho/cabine específico, não elegibilidade
-// geral do programa — quando vem com 1 companhia só, essa é a operadora.
-test('Azul: cabin.airlines com 1 companhia vira operatingAirline (afirmação concreta pra essa cabine/itinerário)', async () => {
+// REVISADO a pedido do usuário: mesmo cabin.airlines tendo um comentário de
+// sessão anterior dizendo que já foi visto num teste real, essa revisão não
+// reconfirmou isso (sem chave/egress nesta sandbox) — por isso NUNCA vira
+// operatingAirline, mesmo com 1 companhia só. Fica em partnerAirlines como
+// lista neutra ("companhias disponíveis nessa cabine" no front).
+// Ponto real levantado pelo usuário: parceiras aparecem em rota
+// INTERNACIONAL (aqui GRU->SCL, Brasil-Chile) — contraste com o teste de
+// rota doméstica mais abaixo (CNF->MAO), onde a mesma API não traz
+// cabin.airlines nenhum.
+test('Azul, rota internacional (GRU->SCL): cabin.airlines com 1 companhia NUNCA vira operatingAirline — fica em partnerAirlines como lista neutra', async () => {
   process.env.APIFY_TOKEN = 'test-token';
   try {
     await withMockedPost(
@@ -241,8 +247,8 @@ test('Azul: cabin.airlines com 1 companhia vira operatingAirline (afirmação co
         const result = await azul.search({ origin: 'GRU', destination: 'SCL', departDate: '2026-12-08', returnDate: null });
         const offer = result.offers[0];
         assert.equal(offer.loyaltyProgram, 'TudoAzul');
-        assert.equal(offer.operatingAirline, 'LATAM');
-        assert.equal(offer.partnerAirlines, null);
+        assert.equal(offer.operatingAirline, null, 'nunca afirma "operado por" a partir de cabin.airlines não revalidado');
+        assert.deepEqual(offer.partnerAirlines, ['LATAM']);
         assert.equal(offer.cabin, 'Econômica');
         assert.equal(offer.availabilitySource, 'apify');
         assert.equal(offer.isLiveAwardAvailability, true);
@@ -253,7 +259,10 @@ test('Azul: cabin.airlines com 1 companhia vira operatingAirline (afirmação co
   }
 });
 
-test('Azul: cabin.airlines com 2+ companhias vira partnerAirlines (opções paralelas), nunca uma operatingAirline única', async () => {
+// Rota internacional de longo curso (GRU->LIS, Brasil-Portugal) — típico
+// caso onde o programa tem parceria (TudoAzul aceita TAP em voos pra
+// Europa) e a API realmente devolve mais de uma companhia pra mesma cabine.
+test('Azul, rota internacional (GRU->LIS): cabin.airlines com 2+ companhias vira partnerAirlines (opções paralelas), nunca uma operatingAirline única', async () => {
   process.env.APIFY_TOKEN = 'test-token';
   try {
     await withMockedPost(
@@ -276,7 +285,13 @@ test('Azul: cabin.airlines com 2+ companhias vira partnerAirlines (opções para
   }
 });
 
-test('Azul: sem cabin.airlines (rota doméstica típica), operatingAirline e partnerAirlines ficam null — não afirma disponibilidade parceira sem dado concreto', async () => {
+// Contraste com os dois testes internacionais acima: rota 100% doméstica
+// (CNF->MAO, ambas dentro do Brasil) — o ator não trouxe cabin.airlines
+// nenhum aqui (mesmo shape já usado nos outros testes domésticos deste
+// arquivo), confirmando o padrão observado: parceria tende a aparecer em
+// rota internacional, doméstica tende a trazer só a companhia principal
+// (ou nenhum dado de companhia, como neste caso).
+test('Azul, rota doméstica (CNF->MAO): sem cabin.airlines, operatingAirline e partnerAirlines ficam null — não afirma disponibilidade parceira sem dado concreto', async () => {
   process.env.APIFY_TOKEN = 'test-token';
   try {
     await withMockedPost(
@@ -321,6 +336,27 @@ test('diagnóstico: loga quantas cabines tiveram companhia identificada vs. não
   const summaryLine = logLines.find((l) => l.includes('AZUL:apify') && l.includes('companhia identificada'));
   assert.ok(summaryLine, `logs: ${JSON.stringify(logLines)}`);
   assert.ok(summaryLine.includes('companhia identificada em 1 cabine(s)') && summaryLine.includes('sem dado de companhia em 1'));
+  assert.ok(!logLines.some((l) => l.includes('token-apify-secreto-nao-pode-vazar')), 'token do Apify não pode aparecer em log nenhum');
+});
+
+test('diagnóstico: loga as chaves reais da 1ª cabine (pra confirmar campo de companhia contra resposta real), sem token', async () => {
+  process.env.APIFY_TOKEN = 'token-apify-secreto-nao-pode-vazar';
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    await withMockedPost(
+      { data: [{ cabins: [{ name: 'Econômica', available: true, mileage: 12000, airlines: [{ name: 'Azul' }] }] }] },
+      async () => {
+        await azul.search({ origin: 'CNF', destination: 'MAO', departDate: '2026-12-08', returnDate: null });
+      }
+    );
+  } finally {
+    console.log = originalLog;
+    delete process.env.APIFY_TOKEN;
+  }
+  const keysLine = logLines.find((l) => l.includes('AZUL:apify') && l.includes('chaves da 1ª cabine'));
+  assert.ok(keysLine && keysLine.includes('airlines'), `esperava log das chaves reais da cabine, veio: ${JSON.stringify(logLines)}`);
   assert.ok(!logLines.some((l) => l.includes('token-apify-secreto-nao-pode-vazar')), 'token do Apify não pode aparecer em log nenhum');
 });
 

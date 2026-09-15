@@ -89,6 +89,15 @@ async function searchSeatsAero({ origin, destination, departDate, returnDate, pr
     console.log(`[SEATSAERO:${programId}] resposta trouxe ${allTrips.length} trip(s) pra ${origin}->${destination}, mas nenhuma com Source="${sourceKey}" — fontes que vieram: [${sourcesFound.join(', ')}]`);
   }
 
+  // Log de diagnóstico pra confirmar (algum dia, contra resposta real) o
+  // nome real do campo de companhia por cabine — nunca imprime token/header,
+  // só as CHAVES da 1ª trip que passou no filtro de Source. Sem isso, não
+  // dava pra saber, de fato, se {letra}Airlines existe na resposta real ou
+  // se é um nome inventado a partir só da documentação pública.
+  if (trips.length > 0) {
+    console.log(`[SEATSAERO:${programId}] chaves da 1ª trip (pra confirmar nome real do campo de companhia por cabine): [${Object.keys(trips[0]).join(', ')}]`);
+  }
+
   const offers = [];
   let cabinsWithAirlineData = 0;
   let cabinsWithoutAirlineData = 0;
@@ -97,17 +106,17 @@ async function searchSeatsAero({ origin, destination, departDate, returnDate, pr
       const miles = Number(trip[`${letter}MileageCost`]);
       if (!Number.isFinite(miles) || miles <= 0) continue;
 
-      // Companhia que opera essa cabine ESPECÍFICA dessa trip — documentação
-      // pública do Seats.aero (developers.seats.aero) descreve um campo por
-      // letra de cabine (ex: YAirlines/JAirlines), array de código IATA de
-      // 2 letras de quem tem esse assento-prêmio disponível NESSA trip —
-      // não uma lista genérica de parceiros do programa. NUNCA confirmado
-      // contra uma resposta real neste projeto (mesma ressalva de sempre
-      // pra essa API — ver comentário no topo do arquivo), por isso: só
-      // vira "operatingAirline" (uma companhia concreta) quando o array
-      // tiver EXATAMENTE 1 código — com 2+ trata como opções paralelas
-      // (partnerAirlines), nunca inventa qual delas é "a" operadora.
-      // Zero código = null nos dois campos, sem chutar nada.
+      // IMPORTANTE: o nome do campo abaixo ({letra}Airlines/Airlines) veio
+      // só da documentação pública do Seats.aero (developers.seats.aero) —
+      // NUNCA foi confirmado contra uma resposta real deste projeto (só a
+      // autenticação foi, via print da própria conta). Por isso:
+      //   - NUNCA vira operatingAirline (não afirma "quem opera o voo" a
+      //     partir de um campo cujo próprio nome/existência é incerto);
+      //   - fica só como uma lista NEUTRA ("companhias disponíveis para
+      //     emissão"), sem interpretar o que ela significa de verdade —
+      //     pode ser companhia operadora, pode ser outra coisa, não se sabe.
+      // Quando confirmado contra resposta real (ver log de chaves acima),
+      // essa lógica pode voltar a promover 1 código pra operatingAirline.
       const rawAirlineCodes = trip[`${letter}Airlines`] || trip.Airlines;
       const airlineCodes = Array.isArray(rawAirlineCodes) ? rawAirlineCodes.filter(Boolean) : [];
       const airlineNames = airlineCodes.map((code) => AIRLINE_NAMES[code] || code);
@@ -132,9 +141,9 @@ async function searchSeatsAero({ origin, destination, departDate, returnDate, pr
         deepLink: deepLinkBuilder ? deepLinkBuilder({ origin, destination, departDate, returnDate }) : null,
         loyaltyProgram: label,
         cabin: cabinLabel,
-        operatingAirline: airlineNames.length === 1 ? airlineNames[0] : null,
+        operatingAirline: null, // campo de origem não confirmado — nunca afirma quem opera (ver comentário acima)
         marketingAirline: null, // Seats.aero não distingue marketing de operating — sem dado confirmado, não inventa
-        partnerAirlines: airlineNames.length > 1 ? airlineNames : null,
+        partnerAirlines: airlineNames.length > 0 ? airlineNames : null, // lista neutra de "companhias disponíveis", não uma afirmação de parceria/operação
         segments: null, // Seats.aero devolve só Stops (contagem), sem detalhe de trecho a trecho
         availabilitySource: 'seatsaero',
         isLiveAwardAvailability: true,
@@ -158,7 +167,7 @@ async function searchSeatsAero({ origin, destination, departDate, returnDate, pr
   if (offers.length > 0) {
     console.log(
       `[SEATSAERO:${programId}] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ${trips.length} trip(s) com Source="${sourceKey}" -> ${offers.length} oferta(s) geradas; ` +
-      `companhia identificada em ${cabinsWithAirlineData} cabine(s), sem dado de companhia em ${cabinsWithoutAirlineData} (campo ${'{letra}'}Airlines ainda não confirmado contra resposta real).`
+      `campo ${'{letra}'}Airlines presente em ${cabinsWithAirlineData} cabine(s), ausente em ${cabinsWithoutAirlineData} — NÃO confirmado contra resposta real, por isso nunca vira "operado por", só uma lista neutra quando presente.`
     );
   }
 

@@ -35,13 +35,24 @@ test('"Emitido com" usa o.loyaltyProgram (nome completo do programa) com fallbac
   assert.match(appJs, /const issuedWithText = o\.loyaltyProgram \|\| o\.program;/);
 });
 
-test('"Operado por" só aparece quando o.operatingAirline vem preenchido pela API (nunca lista genérica de parceiras como disponibilidade)', () => {
+test('"Operado por" só aparece quando o.operatingAirline vem preenchido pela API (AA/Azul nunca preenchem esse campo — só Smiles)', () => {
   assert.ok(appJs.includes('Operado por'));
   assert.match(appJs, /const operatedByLine = o\.operatingAirline\s*\n?\s*\?/);
 });
 
-test('parceiras só aparecem quando a fonte confirmou itinerário concreto pra essa cabine (o.partnerAirlines preenchido)', () => {
-  assert.ok(appJs.includes('Parceiras disponíveis nessa cabine'));
+// REVISADO: nem AA (Seats.aero) nem Azul (Apify) afirmam mais "parceira" —
+// o campo de origem nunca foi confirmado contra resposta real, então vira
+// só uma lista neutra ("companhias disponíveis"), nunca "Operado por"/
+// "parceira". Wording muda por fonte, conforme pedido explícito do usuário.
+test('mostra lista neutra de "companhias disponíveis" (nunca "parceira"/"operado por") quando a fonte traz o dado, com texto específico por fonte', () => {
+  assert.ok(appJs.includes('Companhias disponíveis para emissão'), 'texto específico da AA/Seats.aero não encontrado');
+  assert.ok(appJs.includes('Companhias disponíveis nessa cabine'), 'texto específico da Azul/Apify não encontrado');
+  assert.ok(!appJs.includes('Parceiras disponíveis'), 'não deveria mais existir texto afirmando "parceira" a partir de campo não confirmado');
+});
+
+test('mostra "Companhia operadora não informada pela fonte" quando é oferta de milhas sem operatingAirline nem lista de companhias', () => {
+  assert.ok(appJs.includes('Companhia operadora não informada pela fonte'));
+  assert.match(appJs, /o\.loyaltyProgram && !o\.operatingAirline && !hasAvailableAirlinesList/);
 });
 
 test('indica disponibilidade ao vivo via Seats.aero/RapidAPI/Apify quando a fonte confirma (isLiveAwardAvailability)', () => {

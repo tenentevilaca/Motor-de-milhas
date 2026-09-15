@@ -68,7 +68,7 @@ async function searchRapidApiSmiles({ origin, destination, departDate, returnDat
     const airlineFieldCandidates = sampleKeys.filter((k) => /airline|carrier|operat|market/i.test(k));
     if (airlineFieldCandidates.length > 0) {
       console.log(
-        `[SMILES:rapidapi] ATENÇÃO: voo bruto trouxe chave(s) que podem indicar companhia operadora/parceira, nunca vistas antes: [${airlineFieldCandidates.join(', ')}] — parsing atual assume sempre Gol e ignora essas chaves; revisar antes de confiar.`
+        `[SMILES:rapidapi] ATENÇÃO: voo bruto trouxe chave(s) que podem indicar companhia operadora/parceira, nunca vistas antes: [${airlineFieldCandidates.join(', ')}] — isso é só um alerta pra revisão manual; o parsing NÃO assume automaticamente que seja parceira, continua reportando Gol/null até alguém confirmar o significado real dessa chave.`
       );
     }
   }

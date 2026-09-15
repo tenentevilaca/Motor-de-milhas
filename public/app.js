@@ -1033,22 +1033,33 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
         const programLabel = link
           ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener"${linkTitle}>${escapeHtml(issuedWithText)}</a>`
           : escapeHtml(issuedWithText);
-        // "Operado por": só aparece quando a API confirmou uma companhia
-        // concreta pra ESSE itinerário/cabine (o.operatingAirline vem null
-        // sempre que a fonte não informou ou informou 2+ opções paralelas —
-        // ver seatsAero.js/smiles.js/azul.js) — nunca uma lista genérica de
-        // parceiras do programa como se fosse voo disponível.
+        // REVISADO: "Operado por" só pode aparecer quando a fonte informa
+        // companhia operadora por um campo realmente confirmado — hoje só o
+        // Smiles/RapidAPI se qualifica (confirmado em teste real: só
+        // devolve voos da própria Gol). AA (Seats.aero) e Azul (Apify) NUNCA
+        // preenchem o.operatingAirline (o nome do campo de origem nunca foi
+        // confirmado contra resposta real nesses dois) — ver
+        // seatsAero.js/azul.js.
         const operatedByLine = o.operatingAirline
           ? `<div class="status-line" style="margin:2px 0 0;">✈️ Operado por ${escapeHtml(o.operatingAirline)}</div>`
           : '';
-        // Parceiras que aceitam essa milhagem, quando a fonte informa (nem
-        // toda fonte tem esse dado — ver providers/index.js). Só aparece
-        // quando a API devolveu um itinerário concreto pra essas parceiras
-        // (2+ opções paralelas nessa cabine específica) — nunca a lista
-        // geral de parceiras do programa.
-        const partnersLine =
-          o.partnerAirlines && o.partnerAirlines.length > 0
-            ? `<div class="status-line" style="margin:2px 0 0;">Parceiras disponíveis nessa cabine: ${escapeHtml(o.partnerAirlines.join(', '))}</div>`
+        // "Companhias disponíveis": lista NEUTRA (o.partnerAirlines) — não
+        // afirma parceria nem operação, só repassa o que a fonte trouxe num
+        // campo cujo significado real ainda não foi confirmado (AA/Azul).
+        // Texto muda por fonte porque o pedido do usuário especificou
+        // wording diferente pra cada uma.
+        const AVAILABLE_AIRLINES_LABEL = { seatsaero: 'Companhias disponíveis para emissão', apify: 'Companhias disponíveis nessa cabine' };
+        const hasAvailableAirlinesList = o.partnerAirlines && o.partnerAirlines.length > 0;
+        const partnersLine = hasAvailableAirlinesList
+          ? `<div class="status-line" style="margin:2px 0 0;">${AVAILABLE_AIRLINES_LABEL[o.availabilitySource] || 'Companhias disponíveis'}: ${escapeHtml(o.partnerAirlines.join(', '))}</div>`
+          : '';
+        // Quando a oferta é de um programa de milhas (loyaltyProgram
+        // preenchido) mas não há nem operatingAirline nem lista de
+        // companhias disponíveis, deixa isso explícito em vez de simplesmente
+        // omitir a informação — pedido explícito do usuário.
+        const noOperatorInfoLine =
+          o.loyaltyProgram && !o.operatingAirline && !hasAvailableAirlinesList
+            ? `<div class="status-line" style="margin:2px 0 0;">Companhia operadora não informada pela fonte</div>`
             : '';
         // Deixa claro quando a disponibilidade em milhas veio de uma fonte
         // ao vivo confirmada (Seats.aero/RapidAPI/Apify) — sem isso, não dá
@@ -1068,7 +1079,7 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
         const cachedPriceNote = o.isCachedPrice
           ? `<div class="status-line" style="margin-top:2px;">⚠️ Preço de referência em cache. Pode não estar mais disponível. Confirme no link antes de comprar.</div>`
           : '';
-        const programCell = `<td data-label="Programa">${i === 0 ? '🏆 ' : ''}${programLabel}${operatedByLine}${partnersLine}${availabilitySourceLine}${cachedPriceNote}</td>`;
+        const programCell = `<td data-label="Programa">${i === 0 ? '🏆 ' : ''}${programLabel}${operatedByLine}${partnersLine}${noOperatorInfoLine}${availabilitySourceLine}${cachedPriceNote}</td>`;
         const destinationCell = showDestinationColumn ? `<td data-label="Destino">${escapeHtml(o.destinationLabel || o.destination || '-')}</td>` : '';
         const dateCell = showDateColumn
           ? `<td data-label="Data">${formatDateBR(o.departDate)}${o.returnDate ? ` → ${formatDateBR(o.returnDate)}` : ''}</td>`
