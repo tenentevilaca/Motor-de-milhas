@@ -53,10 +53,24 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
     console.log(`[AZUL:apify] resposta pra ${origin}->${destination} veio sem nenhum item — ator não achou nada pra essa rota/data (não é bug de parsing).`);
   }
   const offers = [];
+  let cabinsWithAirlineData = 0;
+  let cabinsWithoutAirlineData = 0;
   for (const item of items) {
     const itinerary = (item.itineraries || [])[0];
     for (const cabin of item.cabins || []) {
       if (!cabin.available || !Number.isFinite(cabin.mileage) || cabin.mileage <= 0) continue;
+
+      // "airlines" nesse campo do cabin já é confirmado (comentário acima)
+      // como concreto pra ESSE trecho/cabine específico — não uma lista
+      // genérica de elegibilidade do programa. Mesmo critério conservador
+      // usado no Seats.aero (ver seatsAero.js): exatamente 1 companhia =
+      // afirmação confiável de quem opera; 2+ = tratadas como opções
+      // paralelas (partnerAirlines), sem apontar qual delas é "a"
+      // operadora; 0 = nenhum dado, não inventa.
+      const airlineNamesInCabin = Array.isArray(cabin.airlines) ? cabin.airlines.map((a) => a?.name).filter(Boolean) : [];
+      if (airlineNamesInCabin.length > 0) cabinsWithAirlineData += 1;
+      else cabinsWithoutAirlineData += 1;
+
       offers.push({
         program: 'AZUL',
         priceBRL: null,
@@ -73,11 +87,17 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
         flightNumber: (itinerary?.flightNumbers || []).join(', ') || null,
         departureTime: itinerary?.departure ? itinerary.departure.slice(11, 16) : null,
         arrivalTime: itinerary?.arrival ? itinerary.arrival.slice(11, 16) : null,
-        // "airlines" nesse campo do cabin lista TODAS as companhias que
-        // aceitam essa milhagem específica pra esse trecho/cabine — em
-        // rotas internacionais pode incluir parceiras, não só a Azul (visto
-        // em teste real com outro issuer). Null quando a API não manda nada.
-        partnerAirlines: Array.isArray(cabin.airlines) && cabin.airlines.length > 0 ? cabin.airlines.map((a) => a.name) : null,
+        loyaltyProgram: 'TudoAzul',
+        cabin: cabin.name || null,
+        operatingAirline: airlineNamesInCabin.length === 1 ? airlineNamesInCabin[0] : null,
+        marketingAirline: null, // ator não distingue marketing de operating — sem dado confirmado, não inventa
+        partnerAirlines: airlineNamesInCabin.length > 1 ? airlineNamesInCabin : null,
+        // Ator devolve flightNumbers/connections agregados da itinerary
+        // inteira, não um trecho-a-trecho com companhia por perna — sem
+        // esse detalhe confirmado, não monta um array de "segments".
+        segments: null,
+        availabilitySource: 'apify',
+        isLiveAwardAvailability: true,
         source: `TudoAzul — ${cabin.name} (Flight Award & Itinerary Scraper via Apify)`,
       });
     }
@@ -88,6 +108,16 @@ async function searchApifyAzul({ origin, destination, departDate, returnDate }) 
     const cabinKeys = (sample.cabins || [])[0] ? Object.keys(sample.cabins[0]) : [];
     console.error(
       `[AZUL:apify] ${items.length} item(ns) pra ${origin}->${destination}, mas nenhuma cabine passou no filtro (available && mileage válido) — chaves do item: [${Object.keys(sample || {}).join(', ')}], chaves da 1ª cabine: [${cabinKeys.join(', ')}]`
+    );
+  }
+
+  // Mesmo padrão de diagnóstico do Seats.aero/Smiles — sem isso não dá pra
+  // saber, quando a busca funciona, quantas cabines vieram com companhia
+  // concreta (cabin.airlines preenchido) vs. sem esse dado.
+  if (offers.length > 0) {
+    console.log(
+      `[AZUL:apify] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ${items.length} item(ns) -> ${offers.length} oferta(s) geradas; ` +
+      `companhia identificada em ${cabinsWithAirlineData} cabine(s), sem dado de companhia em ${cabinsWithoutAirlineData}.`
     );
   }
 

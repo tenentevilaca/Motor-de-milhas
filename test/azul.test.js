@@ -222,6 +222,108 @@ test('erro do Apify (401, chave inválida) loga categoria "auth" — mensagem pr
   }
 });
 
+// Item 5 do pedido do usuário: cabin.airlines já é confirmado (comentário no
+// código) como concreto pra esse trecho/cabine específico, não elegibilidade
+// geral do programa — quando vem com 1 companhia só, essa é a operadora.
+test('Azul: cabin.airlines com 1 companhia vira operatingAirline (afirmação concreta pra essa cabine/itinerário)', async () => {
+  process.env.APIFY_TOKEN = 'test-token';
+  try {
+    await withMockedPost(
+      {
+        data: [
+          {
+            itineraries: [{ stops: 1, totalDuration: 400, flightNumbers: ['LA800'], departure: '2026-12-08T10:00:00', arrival: '2026-12-08T18:00:00' }],
+            cabins: [{ name: 'Econômica', available: true, mileage: 40000, airlines: [{ name: 'LATAM' }] }],
+          },
+        ],
+      },
+      async () => {
+        const result = await azul.search({ origin: 'GRU', destination: 'SCL', departDate: '2026-12-08', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.loyaltyProgram, 'TudoAzul');
+        assert.equal(offer.operatingAirline, 'LATAM');
+        assert.equal(offer.partnerAirlines, null);
+        assert.equal(offer.cabin, 'Econômica');
+        assert.equal(offer.availabilitySource, 'apify');
+        assert.equal(offer.isLiveAwardAvailability, true);
+      }
+    );
+  } finally {
+    delete process.env.APIFY_TOKEN;
+  }
+});
+
+test('Azul: cabin.airlines com 2+ companhias vira partnerAirlines (opções paralelas), nunca uma operatingAirline única', async () => {
+  process.env.APIFY_TOKEN = 'test-token';
+  try {
+    await withMockedPost(
+      {
+        data: [
+          {
+            cabins: [{ name: 'Executiva', available: true, mileage: 80000, airlines: [{ name: 'TAP Air Portugal' }, { name: 'Azul' }] }],
+          },
+        ],
+      },
+      async () => {
+        const result = await azul.search({ origin: 'GRU', destination: 'LIS', departDate: '2026-12-08', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.operatingAirline, null);
+        assert.deepEqual(offer.partnerAirlines, ['TAP Air Portugal', 'Azul']);
+      }
+    );
+  } finally {
+    delete process.env.APIFY_TOKEN;
+  }
+});
+
+test('Azul: sem cabin.airlines (rota doméstica típica), operatingAirline e partnerAirlines ficam null — não afirma disponibilidade parceira sem dado concreto', async () => {
+  process.env.APIFY_TOKEN = 'test-token';
+  try {
+    await withMockedPost(
+      {
+        data: [
+          {
+            itineraries: [{ stops: 0, totalDuration: 90, flightNumbers: ['AD123'], departure: '2026-12-08T10:00:00', arrival: '2026-12-08T11:30:00' }],
+            cabins: [{ name: 'Econômica', available: true, mileage: 12000, taxes: 3194 }],
+          },
+        ],
+      },
+      async () => {
+        const result = await azul.search({ origin: 'CNF', destination: 'MAO', departDate: '2026-12-08', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.operatingAirline, null);
+        assert.equal(offer.partnerAirlines, null);
+        assert.equal(offer.marketingAirline, null);
+        assert.equal(offer.segments, null);
+      }
+    );
+  } finally {
+    delete process.env.APIFY_TOKEN;
+  }
+});
+
+test('diagnóstico: loga quantas cabines tiveram companhia identificada vs. não, sem imprimir token do Apify', async () => {
+  process.env.APIFY_TOKEN = 'token-apify-secreto-nao-pode-vazar';
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    await withMockedPost(
+      { data: [{ cabins: [{ name: 'Econômica', available: true, mileage: 12000, airlines: [{ name: 'Azul' }] }, { name: 'Executiva', available: true, mileage: 40000 }] }] },
+      async () => {
+        await azul.search({ origin: 'CNF', destination: 'MAO', departDate: '2026-12-08', returnDate: null });
+      }
+    );
+  } finally {
+    console.log = originalLog;
+    delete process.env.APIFY_TOKEN;
+  }
+  const summaryLine = logLines.find((l) => l.includes('AZUL:apify') && l.includes('companhia identificada'));
+  assert.ok(summaryLine, `logs: ${JSON.stringify(logLines)}`);
+  assert.ok(summaryLine.includes('companhia identificada em 1 cabine(s)') && summaryLine.includes('sem dado de companhia em 1'));
+  assert.ok(!logLines.some((l) => l.includes('token-apify-secreto-nao-pode-vazar')), 'token do Apify não pode aparecer em log nenhum');
+});
+
 test('erro do Seats.aero (429, cota) loga categoria "quota" quando é a única fonte configurada', async () => {
   process.env.SEATSAERO_API_KEY = 'test-key';
   const originalError = console.error;

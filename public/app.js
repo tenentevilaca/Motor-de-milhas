@@ -1025,14 +1025,41 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
         const linkTitle = o.isCachedPrice
           ? ' title="Link genérico pra conferir rota e data no Google Flights — não confirma que esse é o voo/preço exato encontrado"'
           : '';
+        // "Emitido com": nome completo do programa de milhas quando a fonte
+        // informa (loyaltyProgram) — cai pro código curto (o.program, ex:
+        // "AA") quando a fonte não tiver esse dado (ex: providers de
+        // dinheiro, integração própria via URL customizada).
+        const issuedWithText = o.loyaltyProgram || o.program;
         const programLabel = link
-          ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener"${linkTitle}>${escapeHtml(o.program)}</a>`
-          : escapeHtml(o.program);
+          ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener"${linkTitle}>${escapeHtml(issuedWithText)}</a>`
+          : escapeHtml(issuedWithText);
+        // "Operado por": só aparece quando a API confirmou uma companhia
+        // concreta pra ESSE itinerário/cabine (o.operatingAirline vem null
+        // sempre que a fonte não informou ou informou 2+ opções paralelas —
+        // ver seatsAero.js/smiles.js/azul.js) — nunca uma lista genérica de
+        // parceiras do programa como se fosse voo disponível.
+        const operatedByLine = o.operatingAirline
+          ? `<div class="status-line" style="margin:2px 0 0;">✈️ Operado por ${escapeHtml(o.operatingAirline)}</div>`
+          : '';
         // Parceiras que aceitam essa milhagem, quando a fonte informa (nem
-        // toda fonte tem esse dado — ver providers/index.js).
+        // toda fonte tem esse dado — ver providers/index.js). Só aparece
+        // quando a API devolveu um itinerário concreto pra essas parceiras
+        // (2+ opções paralelas nessa cabine específica) — nunca a lista
+        // geral de parceiras do programa.
         const partnersLine =
           o.partnerAirlines && o.partnerAirlines.length > 0
-            ? `<div class="status-line" style="margin:2px 0 0;">Aceita em: ${escapeHtml(o.partnerAirlines.join(', '))}</div>`
+            ? `<div class="status-line" style="margin:2px 0 0;">Parceiras disponíveis nessa cabine: ${escapeHtml(o.partnerAirlines.join(', '))}</div>`
+            : '';
+        // Deixa claro quando a disponibilidade em milhas veio de uma fonte
+        // ao vivo confirmada (Seats.aero/RapidAPI/Apify) — sem isso, não dá
+        // pra distinguir "achado ao vivo agora" de um dado antigo. Nenhuma
+        // etiqueta quando a fonte não é uma das confirmadas (ex: integração
+        // própria via URL customizada) — não inventa selo de "ao vivo" sem
+        // saber a fonte real.
+        const AVAILABILITY_SOURCE_LABELS = { seatsaero: 'Seats.aero', rapidapi: 'RapidAPI', apify: 'scraping da Azul via Apify' };
+        const availabilitySourceLine =
+          o.isLiveAwardAvailability && AVAILABILITY_SOURCE_LABELS[o.availabilitySource]
+            ? `<div class="status-line" style="margin:2px 0 0;">🟢 Disponibilidade ao vivo via ${AVAILABILITY_SOURCE_LABELS[o.availabilitySource]}</div>`
             : '';
         // Achado real: Travelpayouts (/v2/prices/latest) é cache, não busca
         // ao vivo — sem aviso nenhum, um preço desatualizado aparecia igual
@@ -1041,7 +1068,7 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
         const cachedPriceNote = o.isCachedPrice
           ? `<div class="status-line" style="margin-top:2px;">⚠️ Preço de referência em cache. Pode não estar mais disponível. Confirme no link antes de comprar.</div>`
           : '';
-        const programCell = `<td data-label="Programa">${i === 0 ? '🏆 ' : ''}${programLabel}${partnersLine}${cachedPriceNote}</td>`;
+        const programCell = `<td data-label="Programa">${i === 0 ? '🏆 ' : ''}${programLabel}${operatedByLine}${partnersLine}${availabilitySourceLine}${cachedPriceNote}</td>`;
         const destinationCell = showDestinationColumn ? `<td data-label="Destino">${escapeHtml(o.destinationLabel || o.destination || '-')}</td>` : '';
         const dateCell = showDateColumn
           ? `<td data-label="Data">${formatDateBR(o.departDate)}${o.returnDate ? ` → ${formatDateBR(o.returnDate)}` : ''}</td>`

@@ -189,3 +189,116 @@ test('AA sem SEATSAERO_API_KEY: cai pro fallback genérico (not_configured), com
   assert.equal(result.status, 'not_configured');
   assert.equal(result.offers.length, 0);
 });
+
+// Item 3 do pedido do usuário: "Emitido com AAdvantage · operado por Qatar
+// Airways" — exatamente 1 código em {letra}Airlines é o único caso em que
+// dá pra afirmar uma companhia operadora concreta (ver comentário em
+// seatsAero.js sobre por que 2+ não vira uma "afirmação única").
+test('AA: 1 código em YAirlines vira operatingAirline (nome mapeado via airlineNames.js) — "emitido com AAdvantage, operado por Qatar Airways"', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 1, YMileageCost: 70000, YAirlines: ['QR'] }] } },
+      async () => {
+        const result = await aa.search({ origin: 'GRU', destination: 'DOH', departDate: '2026-11-10', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.loyaltyProgram, 'American Airlines (AAdvantage)');
+        assert.equal(offer.operatingAirline, 'Qatar Airways');
+        assert.equal(offer.partnerAirlines, null);
+        assert.equal(offer.cabin, 'Econômica');
+        assert.equal(offer.availabilitySource, 'seatsaero');
+        assert.equal(offer.isLiveAwardAvailability, true);
+      }
+    );
+  } finally {
+    delete process.env.SEATSAERO_API_KEY;
+  }
+});
+
+test('AA: 2+ códigos em YAirlines vira partnerAirlines (opções paralelas) — nunca afirma qual delas é "a" operadora', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 1, YMileageCost: 70000, YAirlines: ['QR', 'BA'] }] } },
+      async () => {
+        const result = await aa.search({ origin: 'GRU', destination: 'LHR', departDate: '2026-11-10', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.operatingAirline, null);
+        assert.deepEqual(offer.partnerAirlines, ['Qatar Airways', 'British Airways']);
+      }
+    );
+  } finally {
+    delete process.env.SEATSAERO_API_KEY;
+  }
+});
+
+test('AA: sem YAirlines/Airlines na trip, operatingAirline e partnerAirlines ficam null (não inventa companhia)', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 0, YMileageCost: 30000 }] } },
+      async () => {
+        const result = await aa.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.operatingAirline, null);
+        assert.equal(offer.partnerAirlines, null);
+        assert.equal(offer.marketingAirline, null);
+        assert.equal(offer.segments, null);
+      }
+    );
+  } finally {
+    delete process.env.SEATSAERO_API_KEY;
+  }
+});
+
+test('AA: código IATA sem entrada em airlineNames.js aparece pelo próprio código (não inventa nome)', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 0, YMileageCost: 30000, YAirlines: ['ZZ'] }] } },
+      async () => {
+        const result = await aa.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
+        assert.equal(result.offers[0].operatingAirline, 'ZZ');
+      }
+    );
+  } finally {
+    delete process.env.SEATSAERO_API_KEY;
+  }
+});
+
+test('AA: usa Airlines genérico como fallback quando não existe {letra}Airlines específico da cabine', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 0, YMileageCost: 30000, Airlines: ['QR'] }] } },
+      async () => {
+        const result = await aa.search({ origin: 'GRU', destination: 'DOH', departDate: '2026-11-10', returnDate: null });
+        assert.equal(result.offers[0].operatingAirline, 'Qatar Airways');
+      }
+    );
+  } finally {
+    delete process.env.SEATSAERO_API_KEY;
+  }
+});
+
+test('diagnóstico: loga quantas cabines tiveram companhia identificada vs. não, sem imprimir token/headers', async () => {
+  process.env.SEATSAERO_API_KEY = 'chave-secreta-nao-pode-vazar';
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    await withMockedGet(
+      { data: { data: [{ Source: 'american', Stops: 0, YMileageCost: 30000, YAirlines: ['QR'], JMileageCost: 60000 }] } },
+      async () => {
+        await aa.search({ origin: 'GRU', destination: 'DOH', departDate: '2026-11-10', returnDate: null });
+      }
+    );
+  } finally {
+    console.log = originalLog;
+    delete process.env.SEATSAERO_API_KEY;
+  }
+  const summaryLine = logLines.find((l) => l.includes('SEATSAERO:AA') && l.includes('companhia identificada'));
+  assert.ok(summaryLine, `logs: ${JSON.stringify(logLines)}`);
+  assert.ok(summaryLine.includes('companhia identificada em 1 cabine(s)') && summaryLine.includes('sem dado de companhia em 1'));
+  assert.ok(!logLines.some((l) => l.includes('chave-secreta-nao-pode-vazar')), 'chave da API não pode aparecer em log nenhum');
+});

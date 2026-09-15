@@ -28,3 +28,25 @@ test('link de oferta em cache é descrito como conferência de rota/data, não c
     'texto explicando que o link não é uma confirmação do voo específico não encontrado em app.js'
   );
 });
+
+// Item 7 do pedido do usuário: "Operado por" separado de "Emitido com",
+// parceiras só quando concretas, e indicação de fonte ao vivo/cache/própria.
+test('"Emitido com" usa o.loyaltyProgram (nome completo do programa) com fallback pro código curto', () => {
+  assert.match(appJs, /const issuedWithText = o\.loyaltyProgram \|\| o\.program;/);
+});
+
+test('"Operado por" só aparece quando o.operatingAirline vem preenchido pela API (nunca lista genérica de parceiras como disponibilidade)', () => {
+  assert.ok(appJs.includes('Operado por'));
+  assert.match(appJs, /const operatedByLine = o\.operatingAirline\s*\n?\s*\?/);
+});
+
+test('parceiras só aparecem quando a fonte confirmou itinerário concreto pra essa cabine (o.partnerAirlines preenchido)', () => {
+  assert.ok(appJs.includes('Parceiras disponíveis nessa cabine'));
+});
+
+test('indica disponibilidade ao vivo via Seats.aero/RapidAPI/Apify quando a fonte confirma (isLiveAwardAvailability)', () => {
+  assert.ok(appJs.includes('Disponibilidade ao vivo via'));
+  assert.ok(appJs.includes("seatsaero: 'Seats.aero'"));
+  assert.ok(appJs.includes("rapidapi: 'RapidAPI'"));
+  assert.ok(appJs.includes("apify: 'scraping da Azul via Apify'"));
+});

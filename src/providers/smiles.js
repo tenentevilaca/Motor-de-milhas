@@ -54,6 +54,25 @@ async function searchRapidApiSmiles({ origin, destination, departDate, returnDat
     console.log(`[SMILES:rapidapi] resposta reconhecida (${origin}->${destination} ${departDate}), mas 0 voos em outboundFlights — sem oferta Gol/Smiles pra essa rota/data.`);
   }
 
+  // Item pedido explicitamente: registrar no log quais campos da resposta
+  // representariam companhia operadora/parceira e segmentos, pra não
+  // depender só de memória/comentário sobre o que já foi confirmado. Só
+  // avisa quando aparecer uma chave candidata — no teste real feito nesta
+  // sessão, nenhum voo trouxe campo de companhia (nem operadora nem
+  // parceira), só dados da própria Gol/Smiles (flightNumber, segments com
+  // destinationCode). Se essa chave aparecer no futuro, é sinal de que a
+  // API passou a devolver dado de companhia e o parsing abaixo precisa ser
+  // revisto — não deve continuar assumindo "sempre Gol" sem checar.
+  if (outbound.length > 0) {
+    const sampleKeys = Object.keys(outbound[0]);
+    const airlineFieldCandidates = sampleKeys.filter((k) => /airline|carrier|operat|market/i.test(k));
+    if (airlineFieldCandidates.length > 0) {
+      console.log(
+        `[SMILES:rapidapi] ATENÇÃO: voo bruto trouxe chave(s) que podem indicar companhia operadora/parceira, nunca vistas antes: [${airlineFieldCandidates.join(', ')}] — parsing atual assume sempre Gol e ignora essas chaves; revisar antes de confiar.`
+      );
+    }
+  }
+
   // A API devolve ida e volta como listas separadas — soma as duas pernas só
   // quando o usuário pediu ida e volta (senão "returnFlights" pode vir
   // duplicando a ida, como visto no teste real).
@@ -67,6 +86,12 @@ async function searchRapidApiSmiles({ origin, destination, departDate, returnDat
       // O ponto de parada é o aeroporto de chegada de cada trecho, exceto o
       // último (que é o destino final) — só existe quando tem mais de 1 trecho.
       const stopLocations = segments.length > 1 ? segments.slice(0, -1).map((s) => s.destinationCode).filter(Boolean) : [];
+      // Só usa campos já confirmados contra resposta real (destinationCode) —
+      // sem originCode/companhia por trecho confirmados, não inventa esses
+      // campos no objeto de segmento.
+      const segmentDetails = segments.length > 0
+        ? segments.map((s) => ({ destination: s.destinationCode || null, flightNumber: s.flightNumber || null }))
+        : null;
       return {
         program: 'SMILES',
         priceBRL: cash > 0 ? cash : null,
@@ -82,7 +107,17 @@ async function searchRapidApiSmiles({ origin, destination, departDate, returnDat
         arrivalTime: out.arrivalTime || null,
         // Essa API só devolveu, no teste real, voos operados pela própria Gol
         // pro Smiles — não tem campo de companhia parceira aceitando milhas.
+        // Por isso operatingAirline/marketingAirline são afirmados como Gol
+        // (não um chute: é a única companhia que essa fonte já demonstrou
+        // devolver) e partnerAirlines continua null.
+        loyaltyProgram: 'Smiles (Gol)',
+        operatingAirline: 'Gol',
+        marketingAirline: 'Gol',
         partnerAirlines: null,
+        cabin: null, // nenhum campo de cabine confirmado nessa resposta até agora
+        segments: segmentDetails,
+        availabilitySource: 'rapidapi',
+        isLiveAwardAvailability: true,
         source: `Smiles — voo ${out.flightNumber || '?'} (Award Flight & Miles Search API)`,
       };
     })

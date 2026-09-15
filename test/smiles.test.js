@@ -153,6 +153,58 @@ test('quando a RapidAPI dá erro (ex: cota estourada), tenta o Seats.aero como c
   }
 });
 
+// Item 4 do pedido do usuário: essa API só devolveu, no teste real, voos da
+// própria Gol — sem campo de companhia parceira. operatingAirline/
+// marketingAirline afirmam "Gol" porque é a única companhia que essa fonte
+// já demonstrou devolver (não um chute), e partnerAirlines continua null —
+// nunca afirma disponibilidade parceira que a API não confirmou.
+test('Smiles/RapidAPI: oferta vem com loyaltyProgram/operatingAirline/marketingAirline = Gol, sem parceira (API não retorna esse dado)', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  try {
+    await withMockedPost(
+      { data: { outboundFlights: [{ adultPricePoints: 30000, adultBoardingTax: 120, flightNumber: 'G31234', segments: [{ destinationCode: 'CGH' }] }] } },
+      async () => {
+        const result = await smiles.search({ origin: 'GRU', destination: 'CGH', departDate: '2026-12-08', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.loyaltyProgram, 'Smiles (Gol)');
+        assert.equal(offer.operatingAirline, 'Gol');
+        assert.equal(offer.marketingAirline, 'Gol');
+        assert.equal(offer.partnerAirlines, null);
+        assert.equal(offer.availabilitySource, 'rapidapi');
+        assert.equal(offer.isLiveAwardAvailability, true);
+        assert.deepEqual(offer.segments, [{ destination: 'CGH', flightNumber: null }]);
+      }
+    );
+  } finally {
+    delete process.env.RAPIDAPI_KEY;
+  }
+});
+
+test('diagnóstico: loga aviso se aparecer campo nunca visto que pareça indicar companhia (ex: "operatingCarrier"), sem afirmar parceira sem confirmar o parsing', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    await withMockedPost(
+      { data: { outboundFlights: [{ adultPricePoints: 30000, flightNumber: 'G31234', segments: [{ destinationCode: 'CGH' }], operatingCarrier: 'LATAM' }] } },
+      async () => {
+        const result = await smiles.search({ origin: 'GRU', destination: 'CGH', departDate: '2026-12-08', returnDate: null });
+        // mesmo com a chave nova aparecendo, o parsing continua sem inventar parceira
+        assert.equal(result.offers[0].partnerAirlines, null);
+        assert.equal(result.offers[0].operatingAirline, 'Gol');
+      }
+    );
+  } finally {
+    console.log = originalLog;
+    delete process.env.RAPIDAPI_KEY;
+  }
+  assert.ok(
+    logLines.some((l) => l.includes('SMILES:rapidapi') && l.includes('ATENÇÃO') && l.includes('operatingCarrier')),
+    `logs: ${JSON.stringify(logLines)}`
+  );
+});
+
 test('quando a RapidAPI já achou oferta, não gasta uma chamada a mais no Seats.aero', async () => {
   process.env.RAPIDAPI_KEY = 'test-key';
   process.env.SEATSAERO_API_KEY = 'test-key';

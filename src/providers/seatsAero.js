@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('../config');
+const AIRLINE_NAMES = require('../data/airlineNames');
 
 // Helper compartilhado — NÃO é um provider próprio (não entra em
 // ALL_PROVIDERS nem em MILE_PROGRAM_IDS). Cada módulo de programa que tiver
@@ -89,10 +90,30 @@ async function searchSeatsAero({ origin, destination, departDate, returnDate, pr
   }
 
   const offers = [];
+  let cabinsWithAirlineData = 0;
+  let cabinsWithoutAirlineData = 0;
   for (const trip of trips) {
     for (const [letter, cabinLabel] of Object.entries(CABIN_LETTERS)) {
       const miles = Number(trip[`${letter}MileageCost`]);
       if (!Number.isFinite(miles) || miles <= 0) continue;
+
+      // Companhia que opera essa cabine ESPECÍFICA dessa trip — documentação
+      // pública do Seats.aero (developers.seats.aero) descreve um campo por
+      // letra de cabine (ex: YAirlines/JAirlines), array de código IATA de
+      // 2 letras de quem tem esse assento-prêmio disponível NESSA trip —
+      // não uma lista genérica de parceiros do programa. NUNCA confirmado
+      // contra uma resposta real neste projeto (mesma ressalva de sempre
+      // pra essa API — ver comentário no topo do arquivo), por isso: só
+      // vira "operatingAirline" (uma companhia concreta) quando o array
+      // tiver EXATAMENTE 1 código — com 2+ trata como opções paralelas
+      // (partnerAirlines), nunca inventa qual delas é "a" operadora.
+      // Zero código = null nos dois campos, sem chutar nada.
+      const rawAirlineCodes = trip[`${letter}Airlines`] || trip.Airlines;
+      const airlineCodes = Array.isArray(rawAirlineCodes) ? rawAirlineCodes.filter(Boolean) : [];
+      const airlineNames = airlineCodes.map((code) => AIRLINE_NAMES[code] || code);
+      if (airlineNames.length > 0) cabinsWithAirlineData += 1;
+      else cabinsWithoutAirlineData += 1;
+
       offers.push({
         program: programId,
         priceBRL: null,
@@ -109,6 +130,14 @@ async function searchSeatsAero({ origin, destination, departDate, returnDate, pr
         // provider (aa.js/azul.js/smiles.js) pra saber se ele sabe montar
         // link de ida e volta ou se prefere cair pro link genérico do site.
         deepLink: deepLinkBuilder ? deepLinkBuilder({ origin, destination, departDate, returnDate }) : null,
+        loyaltyProgram: label,
+        cabin: cabinLabel,
+        operatingAirline: airlineNames.length === 1 ? airlineNames[0] : null,
+        marketingAirline: null, // Seats.aero não distingue marketing de operating — sem dado confirmado, não inventa
+        partnerAirlines: airlineNames.length > 1 ? airlineNames : null,
+        segments: null, // Seats.aero devolve só Stops (contagem), sem detalhe de trecho a trecho
+        availabilitySource: 'seatsaero',
+        isLiveAwardAvailability: true,
         source: `${label} — ${cabinLabel} (Seats.aero)`,
       });
     }
@@ -127,7 +156,10 @@ async function searchSeatsAero({ origin, destination, departDate, returnDate, pr
   // trip por rota/data — resumo de "melhor achado", não voo-a-voo — ou se
   // o código estava perdendo trips que vieram de verdade).
   if (offers.length > 0) {
-    console.log(`[SEATSAERO:${programId}] ${trips.length} trip(s) com Source="${sourceKey}" pra ${origin}->${destination} -> ${offers.length} oferta(s) geradas.`);
+    console.log(
+      `[SEATSAERO:${programId}] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ${trips.length} trip(s) com Source="${sourceKey}" -> ${offers.length} oferta(s) geradas; ` +
+      `companhia identificada em ${cabinsWithAirlineData} cabine(s), sem dado de companhia em ${cabinsWithoutAirlineData} (campo ${'{letra}'}Airlines ainda não confirmado contra resposta real).`
+    );
   }
 
   return offers;
