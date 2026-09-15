@@ -1,5 +1,6 @@
 const Parser = require('rss-parser');
 const config = require('./config');
+const cityAliases = require('./data/cityAliases');
 
 // Monitora RSS de blogs de promoção/milhas (Melhores Destinos, Passageiro de
 // Primeira, Mestre das Milhas etc). Diferente dos sites das companhias,
@@ -58,12 +59,30 @@ function normalize(str) {
     .toLowerCase();
 }
 
+// Achado real (revisão do item D): blogs de milhas escrevem em português
+// ("Lisboa", "Londres", "Nova York"), mas a base de aeroportos (OpenFlights)
+// só tem o nome em inglês ("Lisbon", "London", "New York") — sem isso, um
+// post real dizendo "promoção pra Lisboa" nunca batia com uma busca de
+// destino LIS, porque "lisboa" nunca aparece dentro do texto normalizado
+// de "Lisbon". Reaproveita o mesmo mapa de aliases já usado na busca de
+// aeroporto (cityAliases.js: português -> inglês), invertido aqui pra
+// inglês -> lista de apelidos em português (mais de um alias pode apontar
+// pro mesmo nome em inglês, ex: "moscou"/"moscovo" -> "Moscow").
+const englishCityToPortugueseAliases = new Map();
+for (const [alias, englishName] of Object.entries(cityAliases)) {
+  const key = normalize(englishName);
+  if (!englishCityToPortugueseAliases.has(key)) englishCityToPortugueseAliases.set(key, []);
+  englishCityToPortugueseAliases.get(key).push(alias);
+}
+
 // Um post "menciona" a busca se cidade OU país de origem/destino aparecem no
 // título ou resumo. Heurística simples, mas suficiente pra filtrar o volume
 // de posts que não têm nada a ver com a rota do usuário.
 function postMatchesPlace(post, place) {
   const haystack = normalize(`${post.title} ${post.summary}`);
-  return [place.city, place.country].some((term) => term && haystack.includes(normalize(term)));
+  const terms = [place.city, place.country];
+  if (place.city) terms.push(...(englishCityToPortugueseAliases.get(normalize(place.city)) || []));
+  return terms.some((term) => term && haystack.includes(normalize(term)));
 }
 
 module.exports = { fetchAllPosts, postMatchesPlace, getFeeds, DEFAULT_FEEDS };
