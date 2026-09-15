@@ -194,3 +194,54 @@ test('quando o Apify já achou oferta, não gasta uma chamada a mais no Seats.ae
   }
   assert.equal(seatsAeroCalled, false, 'não deveria ter chamado o Seats.aero — o Apify já tinha achado oferta');
 });
+
+// Item A do pedido de revisão: logs precisam categorizar a causa (auth/
+// quota/timeout/http/rede), não só mostrar uma mensagem genérica.
+test('erro do Apify (401, chave inválida) loga categoria "auth" — mensagem pro usuário continua igual', async () => {
+  process.env.APIFY_TOKEN = 'test-token';
+  const originalError = console.error;
+  const errorLines = [];
+  console.error = (...args) => errorLines.push(args.join(' '));
+  try {
+    const err = new Error('Request failed with status code 401');
+    err.response = { status: 401, data: { error: { message: 'Invalid token' } } };
+    axios.post = async () => {
+      throw err;
+    };
+    const result = await azul.search({ origin: 'CNF', destination: 'MAO', departDate: '2026-12-08', returnDate: null });
+    assert.equal(result.status, 'error');
+    assert.ok(result.message.includes('Invalid token'), `mensagem devia continuar extraindo error.message do Apify: ${result.message}`);
+    assert.ok(
+      errorLines.some((l) => l.includes('[AZUL:apify]') && l.includes('ERRO DE AUTENTICAÇÃO')),
+      `esperava log categorizado, veio: ${JSON.stringify(errorLines)}`
+    );
+  } finally {
+    console.error = originalError;
+    delete axios.post;
+    delete process.env.APIFY_TOKEN;
+  }
+});
+
+test('erro do Seats.aero (429, cota) loga categoria "quota" quando é a única fonte configurada', async () => {
+  process.env.SEATSAERO_API_KEY = 'test-key';
+  const originalError = console.error;
+  const errorLines = [];
+  console.error = (...args) => errorLines.push(args.join(' '));
+  try {
+    const err = new Error('Request failed with status code 429');
+    err.response = { status: 429, data: { message: 'Rate limit exceeded' } };
+    axios.get = async () => {
+      throw err;
+    };
+    const result = await azul.search({ origin: 'CNF', destination: 'MAO', departDate: '2026-12-08', returnDate: null });
+    assert.equal(result.status, 'error');
+    assert.ok(
+      errorLines.some((l) => l.includes('[AZUL:seatsaero]') && l.includes('COTA EXCEDIDA')),
+      `esperava log categorizado, veio: ${JSON.stringify(errorLines)}`
+    );
+  } finally {
+    console.error = originalError;
+    delete axios.get;
+    delete process.env.SEATSAERO_API_KEY;
+  }
+});

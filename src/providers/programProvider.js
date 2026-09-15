@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('../config');
+const { logProviderError } = require('../providerError');
 
 // Generic adapter for a frequent-flyer program (AA/AAdvantage, LATAM Pass,
 // Smiles, TudoAzul/Azul).
@@ -51,6 +52,7 @@ function createProgramProvider({ id, label, envPrefix, homepageUrl }) {
       const offers = (data.offers || []).map((o) => ({ ...o, program: id }));
       return { status: 'ok', message: null, offers, manualCheckUrl: homepageUrl };
     } catch (err) {
+      logProviderError(`${id}:custom`, err);
       return {
         status: 'error',
         message: `Falha ao consultar integração de ${label}: ${err.message}`,

@@ -2,6 +2,7 @@ const axios = require('axios');
 const config = require('../config');
 const { createProgramProvider } = require('./programProvider');
 const seatsAero = require('./seatsAero');
+const { describeProviderError, logProviderError } = require('../providerError');
 
 const APIFY_ACTOR_ID = 'igolaizola~flight-award-scraper';
 const APIFY_RUN_URL = `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items`;
@@ -145,6 +146,7 @@ async function search(params) {
     try {
       offers = await searchApifyAzul(params);
     } catch (err) {
+      logProviderError('AZUL:apify', err);
       const body = err.response?.data;
       const bodyMsg = typeof body === 'string' ? body : body?.error?.message || body?.message || err.message;
       errorMsg = `Flight Award & Itinerary Scraper (Azul, via Apify): ${bodyMsg}`.slice(0, 300);
@@ -156,10 +158,9 @@ async function search(params) {
       offers = await searchSeatsAeroAzul(params);
       errorMsg = null; // resposta válida da 2ª fonte — não importa se a 1ª deu erro
     } catch (err) {
+      logProviderError('AZUL:seatsaero', err);
       if (!errorMsg) {
-        const body = err.response?.data;
-        const bodyMsg = typeof body === 'string' ? body : body?.message || err.message;
-        errorMsg = `Seats.aero (TudoAzul): ${bodyMsg}`.slice(0, 300);
+        errorMsg = `Seats.aero (TudoAzul): ${describeProviderError(err)}`.slice(0, 300);
       }
     }
   }

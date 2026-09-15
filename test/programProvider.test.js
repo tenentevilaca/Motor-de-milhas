@@ -12,6 +12,31 @@ function withMockedPost(response, fn) {
   });
 }
 
+test('erro na integração própria (timeout do axios) loga categoria "timeout"', async () => {
+  process.env.LATAM_PROVIDER_URL = 'https://minha-integracao.com/latam';
+  const originalError = console.error;
+  const errorLines = [];
+  console.error = (...args) => errorLines.push(args.join(' '));
+  try {
+    const err = new Error('timeout of 20000ms exceeded');
+    err.code = 'ECONNABORTED';
+    axios.post = async () => {
+      throw err;
+    };
+    const provider = createProgramProvider({ id: 'LATAM', label: 'LATAM Pass', envPrefix: 'LATAM', homepageUrl: 'https://exemplo.com' });
+    const result = await provider.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-12-08', returnDate: null });
+    assert.equal(result.status, 'error');
+    assert.ok(
+      errorLines.some((l) => l.includes('[LATAM:custom]') && l.includes('TIMEOUT')),
+      `esperava log categorizado, veio: ${JSON.stringify(errorLines)}`
+    );
+  } finally {
+    console.error = originalError;
+    delete axios.post;
+    delete process.env.LATAM_PROVIDER_URL;
+  }
+});
+
 test('sem *_PROVIDER_URL configurada: not_configured', async () => {
   delete process.env.LATAM_PROVIDER_URL;
   const provider = createProgramProvider({ id: 'LATAM', label: 'LATAM Pass', envPrefix: 'LATAM', homepageUrl: 'https://exemplo.com' });

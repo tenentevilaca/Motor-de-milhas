@@ -2,7 +2,7 @@ const { ALL_PROVIDERS, MILE_PROGRAM_IDS, CASH_PROVIDER_IDS } = require('../provi
 const { evaluateOffer } = require('./anomaly');
 const { compareSplitTickets } = require('./splitTicketCompare');
 const { generateFlexDates } = require('./flexDates');
-const { describeProviderError } = require('../providerError');
+const { describeProviderError, logProviderError } = require('../providerError');
 const { cached } = require('../cache');
 const {
   regionCodeFromValue,
@@ -306,6 +306,7 @@ async function runSearch(search) {
               })
             );
           } catch (err) {
+            logProviderError(`${programId}:${destination}`, err);
             return { status: 'error', message: describeProviderError(err), offers: [] };
           }
         })();

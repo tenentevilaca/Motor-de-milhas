@@ -2,6 +2,7 @@ const axios = require('axios');
 const config = require('../config');
 const { createProgramProvider } = require('./programProvider');
 const seatsAero = require('./seatsAero');
+const { describeProviderError, logProviderError } = require('../providerError');
 
 const RAPIDAPI_BASE_URL = 'https://award-flight-miles-search-api.p.rapidapi.com/api/v1/search/';
 const RAPIDAPI_HOST = 'award-flight-miles-search-api.p.rapidapi.com';
@@ -141,6 +142,7 @@ async function search(params) {
     try {
       offers = await searchRapidApiSmiles(params);
     } catch (err) {
+      logProviderError('SMILES:rapidapi', err);
       const body = err.response?.data;
       const bodyMsg =
         typeof body === 'string' ? body : body?.property ? `${body.property}: ${body.message}` : body?.message || err.message;
@@ -153,10 +155,9 @@ async function search(params) {
       offers = await searchSeatsAeroSmiles(params);
       errorMsg = null; // resposta válida da 2ª fonte — não importa se a 1ª deu erro (ex: cota estourada)
     } catch (err) {
+      logProviderError('SMILES:seatsaero', err);
       if (!errorMsg) {
-        const body = err.response?.data;
-        const bodyMsg = typeof body === 'string' ? body : body?.message || err.message;
-        errorMsg = `Seats.aero (Smiles/Gol): ${bodyMsg}`.slice(0, 300);
+        errorMsg = `Seats.aero (Smiles/Gol): ${describeProviderError(err)}`.slice(0, 300);
       }
     }
   }

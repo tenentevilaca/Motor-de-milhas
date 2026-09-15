@@ -20,6 +20,31 @@ function withMockedGet(response, fn) {
   });
 }
 
+test('erro do RapidAPI (403, não assinado) loga categoria "auth"', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  const originalError = console.error;
+  const errorLines = [];
+  console.error = (...args) => errorLines.push(args.join(' '));
+  try {
+    const err = new Error('Request failed with status code 403');
+    err.response = { status: 403, data: { message: 'You are not subscribed to this API.' } };
+    axios.post = async () => {
+      throw err;
+    };
+    const result = await smiles.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-12-08', returnDate: null });
+    assert.equal(result.status, 'error');
+    assert.ok(result.message.includes('not subscribed'), `mensagem devia continuar extraindo o corpo real: ${result.message}`);
+    assert.ok(
+      errorLines.some((l) => l.includes('[SMILES:rapidapi]') && l.includes('ERRO DE AUTENTICAÇÃO')),
+      `esperava log categorizado, veio: ${JSON.stringify(errorLines)}`
+    );
+  } finally {
+    console.error = originalError;
+    delete axios.post;
+    delete process.env.RAPIDAPI_KEY;
+  }
+});
+
 test('parseia oferta normalmente quando outboundFlights vem com voo válido', async () => {
   process.env.RAPIDAPI_KEY = 'test-key';
   try {

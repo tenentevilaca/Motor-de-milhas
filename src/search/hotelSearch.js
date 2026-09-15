@@ -1,7 +1,7 @@
 const trivago = require('../providers/trivago');
 const { geocodePlace } = require('../geocode');
 const { cached } = require('../cache');
-const { describeProviderError } = require('../providerError');
+const { describeProviderError, logProviderError } = require('../providerError');
 
 // Coordenada de hotel não muda — cache longo evita gastar cota da API à toa
 // quando a mesma busca (ou busca parecida) é refeita.
@@ -65,6 +65,7 @@ async function searchHotels({ destination, nearPlace, checkIn, checkOut, adults,
   try {
     suggestions = await trivago.searchDestinations(destination);
   } catch (err) {
+    logProviderError('TRIVAGO:destinations', err);
     return { status: 'error', message: `Falha ao buscar destino: ${describeProviderError(err)}`, hotels: [] };
   }
   if (suggestions.length === 0) {
@@ -76,6 +77,7 @@ async function searchHotels({ destination, nearPlace, checkIn, checkOut, adults,
   try {
     searchResult = await trivago.searchHotels({ destinationId: destinationMatch.id, checkIn, checkOut, adults, rooms });
   } catch (err) {
+    logProviderError('TRIVAGO:search', err);
     return { status: 'error', message: `Falha ao buscar hotéis: ${describeProviderError(err)}`, hotels: [] };
   }
 

@@ -1,6 +1,7 @@
 const config = require('../config');
 const { createProgramProvider } = require('./programProvider');
 const seatsAero = require('./seatsAero');
+const { describeProviderError, logProviderError } = require('../providerError');
 
 // AA/AAdvantage não tinha nenhuma fonte real (só o stub genérico de
 // programProvider.js, sempre "not_configured"). Diferente de Azul (Apify) e
@@ -39,12 +40,11 @@ async function search(params) {
     });
     return { status: 'ok', message: null, offers, manualCheckUrl: fallback.homepageUrl };
   } catch (err) {
+    logProviderError('AA:seatsaero', err);
     if (fallback.enabled()) return fallback.search(params);
-    const body = err.response?.data;
-    const bodyMsg = typeof body === 'string' ? body : body?.message || err.message;
     return {
       status: 'error',
-      message: `Seats.aero (American AAdvantage): ${bodyMsg}`.slice(0, 300),
+      message: `Seats.aero (American AAdvantage): ${describeProviderError(err)}`.slice(0, 300),
       offers: [],
       manualCheckUrl: fallback.homepageUrl,
     };
