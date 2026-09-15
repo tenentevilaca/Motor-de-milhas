@@ -1017,9 +1017,16 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
       .map((o, i) => {
         // Clica no programa pra ver a oferta: link direto quando a fonte
         // fornece (ex: Azul via Apify), senão cai pro site da companhia.
+        // Ofertas em cache (ex: Travelpayouts) nunca têm deepLink (sempre
+        // null) — o link aqui é sempre o manualCheckUrl genérico do Google
+        // Flights, então o title deixa claro que é só pra CONFERIR rota/data,
+        // não uma confirmação de que esse é o voo específico encontrado.
         const link = o.deepLink || o.manualCheckUrl;
+        const linkTitle = o.isCachedPrice
+          ? ' title="Link genérico pra conferir rota e data no Google Flights — não confirma que esse é o voo/preço exato encontrado"'
+          : '';
         const programLabel = link
-          ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(o.program)}</a>`
+          ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener"${linkTitle}>${escapeHtml(o.program)}</a>`
           : escapeHtml(o.program);
         // Parceiras que aceitam essa milhagem, quando a fonte informa (nem
         // toda fonte tem esse dado — ver providers/index.js).
@@ -1027,7 +1034,14 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
           o.partnerAirlines && o.partnerAirlines.length > 0
             ? `<div class="status-line" style="margin:2px 0 0;">Aceita em: ${escapeHtml(o.partnerAirlines.join(', '))}</div>`
             : '';
-        const programCell = `<td data-label="Programa">${i === 0 ? '🏆 ' : ''}${programLabel}${partnersLine}</td>`;
+        // Achado real: Travelpayouts (/v2/prices/latest) é cache, não busca
+        // ao vivo — sem aviso nenhum, um preço desatualizado aparecia igual
+        // a um preço confirmado, o que já causou confusão real (preço em
+        // cache bem mais barato que o preço ao vivo pra mesma rota).
+        const cachedPriceNote = o.isCachedPrice
+          ? `<div class="status-line" style="margin-top:2px;">⚠️ Preço de referência em cache. Pode não estar mais disponível. Confirme no link antes de comprar.</div>`
+          : '';
+        const programCell = `<td data-label="Programa">${i === 0 ? '🏆 ' : ''}${programLabel}${partnersLine}${cachedPriceNote}</td>`;
         const destinationCell = showDestinationColumn ? `<td data-label="Destino">${escapeHtml(o.destinationLabel || o.destination || '-')}</td>` : '';
         const dateCell = showDateColumn
           ? `<td data-label="Data">${formatDateBR(o.departDate)}${o.returnDate ? ` → ${formatDateBR(o.returnDate)}` : ''}</td>`
@@ -1084,7 +1098,7 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
     } else {
       const bestDealHtml =
         result.bestDeal
-          ? `<div class="best-deal">🏆 <b>Menor preço encontrado: ${formatBRL(result.bestDeal.priceBRL)}${
+          ? `<div class="best-deal">🏆 <b>${result.bestDeal.isCachedPrice ? 'Menor preço observado' : 'Menor preço encontrado'}: ${formatBRL(result.bestDeal.priceBRL)}${
               result.bestDeal.priceBRLTotal != null ? ` (${formatBRL(result.bestDeal.priceBRLTotal)} total pra ${result.passengers} passageiros)` : ''
             }</b>${
               result.bestDeal.isNewLow ? ' <span style="color: var(--success-text); font-weight: bold;">🎉 Novo mínimo histórico nessa rota!</span>' : ''
@@ -1097,6 +1111,10 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
                 ? ` — data: <b>${formatDateBR(result.bestDeal.departDate)}${
                     result.bestDeal.returnDate ? ` → ${formatDateBR(result.bestDeal.returnDate)}` : ''
                   }</b>`
+                : ''
+            }${
+              result.bestDeal.isCachedPrice
+                ? `<div class="status-line" style="margin-top:4px;">⚠️ Preço de referência em cache. Pode não estar mais disponível. Confirme no link antes de comprar.</div>`
                 : ''
             }</div>`
           : '';

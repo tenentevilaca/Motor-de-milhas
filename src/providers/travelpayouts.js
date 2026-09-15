@@ -82,6 +82,19 @@ async function search({ origin, destination, departDate, returnDate }) {
       stops: offer.number_of_changes ?? 0,
       isHiddenCity: false,
       deepLink: null,
+      // Achado real (usuário reportou R$2.004 numa rota onde o Google
+      // Flights ao vivo mostrava R$3.343+): esse endpoint é cache, não
+      // busca ao vivo — mas o código nunca lia os campos que a própria API
+      // já devolve pra sinalizar isso (`found_at` = quando esse preço foi
+      // observado, `actual` = se o Travelpayouts ainda considera o preço
+      // válido). Sem isso, um preço velho/desatualizado aparecia igual a
+      // um preço ao vivo, sem nenhuma pista pro usuário de que podia não
+      // estar mais disponível.
+      isCachedPrice: true,
+      priceType: 'cached_reference',
+      priceDisclaimer: 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.',
+      observedAt: offer.found_at || null,
+      actual: offer.actual ?? null,
       source: 'Travelpayouts (dados reais, cache recente)',
     }))
     .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);
@@ -102,6 +115,17 @@ async function search({ origin, destination, departDate, returnDate }) {
   // no comparador de rotas do front-end) resolve isso.
   const gfQuery = `Flights from ${origin} to ${destination} on ${departDate}` + (returnDate ? ` through ${returnDate}` : '');
   const manualCheckUrl = `https://www.google.com/travel/flights?q=${encodeURIComponent(gfQuery)}`;
+
+  // Log de diagnóstico seguro: só provider/rota/datas/quantidade de
+  // ofertas/menor preço — nunca token, header, URL com chave ou resposta
+  // bruta completa. Pedido explícito de investigação (preço em cache
+  // divergindo muito do preço ao vivo) — sem log nenhum de resumo, não dava
+  // pra confirmar no Render qual data/preço essa fonte realmente devolveu
+  // pra uma busca específica sem reproduzir o problema de novo.
+  const cheapest = offers.length > 0 ? Math.min(...offers.map((o) => o.priceBRL)) : null;
+  console.log(
+    `[CASH_TRAVELPAYOUTS] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ofertas=${offers.length} menor_preco=${cheapest ?? '-'}`
+  );
 
   return { status: 'ok', message: null, offers, manualCheckUrl };
 }

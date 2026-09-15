@@ -170,3 +170,78 @@ test('itens existem mas nenhum sobrevive ao parsing de preço: loga as chaves do
     `logs: ${JSON.stringify(errorLines)}`
   );
 });
+
+// Achado real: usuário reportou Travelpayouts (cache) mostrando R$2.004
+// numa rota onde o Google Flights ao vivo mostrava R$3.343+ — o código
+// nunca lia found_at/actual (que a própria API já devolve pra sinalizar
+// preço desatualizado), então um preço velho aparecia igual a um preço
+// confirmado, sem nenhum aviso. Toda oferta dessa fonte precisa vir
+// marcada como referência de cache, nunca como preço confirmado.
+test('toda oferta vem marcada como cached_reference, com observedAt/actual extraídos de found_at/actual da API', async () => {
+  process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
+  try {
+    await withMockedGet(
+      { data: { data: [{ value: 2004, number_of_changes: 0, found_at: '2026-08-01T10:00:00', actual: false }] } },
+      async () => {
+        const result = await provider.search({ origin: 'GRU', destination: 'CUN', departDate: '2026-12-06', returnDate: '2026-12-13' });
+        const offer = result.offers[0];
+        assert.equal(offer.isCachedPrice, true);
+        assert.equal(offer.priceType, 'cached_reference');
+        assert.equal(offer.priceDisclaimer, 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.');
+        assert.equal(offer.observedAt, '2026-08-01T10:00:00');
+        assert.equal(offer.actual, false);
+      }
+    );
+  } finally {
+    delete process.env.TRAVELPAYOUTS_TOKEN;
+  }
+});
+
+test('observedAt/actual ficam null quando a API não devolve found_at/actual nesse item', async () => {
+  process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
+  try {
+    await withMockedGet({ data: { data: [{ value: 1500, number_of_changes: 0 }] } }, async () => {
+      const result = await provider.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-12-08', returnDate: null });
+      assert.equal(result.offers[0].observedAt, null);
+      assert.equal(result.offers[0].actual, null);
+    });
+  } finally {
+    delete process.env.TRAVELPAYOUTS_TOKEN;
+  }
+});
+
+// Item pedido explicitamente: o link dessa fonte não pode ser tratado como
+// confirmação do mesmo voo — deepLink continua sempre ausente (a oferta só
+// tem manualCheckUrl, um link genérico de busca no Google Flights, nunca
+// um link pra um voo/preço específico).
+test('nunca tem deepLink — só manualCheckUrl (link genérico de conferência, não de reserva do voo específico)', async () => {
+  process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
+  try {
+    await withMockedGet({ data: { data: [{ value: 2004, number_of_changes: 0 }] } }, async () => {
+      const result = await provider.search({ origin: 'GRU', destination: 'CUN', departDate: '2026-12-06', returnDate: '2026-12-13' });
+      assert.equal(result.offers[0].deepLink, null);
+      assert.ok(result.manualCheckUrl.startsWith('https://www.google.com/travel/flights?q='));
+    });
+  } finally {
+    delete process.env.TRAVELPAYOUTS_TOKEN;
+  }
+});
+
+test('loga resumo seguro (rota/datas/quantidade/menor preço) sem token nem resposta bruta', async () => {
+  process.env.TRAVELPAYOUTS_TOKEN = 'test-token-secreto-nao-pode-vazar';
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    await withMockedGet({ data: { data: [{ value: 2004, number_of_changes: 0 }] } }, async () => {
+      await provider.search({ origin: 'GRU', destination: 'CUN', departDate: '2026-12-06', returnDate: '2026-12-13' });
+    });
+  } finally {
+    console.log = originalLog;
+    delete process.env.TRAVELPAYOUTS_TOKEN;
+  }
+  const summaryLine = logLines.find((l) => l.includes('[CASH_TRAVELPAYOUTS]') && l.includes('GRU->CUN'));
+  assert.ok(summaryLine, `esperava log de resumo da busca, veio: ${JSON.stringify(logLines)}`);
+  assert.ok(summaryLine.includes('ofertas=1') && summaryLine.includes('menor_preco=2004'));
+  assert.ok(!logLines.some((l) => l.includes('test-token-secreto-nao-pode-vazar')), 'token não pode aparecer em log nenhum');
+});

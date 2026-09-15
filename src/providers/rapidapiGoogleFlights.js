@@ -134,6 +134,15 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
     );
   }
 
+  // Log de diagnóstico seguro (mesmo padrão do Travelpayouts): só
+  // provider/rota/datas/quantidade de ofertas/menor preço — nunca a chave
+  // (que só vai no header da requisição, nunca logada) nem a resposta
+  // bruta completa.
+  const cheapest = offers.length > 0 ? Math.min(...offers.map((o) => o.priceBRL)) : null;
+  console.log(
+    `[CASH_RAPIDAPI_GFLIGHTS] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ofertas=${offers.length} menor_preco=${cheapest ?? '-'}`
+  );
+
   return { status: 'ok', message: null, offers };
 }
 

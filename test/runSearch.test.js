@@ -506,3 +506,81 @@ test('zeroOffersReason: fontes configuradas respondem ok mas sem oferta -> "sem_
   const result = await runSearch(search);
   assert.equal(result.zeroOffersReason?.code, 'sem_cobertura');
 });
+
+// Achado real: Travelpayouts (cache) mostrou R$2.004 pra GRU-CUN enquanto o
+// Google Flights ao vivo (RapidAPI) mostrava R$3.343+ na mesma busca —
+// mostrar o preço em cache como "melhor preço encontrado" confundia, mesmo
+// havendo uma fonte ao vivo disponível. bestDeal precisa preferir a oferta
+// ao vivo mais barata, mesmo quando o cache é mais barato ainda.
+test('bestDeal prefere a oferta AO VIVO (RapidAPI) mesmo quando o Travelpayouts (cache) é mais barato', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [
+      {
+        program: 'CASH_TRAVELPAYOUTS',
+        priceBRL: 2004,
+        milesRequired: null,
+        taxesBRL: null,
+        stops: 0,
+        isHiddenCity: false,
+        deepLink: null,
+        isCachedPrice: true,
+        priceType: 'cached_reference',
+        priceDisclaimer: 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.',
+        observedAt: null,
+        actual: null,
+        source: 'stub',
+      },
+    ],
+  });
+  providers.ALL_PROVIDERS.CASH_RAPIDAPI_GFLIGHTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_RAPIDAPI_GFLIGHTS', priceBRL: 3343, milesRequired: null, taxesBRL: null, stops: 1, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+
+  const search = db.createSearch({ origin: 'GRU', destination: 'CUN', departDate: '2026-12-06', returnDate: '2026-12-13' });
+  const result = await runSearch(search);
+
+  assert.equal(result.bestDeal.program, 'CASH_RAPIDAPI_GFLIGHTS', 'deveria preferir a fonte ao vivo mesmo custando mais que o cache');
+  assert.equal(result.bestDeal.priceBRL, 3343);
+  assert.equal(result.bestDeal.isCachedPrice, false);
+  assert.equal(result.bestDeal.priceDisclaimer, null);
+
+  // O Travelpayouts continua na tabela como referência — só não vira o
+  // banner de destaque sozinho.
+  assert.ok(result.allOffersSorted.some((o) => o.program === 'CASH_TRAVELPAYOUTS' && o.priceBRL === 2004));
+});
+
+test('bestDeal cai pro Travelpayouts (cache) e vem marcado isCachedPrice quando não há nenhuma fonte ao vivo', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [
+      {
+        program: 'CASH_TRAVELPAYOUTS',
+        priceBRL: 2004,
+        milesRequired: null,
+        taxesBRL: null,
+        stops: 0,
+        isHiddenCity: false,
+        deepLink: null,
+        isCachedPrice: true,
+        priceType: 'cached_reference',
+        priceDisclaimer: 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.',
+        observedAt: null,
+        actual: null,
+        source: 'stub',
+      },
+    ],
+  });
+
+  const search = db.createSearch({ origin: 'GRU', destination: 'CUN', departDate: '2026-12-06', returnDate: '2026-12-13' });
+  const result = await runSearch(search);
+
+  assert.equal(result.bestDeal.program, 'CASH_TRAVELPAYOUTS');
+  assert.equal(result.bestDeal.isCachedPrice, true);
+  assert.equal(result.bestDeal.priceDisclaimer, 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.');
+});

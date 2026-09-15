@@ -501,7 +501,18 @@ async function runSearch(search) {
       return (a.milesRequired ?? Infinity) - (b.milesRequired ?? Infinity);
     });
 
-  const cheapestCashOffer = allOffersSorted.find((o) => Number.isFinite(o.priceBRL));
+  // Achado real (usuário reportou Travelpayouts em cache mostrando R$2.004
+  // enquanto o Google Flights ao vivo mostrava R$3.343+ pra mesma rota):
+  // Travelpayouts (/v2/prices/latest) é cache, não confirma que o preço
+  // ainda está disponível — mostrá-lo como "menor preço encontrado" mesmo
+  // quando existe uma fonte AO VIVO (Google Flights via RapidAPI) confunde.
+  // Entre as ofertas em dinheiro, prioriza a mais barata que NÃO seja de
+  // cache; só cai pro cache quando nenhuma fonte ao vivo achou preço nessa
+  // busca — o Travelpayouts continua aparecendo na tabela como referência
+  // (ver isCachedPrice/priceDisclaimer em travelpayouts.js), só não vira o
+  // banner de destaque sozinho quando há algo mais confiável.
+  const liveCashOffer = allOffersSorted.find((o) => Number.isFinite(o.priceBRL) && !o.isCachedPrice);
+  const cheapestCashOffer = liveCashOffer || allOffersSorted.find((o) => Number.isFinite(o.priceBRL));
 
   // Busca por região consulta vários destinos (hubs), e flexibilidade de
   // datas testa várias datas — o menor preço em dinheiro de UM
@@ -569,6 +580,8 @@ async function runSearch(search) {
         departDate: cheapestCashOffer.departDate,
         returnDate: cheapestCashOffer.returnDate,
         isNewLow: Boolean(cheapestCashOffer.isNewLow),
+        isCachedPrice: Boolean(cheapestCashOffer.isCachedPrice),
+        priceDisclaimer: cheapestCashOffer.priceDisclaimer || null,
       }
     : null;
   const cheapestSplit = splitSuggestions.reduce(
