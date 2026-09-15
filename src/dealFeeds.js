@@ -75,14 +75,34 @@ for (const [alias, englishName] of Object.entries(cityAliases)) {
   englishCityToPortugueseAliases.get(key).push(alias);
 }
 
-// Um post "menciona" a busca se cidade OU país de origem/destino aparecem no
-// título ou resumo. Heurística simples, mas suficiente pra filtrar o volume
-// de posts que não têm nada a ver com a rota do usuário.
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Achado real (falso positivo reportado em produção): comparação por
+// substring simples (`.includes`) deixa passar match dentro de outra
+// palavra — ex: destino "Cuba" bateria com "Cubatão" no meio de um texto
+// sem relação nenhuma com Cuba. `\b` garante que o termo aparece como
+// palavra (ou frase, pra cidades com mais de uma palavra) isolada.
+function containsWholeWord(haystack, term) {
+  if (!term) return false;
+  const normalizedTerm = normalize(term);
+  if (!normalizedTerm) return false;
+  return new RegExp(`\\b${escapeRegex(normalizedTerm)}\\b`).test(haystack);
+}
+
+// Um post "menciona" a busca se cidade, país OU código IATA do lugar
+// aparecem no TÍTULO — nunca no resumo/contentSnippet. Achado real (falso
+// positivo reportado em produção): o resumo do RSS às vezes traz texto
+// agregado e links de recomendação de OUTRAS matérias do blog (ex: um post
+// sobre Belo Horizonte, ANAC ou salas VIP citando Cancún de passagem no
+// resumo, sem o post ter relação nenhuma com Cancún) — o título continua
+// sendo o único sinal confiável de que o post É sobre aquele lugar.
 function postMatchesPlace(post, place) {
-  const haystack = normalize(`${post.title} ${post.summary}`);
-  const terms = [place.city, place.country];
+  const haystack = normalize(post.title || '');
+  const terms = [place.city, place.country, place.iata];
   if (place.city) terms.push(...(englishCityToPortugueseAliases.get(normalize(place.city)) || []));
-  return terms.some((term) => term && haystack.includes(normalize(term)));
+  return terms.some((term) => containsWholeWord(haystack, term));
 }
 
 module.exports = { fetchAllPosts, postMatchesPlace, getFeeds, DEFAULT_FEEDS };

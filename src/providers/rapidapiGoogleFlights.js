@@ -117,6 +117,12 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
       // sempre pra essa fonte) — nomes alternativos custam nada testar.
       airline: offer.airline || null,
       flightNumber: offer.flight_number ?? offer.flightNumber ?? offer.flightNo ?? null,
+      // Fonte ao vivo de verdade (busca na hora, não cache) — só marcado
+      // isLive:true/priceType:'live' quando a oferta realmente sobreviveu
+      // ao parsing de preço (ver .filter() abaixo), nunca de antemão.
+      isCachedPrice: false,
+      isLive: true,
+      priceType: 'live',
       source: `Google Flights via RapidAPI (${offer.airline || 'dados reais'})`,
     }))
     .filter((o) => Number.isFinite(o.priceBRL) && o.priceBRL > 0);
@@ -140,7 +146,7 @@ async function search({ origin, destination, departDate, returnDate, allowStopov
   // bruta completa.
   const cheapest = offers.length > 0 ? Math.min(...offers.map((o) => o.priceBRL)) : null;
   console.log(
-    `[CASH_RAPIDAPI_GFLIGHTS] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ofertas=${offers.length} menor_preco=${cheapest ?? '-'}`
+    `[CASH_RAPIDAPI_GFLIGHTS] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ofertas=${offers.length} menor_preco=${cheapest ?? '-'} isLive=${offers.length > 0} isCachedPrice=false`
   );
 
   return { status: 'ok', message: null, offers };

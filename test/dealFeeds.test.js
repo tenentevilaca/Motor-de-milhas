@@ -107,7 +107,7 @@ test('postMatchesPlace: não bate quando nem cidade nem país aparecem no post',
 test('postMatchesPlace: post em português bate com cidade cujo nome na base está em inglês (Lisboa/Lisbon, Londres/London, Nova York/New York)', () => {
   assert.equal(dealFeeds.postMatchesPlace({ title: 'Promoção pra Lisboa', summary: '' }, { city: 'Lisbon', country: 'Portugal' }), true);
   assert.equal(dealFeeds.postMatchesPlace({ title: 'Passagem pra Londres em conta', summary: '' }, { city: 'London', country: 'United Kingdom' }), true);
-  assert.equal(dealFeeds.postMatchesPlace({ title: '', summary: 'Vai pra Nova York com milhas' }, { city: 'New York', country: 'United States' }), true);
+  assert.equal(dealFeeds.postMatchesPlace({ title: 'Vai pra Nova York com milhas', summary: '' }, { city: 'New York', country: 'United States' }), true);
 });
 
 test('postMatchesPlace: cidade sem alias em português continua funcionando pelo nome em inglês (regressão)', () => {
@@ -135,4 +135,62 @@ test('promoção cujo título menciona Cancun continua relacionada', () => {
   );
 
   assert.equal(matches.length, 1);
+});
+
+// Conjunto de testes pedido explicitamente pelo usuário após o falso
+// positivo em produção (GRU->CUN mostrando posts sobre Belo Horizonte,
+// Madrid, ANAC, iPhone, salas VIP). Cobre título/resumo, origem sem
+// destino, palavra dentro de outra palavra, e busca por região.
+test('menção ao destino somente no resumo (não no título) não relaciona o post', () => {
+  const matches = findMatchesForSearch(
+    { origin: 'GRU', destination: 'CUN' },
+    [post('10 dicas de bagagem de mão', 'Confira também nossa cobertura sobre Cancún e outras praias.')]
+  );
+  assert.equal(matches.length, 0);
+});
+
+test('destino no título relaciona o post (cidade, país ou código IATA)', () => {
+  assert.equal(findMatchesForSearch({ origin: 'GRU', destination: 'CUN' }, [post('Passagem pra Cancún em conta')]).length, 1);
+  assert.equal(findMatchesForSearch({ origin: 'GRU', destination: 'CUN' }, [post('Promoção pra México, saindo de vários lugares')]).length, 1);
+  assert.equal(findMatchesForSearch({ origin: 'GRU', destination: 'CUN' }, [post('Passagens CUN a partir de R$1.200')]).length, 1);
+});
+
+// Achado real: a checagem de match também considerava a ORIGEM da busca
+// (não só o destino), sem passar pelo mesmo filtro — um post sobre ANAC,
+// salas VIP ou iPhone que citasse "São Paulo" de passagem "batia" com
+// QUALQUER busca saindo de GRU/CGH, não importa o destino. A origem não
+// entra mais como critério de match — só o destino define a relação.
+test('origem no título, sem destino, não relaciona o post', () => {
+  const matches = findMatchesForSearch(
+    { origin: 'GRU', destination: 'CUN' },
+    [post('ANAC libera novas regras de bagagem para voos saindo de São Paulo')]
+  );
+  assert.equal(matches.length, 0);
+});
+
+test('cidade dentro de outra palavra não relaciona (comparação por palavra inteira)', () => {
+  // "Cubatão" contém "cuba" como substring, mas não é a cidade "Cuba" —
+  // sem \b isso "bateria" incorretamente com destino Havana/Cuba.
+  const matches = findMatchesForSearch(
+    { origin: 'GRU', destination: 'HAV' },
+    [post('Roteiro de fim de semana em Cubatão, litoral de São Paulo')]
+  );
+  assert.equal(matches.length, 0);
+});
+
+test('busca por região continua funcionando de forma coerente (só título, qualquer país do continente)', () => {
+  const regionMatches = findMatchesForSearch(
+    { origin: 'GRU', destination: 'REGION:EU' },
+    [
+      post('Roteiro de 10 dias por Portugal'),
+      post('Dicas de bagagem de mão'),
+      post('Fique de olho: essa cobertura vai te surpreender', 'Título genérico, resumo cita Portugal de passagem'),
+    ]
+  );
+  // Só o 1º: título menciona um país europeu de verdade (região casa por
+  // país, não por cidade — mesmo critério de antes desta correção). O 2º
+  // não menciona nenhum país europeu. O 3º só cita Portugal no resumo, não
+  // no título — não deve contar (mesma regra title-only).
+  assert.equal(regionMatches.length, 1);
+  assert.equal(regionMatches[0].title, 'Roteiro de 10 dias por Portugal');
 });

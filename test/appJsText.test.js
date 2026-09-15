@@ -11,10 +11,21 @@ const path = require('path');
 // regredir silenciosamente se alguém reformatar a string.
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
 
-test('banner de melhor preço usa "Menor preço observado" quando a oferta é de cache (isCachedPrice)', () => {
-  assert.ok(appJs.includes('Menor preço observado'), 'texto "Menor preço observado" não encontrado em public/app.js');
-  assert.ok(appJs.includes('Menor preço encontrado'), 'texto "Menor preço encontrado" (caso não-cache) não encontrado em public/app.js');
-  assert.match(appJs, /result\.bestDeal\.isCachedPrice\s*\?\s*'Menor preço observado'\s*:\s*'Menor preço encontrado'/);
+// REVISADO (auditoria Travelpayouts vs Google Flights Live): não existe
+// mais UM "melhor achado" que alterna texto por isCachedPrice — agora são
+// dois banners sempre separados: "Menor preço atual confirmado" (fonte ao
+// vivo, result.bestLiveCashDeal) e "Menor preço observado em cache"
+// (Travelpayouts, result.bestCachedCashDeal). Item 10 do pedido: o texto
+// muda por FONTE, não por um ternário genérico.
+test('banner "Menor preço atual confirmado" (ao vivo) e "Menor preço observado em cache" aparecem como textos separados', () => {
+  assert.ok(appJs.includes('Menor preço atual confirmado'), 'texto do banner de preço ao vivo não encontrado');
+  assert.ok(appJs.includes('Menor preço observado em cache'), 'texto do banner de preço em cache não encontrado');
+  assert.match(appJs, /result\.bestLiveCashDeal/);
+  assert.match(appJs, /result\.bestCachedCashDeal/);
+});
+
+test('sem preço ao vivo confirmado, mostra aviso explícito em vez de tratar o cache como confirmado', () => {
+  assert.ok(appJs.includes('Nenhum preço ao vivo confirmado nesta busca'));
 });
 
 test('aviso "Preço de referência em cache" e alerta de confirmar antes de comprar aparecem no app.js', () => {
@@ -29,10 +40,18 @@ test('link de oferta em cache é descrito como conferência de rota/data, não c
   );
 });
 
+// Item 3 do pedido do usuário: link de oferta em cache (sem deepLink
+// próprio) precisa ser rotulado como conferência, nunca como o código cru
+// do provider (ex: "CASH_TRAVELPAYOUTS", que não diz nada pro usuário).
+test('link de oferta em cache é rotulado "Conferir preço atual no Google Flights", não o código cru do provider', () => {
+  assert.ok(appJs.includes('Conferir preço atual no Google Flights'));
+  assert.match(appJs, /o\.isCachedPrice && !o\.deepLink \? 'Conferir preço atual no Google Flights'/);
+});
+
 // Item 7 do pedido do usuário: "Operado por" separado de "Emitido com",
 // parceiras só quando concretas, e indicação de fonte ao vivo/cache/própria.
 test('"Emitido com" usa o.loyaltyProgram (nome completo do programa) com fallback pro código curto', () => {
-  assert.match(appJs, /const issuedWithText = o\.loyaltyProgram \|\| o\.program;/);
+  assert.match(appJs, /o\.loyaltyProgram \|\| o\.program/);
 });
 
 test('"Operado por" só aparece quando o.operatingAirline vem preenchido pela API (AA/Azul nunca preenchem esse campo — só Smiles)', () => {

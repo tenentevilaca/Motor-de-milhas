@@ -91,6 +91,7 @@ async function search({ origin, destination, departDate, returnDate }) {
       // um preço ao vivo, sem nenhuma pista pro usuário de que podia não
       // estar mais disponível.
       isCachedPrice: true,
+      isLive: false,
       priceType: 'cached_reference',
       priceDisclaimer: 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.',
       observedAt: offer.found_at || null,
@@ -124,7 +125,7 @@ async function search({ origin, destination, departDate, returnDate }) {
   // pra uma busca específica sem reproduzir o problema de novo.
   const cheapest = offers.length > 0 ? Math.min(...offers.map((o) => o.priceBRL)) : null;
   console.log(
-    `[CASH_TRAVELPAYOUTS] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ofertas=${offers.length} menor_preco=${cheapest ?? '-'}`
+    `[CASH_TRAVELPAYOUTS] busca ${origin}->${destination} ${departDate}${returnDate ? `/${returnDate}` : ''}: status=ok ofertas=${offers.length} menor_preco=${cheapest ?? '-'} isLive=false isCachedPrice=true`
   );
 
   return { status: 'ok', message: null, offers, manualCheckUrl };

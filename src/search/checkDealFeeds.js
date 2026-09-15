@@ -26,28 +26,26 @@ function buildEmailHtml(search, posts) {
 
 // Busca por região não tem um único aeroporto de destino — considera match
 // se o post mencionar QUALQUER país daquele continente (ex: destino "Europa"
-// casa com um post sobre promoção pra Portugal, França, etc).
-// Achado real (falso positivo reportado): o resumo do RSS às vezes traz
-// texto agregado/recomendações de outras matérias — um post sobre Belo
-// Horizonte podia "bater" com uma busca pra Cancún só porque o resumo
-// mencionava Cancún de passagem, sem o post ser sobre isso. Usa só o
-// título pra decidir relação com a rota (o resumo continua indo pro
-// e-mail/WhatsApp do alerta, só não entra no critério de match).
+// casa com um post sobre promoção pra Portugal, França, etc). postMatchesPlace
+// já olha só o título (não o resumo) — ver dealFeeds.js.
 function postMatchesRegion(post, regionCode) {
-  return REGIONS[regionCode].countries.some((country) =>
-    postMatchesPlace({ ...post, summary: '' }, { country })
-  );
+  return REGIONS[regionCode].countries.some((country) => postMatchesPlace(post, { country }));
 }
 
+// Achado real (falso positivo reportado em produção): esta função também
+// considerava match quando o post mencionava só a ORIGEM da busca (ex:
+// "São Paulo") em QUALQUER lugar — título ou resumo, já que essa checagem
+// não passava pelo mesmo filtro de destino. Posts sem relação nenhuma com
+// a rota (sobre ANAC, salas VIP, iPhone) citavam a origem de passagem e
+// "batiam" com toda busca saindo dali, não importa o destino. A relação
+// de um post com uma busca é definida pelo DESTINO (cidade/país/código
+// IATA no título) — a origem não entra mais como critério de match sozinha.
 function findMatchesForSearch(search, posts) {
-  const originAirport = getAirportByIata(search.origin);
   const regionCode = regionCodeFromValue(search.destination);
   const destAirport = regionCode ? null : getAirportByIata(search.destination);
   return posts.filter(
     (post) =>
-      (destAirport && postMatchesPlace({ ...post, summary: '' }, destAirport)) ||
-      (regionCode && postMatchesRegion(post, regionCode)) ||
-      (originAirport && postMatchesPlace(post, originAirport))
+      (destAirport && postMatchesPlace(post, destAirport)) || (regionCode && postMatchesRegion(post, regionCode))
   );
 }
 

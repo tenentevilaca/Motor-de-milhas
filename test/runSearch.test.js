@@ -583,4 +583,122 @@ test('bestDeal cai pro Travelpayouts (cache) e vem marcado isCachedPrice quando 
   assert.equal(result.bestDeal.program, 'CASH_TRAVELPAYOUTS');
   assert.equal(result.bestDeal.isCachedPrice, true);
   assert.equal(result.bestDeal.priceDisclaimer, 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.');
+
+  // Item pedido explicitamente na auditoria: ausência de preço ao vivo não
+  // pode ser tratada como confirmação do cache — bestLiveCashDeal fica
+  // null (não vira o preço do Travelpayouts por omissão), e
+  // bestCachedCashDeal continua disponível separadamente como referência.
+  assert.equal(result.bestLiveCashDeal, null, 'sem fonte ao vivo configurada, bestLiveCashDeal não pode existir');
+  assert.equal(result.bestCachedCashDeal.program, 'CASH_TRAVELPAYOUTS');
+  assert.equal(result.bestCachedCashDeal.priceBRL, 2004);
+  assert.equal(result.bestCachedCashDeal.isCachedPrice, true);
+});
+
+// Item 11 do pedido de auditoria: os dois providers retornando preços
+// diferentes precisam aparecer como dois valores SEPARADOS no resultado
+// (bestLiveCashDeal / bestCachedCashDeal), não só um "bestDeal" que
+// escolhe um dos dois.
+test('bestLiveCashDeal e bestCachedCashDeal vêm preenchidos separadamente quando Travelpayouts e RapidAPI retornam preços diferentes', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [
+      {
+        program: 'CASH_TRAVELPAYOUTS',
+        priceBRL: 2004,
+        milesRequired: null,
+        taxesBRL: null,
+        stops: 0,
+        isHiddenCity: false,
+        deepLink: null,
+        isCachedPrice: true,
+        isLive: false,
+        priceType: 'cached_reference',
+        priceDisclaimer: 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.',
+        source: 'stub',
+      },
+    ],
+  });
+  providers.ALL_PROVIDERS.CASH_RAPIDAPI_GFLIGHTS.search = async () => ({
+    status: 'ok',
+    offers: [
+      {
+        program: 'CASH_RAPIDAPI_GFLIGHTS',
+        priceBRL: 3343,
+        milesRequired: null,
+        taxesBRL: null,
+        stops: 1,
+        isHiddenCity: false,
+        deepLink: null,
+        isCachedPrice: false,
+        isLive: true,
+        priceType: 'live',
+        source: 'stub',
+      },
+    ],
+  });
+
+  const search = db.createSearch({ origin: 'GRU', destination: 'CUN', departDate: '2026-12-06', returnDate: '2026-12-13' });
+  const result = await runSearch(search);
+
+  assert.equal(result.bestLiveCashDeal.program, 'CASH_RAPIDAPI_GFLIGHTS');
+  assert.equal(result.bestLiveCashDeal.priceBRL, 3343);
+  assert.equal(result.bestLiveCashDeal.isCachedPrice, false);
+  assert.equal(result.bestCachedCashDeal.program, 'CASH_TRAVELPAYOUTS');
+  assert.equal(result.bestCachedCashDeal.priceBRL, 2004);
+  assert.equal(result.bestCachedCashDeal.isCachedPrice, true);
+});
+
+// Item 8 do pedido de auditoria: verificar que a comparação de -33% e o
+// detector de anomalia não tratam um preço antigo do Travelpayouts como
+// cotação atual. Preço em cache 60% abaixo da média histórica dispararia
+// "erro de tarifa" pra uma oferta ao vivo — pra uma oferta em cache, isso
+// não pode acontecer (é só um número desatualizado, não uma cotação nova).
+test('oferta em cache (isCachedPrice) nunca dispara erro de tarifa/novo mínimo/queda súbita, mesmo com preço muito abaixo do histórico', async () => {
+  clearCache();
+  stubAllNotConfigured();
+  // Destino exclusivo desse teste (não usado em outros testes deste
+  // arquivo) — o histórico é um arquivo compartilhado entre todos os
+  // testes do MESMO arquivo de teste (mesmo processo Node), então
+  // reaproveitar um destino já usado por outro teste contaminaria a média
+  // de 30 dias que este teste monta do zero.
+  // Constrói histórico normal (preços ao vivo, ~R$3300) pra essa rota+programa
+  // — mesmo padrão do teste de isNewLow acima: cada checagem precisa de um
+  // departDate distinto, senão o cache interno de runSearch (por rota+data)
+  // devolve o resultado da checagem anterior em vez de rodar o stub de novo.
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [{ program: 'CASH_TRAVELPAYOUTS', priceBRL: 3300, milesRequired: null, taxesBRL: null, stops: 0, isHiddenCity: false, deepLink: null, source: 'stub' }],
+  });
+  await runSearch(db.createSearch({ origin: 'GRU', destination: 'EZE', departDate: '2026-12-01' }));
+  await runSearch(db.createSearch({ origin: 'GRU', destination: 'EZE', departDate: '2026-12-08' }));
+  await runSearch(db.createSearch({ origin: 'GRU', destination: 'EZE', departDate: '2026-12-15' }));
+
+  // Agora simula um preço em CACHE (marcado isCachedPrice) bem abaixo do
+  // histórico — como o R$2.004 real reportado (~40% abaixo de R$3.343+).
+  providers.ALL_PROVIDERS.CASH_TRAVELPAYOUTS.search = async () => ({
+    status: 'ok',
+    offers: [
+      {
+        program: 'CASH_TRAVELPAYOUTS',
+        priceBRL: 1200,
+        milesRequired: null,
+        taxesBRL: null,
+        stops: 0,
+        isHiddenCity: false,
+        deepLink: null,
+        isCachedPrice: true,
+        isLive: false,
+        priceType: 'cached_reference',
+        source: 'stub',
+      },
+    ],
+  });
+  const result = await runSearch(db.createSearch({ origin: 'GRU', destination: 'EZE', departDate: '2026-12-22' }));
+  const offer = result.allOffersSorted.find((o) => o.program === 'CASH_TRAVELPAYOUTS');
+
+  assert.equal(offer.isNewLow, false, 'oferta em cache não pode ser anunciada como "novo mínimo histórico"');
+  assert.equal(offer.priceFairness, undefined, 'oferta em cache não recebe veredito de "Preço Justo" (comparação assume cotação ao vivo)');
+  assert.equal(result.alertCount, 0, 'oferta em cache não pode gerar alerta de erro de tarifa/queda súbita/preço bom');
 });

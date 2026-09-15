@@ -368,7 +368,19 @@ async function runSearch(search) {
   for (const r of results) {
     for (const offer of r.offers) {
       const baseline = db.getRouteBaseline(search.origin, r.destination, offer.program);
-      const evaluation = evaluateOffer(offer, baseline);
+      // Achado real (auditoria pedida pelo usuário, GRU->CUN R$2.004 em
+      // cache vs. R$3.343+ ao vivo no Google Flights): erro de
+      // tarifa/promoção relâmpago/"novo mínimo"/"queda súbita" são
+      // afirmações sobre uma cotação AO VIVO — um preço em cache
+      // (isCachedPrice) pode estar simplesmente desatualizado, não é uma
+      // cotação nova de verdade. Sem essa guarda, um preço velho do
+      // Travelpayouts podia disparar "erro de tarifa" ou "novo mínimo
+      // histórico" só por estar defasado, não porque alguém confirmou esse
+      // preço agora. Ofertas em cache nunca entram nessa análise.
+      const isLiveObservation = !offer.isCachedPrice;
+      const evaluation = isLiveObservation
+        ? evaluateOffer(offer, baseline)
+        : { isAnomaly: false, isFlashSale: false, reason: null };
       // "Novo mínimo histórico": só dá pra saber comparando com o baseline
       // buscado ANTES de gravar essa oferta no histórico (senão a oferta
       // se compararia com ela mesma depois de já estar salva, e Math.min
@@ -376,17 +388,19 @@ async function runSearch(search) {
       // false mesmo quando é de fato o novo recorde). Exige pelo menos 1
       // amostra anterior: a primeiríssima checagem de uma rota não é um
       // "recorde batido", é só o único dado que existe ainda.
-      offer.isNewLow = Boolean(baseline && Number.isFinite(offer.priceBRL) && offer.priceBRL < baseline.min);
+      offer.isNewLow = isLiveObservation && Boolean(baseline && Number.isFinite(offer.priceBRL) && offer.priceBRL < baseline.min);
 
       // "Preço Justo vs Histórico": compara com a média dos últimos 30 dias
       // pra essa rota+programa. Só faz sentido pra ofertas com preço em
-      // dinheiro — ofertas só-em-milhas (ex: Azul, e Smiles quando não há
-      // taxa em dinheiro) têm priceBRL null, e comparar null com uma média
-      // numérica produziria NaN e um veredito sem sentido. Também exige
-      // amostras suficientes (mesmo limiar do anomaly.js) pra não rotular
-      // "bom"/"ruim" com base num único ponto de dado.
+      // dinheiro AO VIVO — ofertas só-em-milhas (ex: Azul, e Smiles quando
+      // não há taxa em dinheiro) têm priceBRL null, e comparar null com uma
+      // média numérica produziria NaN e um veredito sem sentido; ofertas em
+      // cache (Travelpayouts) ficam de fora pelo mesmo motivo do parágrafo
+      // acima. Também exige amostras suficientes (mesmo limiar do
+      // anomaly.js) pra não rotular "bom"/"ruim" com base num único ponto
+      // de dado.
       let last30Days = [];
-      if (Number.isFinite(offer.priceBRL)) {
+      if (isLiveObservation && Number.isFinite(offer.priceBRL)) {
         last30Days = db.getHistoryForRoute(search.origin, r.destination).filter((h) => {
           const daysDiff = (Date.now() - new Date(h.checkedAt).getTime()) / (1000 * 60 * 60 * 24);
           return h.program === offer.program && h.priceBRL != null && daysDiff <= 30;
@@ -415,9 +429,19 @@ async function runSearch(search) {
         isNewLow: offer.isNewLow,
         isAnomaly: evaluation.isAnomaly,
         isFlashSale: evaluation.isFlashSale,
+        // Guardado pra permitir filtrar entradas de cache do histórico no
+        // futuro, se necessário — não muda o comportamento atual de
+        // getRouteBaseline/getHistoryForRoute (db.js), só documenta a
+        // origem de cada ponto.
+        isCachedPrice: Boolean(offer.isCachedPrice),
       });
 
-      const belowTarget = search.targetPrice != null && Number.isFinite(offer.priceBRL) && offer.priceBRL <= search.targetPrice;
+      // Alertas (erro de tarifa/preço-alvo/queda súbita/preço bom vs média)
+      // são todos sobre "isso é uma cotação real acontecendo agora" — uma
+      // oferta em cache nunca gera alerta desse tipo, só a confirmação em
+      // cache já mostrada na tabela (isCachedPrice/priceDisclaimer).
+      const belowTarget =
+        isLiveObservation && search.targetPrice != null && Number.isFinite(offer.priceBRL) && offer.priceBRL <= search.targetPrice;
       // Preço >=10% abaixo da média de 30 dias também merece alerta, mesmo
       // sem bater recorde histórico ou ultrapassar o limiar de erro de
       // tarifa do anomaly.js — é o mesmo dado que já aparece na coluna
@@ -436,7 +460,11 @@ async function runSearch(search) {
       // aviso mais importante de possível erro de tarifa.
       const mostRecentPrior = last30Days[last30Days.length - 1];
       const isSuddenDrop =
-        Number.isFinite(offer.priceBRL) && last30Days.length >= 3 && mostRecentPrior && offer.priceBRL < mostRecentPrior.priceBRL * 0.85;
+        isLiveObservation &&
+        Number.isFinite(offer.priceBRL) &&
+        last30Days.length >= 3 &&
+        mostRecentPrior &&
+        offer.priceBRL < mostRecentPrior.priceBRL * 0.85;
       const isPrimarySuddenDrop = isSuddenDrop && !evaluation.isAnomaly && !evaluation.isFlashSale;
 
       if (evaluation.isAnomaly || evaluation.isFlashSale || belowTarget || isGoodFairnessDeal || isSuddenDrop) {
@@ -567,23 +595,38 @@ async function runSearch(search) {
     }
   }
 
-  let bestDeal = cheapestCashOffer
-    ? {
-        type: 'offer',
-        priceBRL: cheapestCashOffer.priceBRL,
-        priceBRLTotal: cheapestCashOffer.priceBRLTotal ?? null,
-        program: cheapestCashOffer.program,
-        stops: cheapestCashOffer.stops,
-        destination: cheapestCashOffer.destination,
-        destinationLabel: cheapestCashOffer.destinationLabel,
-        milesRequired: cheapestCashOffer.milesRequired ?? null,
-        departDate: cheapestCashOffer.departDate,
-        returnDate: cheapestCashOffer.returnDate,
-        isNewLow: Boolean(cheapestCashOffer.isNewLow),
-        isCachedPrice: Boolean(cheapestCashOffer.isCachedPrice),
-        priceDisclaimer: cheapestCashOffer.priceDisclaimer || null,
-      }
-    : null;
+  function cashDealFromOffer(offer) {
+    if (!offer) return null;
+    return {
+      type: 'offer',
+      priceBRL: offer.priceBRL,
+      priceBRLTotal: offer.priceBRLTotal ?? null,
+      program: offer.program,
+      stops: offer.stops,
+      destination: offer.destination,
+      destinationLabel: offer.destinationLabel,
+      milesRequired: offer.milesRequired ?? null,
+      departDate: offer.departDate,
+      returnDate: offer.returnDate,
+      isNewLow: Boolean(offer.isNewLow),
+      isCachedPrice: Boolean(offer.isCachedPrice),
+      isLive: Boolean(offer.isLive),
+      priceDisclaimer: offer.priceDisclaimer || null,
+    };
+  }
+
+  let bestDeal = cashDealFromOffer(cheapestCashOffer);
+  // Item pedido explicitamente (auditoria Travelpayouts vs Google Flights
+  // Live): "menor preço atual confirmado" (fonte ao vivo) e "menor preço
+  // observado em cache" (Travelpayouts) são dois conceitos DIFERENTES —
+  // antes só existia bestDeal, que alternava entre os dois sem deixar
+  // explícito qual dos dois era. Agora os dois são sempre calculados
+  // separadamente (um dos dois pode vir null se essa fonte não achou
+  // preço), e o front decide como mostrar cada um.
+  const bestLiveCashDeal = cashDealFromOffer(liveCashOffer);
+  const bestCachedCashDeal = cashDealFromOffer(
+    allOffersSorted.find((o) => Number.isFinite(o.priceBRL) && o.isCachedPrice)
+  );
   const cheapestSplit = splitSuggestions.reduce(
     (min, s) => (min == null || s.splitPriceBRL < min.splitPriceBRL ? s : min),
     null
@@ -725,6 +768,8 @@ async function runSearch(search) {
     splitSuggestions,
     allOffersSorted,
     bestDeal,
+    bestLiveCashDeal,
+    bestCachedCashDeal,
     bestMilesDeal,
     notifications,
     flexDatesChecked: dateCombinations.length,

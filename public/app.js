@@ -1028,8 +1028,13 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
         // "Emitido com": nome completo do programa de milhas quando a fonte
         // informa (loyaltyProgram) — cai pro código curto (o.program, ex:
         // "AA") quando a fonte não tiver esse dado (ex: providers de
-        // dinheiro, integração própria via URL customizada).
-        const issuedWithText = o.loyaltyProgram || o.program;
+        // dinheiro, integração própria via URL customizada). Item pedido
+        // explicitamente: oferta em cache (sem deepLink próprio) nunca deve
+        // parecer um link de RESERVA daquele voo específico — o texto do
+        // link deixa isso explícito em vez de só o nome cru do provider
+        // (ex: "CASH_TRAVELPAYOUTS", que não diz nada pro usuário).
+        const issuedWithText =
+          o.isCachedPrice && !o.deepLink ? 'Conferir preço atual no Google Flights' : o.loyaltyProgram || o.program;
         const programLabel = link
           ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener"${linkTitle}>${escapeHtml(issuedWithText)}</a>`
           : escapeHtml(issuedWithText);
@@ -1134,28 +1139,43 @@ async function runNow(id, resultElId, metaElId, autoRetryCount = 0, isRegionSear
         de preço pra mostrar. Veja "Configurações" (link no topo) para ativar Travelpayouts, Google Flights (RapidAPI),
         Smiles, Azul, e-mail, WhatsApp ou Telegram.</div>`;
     } else {
-      const bestDealHtml =
-        result.bestDeal
-          ? `<div class="best-deal">🏆 <b>${result.bestDeal.isCachedPrice ? 'Menor preço observado' : 'Menor preço encontrado'}: ${formatBRL(result.bestDeal.priceBRL)}${
-              result.bestDeal.priceBRLTotal != null ? ` (${formatBRL(result.bestDeal.priceBRLTotal)} total pra ${result.passengers} passageiros)` : ''
-            }</b>${
-              result.bestDeal.isNewLow ? ' <span style="color: var(--success-text); font-weight: bold;">🎉 Novo mínimo histórico nessa rota!</span>' : ''
-            }${
-              result.bestDeal.type === 'split' ? ` (quebra de bilhete via ${result.bestDeal.program})` : ` via ${result.bestDeal.program}`
-            }${
-              result.bestDeal.destinationLabel && showDestinationColumn ? ` — destino: <b>${escapeHtml(result.bestDeal.destinationLabel)}</b>` : ''
-            }${
-              result.bestDeal.departDate && showDateColumn
-                ? ` — data: <b>${formatDateBR(result.bestDeal.departDate)}${
-                    result.bestDeal.returnDate ? ` → ${formatDateBR(result.bestDeal.returnDate)}` : ''
-                  }</b>`
-                : ''
-            }${
-              result.bestDeal.isCachedPrice
-                ? `<div class="status-line" style="margin-top:4px;">⚠️ Preço de referência em cache. Pode não estar mais disponível. Confirme no link antes de comprar.</div>`
-                : ''
-            }</div>`
+      // REVISADO (auditoria Travelpayouts vs Google Flights Live): "menor
+      // preço atual confirmado" (fonte ao vivo) e "menor preço observado em
+      // cache" (Travelpayouts) são dois conceitos DIFERENTES e agora sempre
+      // aparecem em linhas separadas — nunca um substitui o outro
+      // silenciosamente. Se não existe fonte ao vivo, isso fica dito
+      // explicitamente ("Nenhum preço ao vivo confirmado nesta busca") em
+      // vez de deixar o preço em cache parecer confirmado por omissão.
+      function dealMetaHtml(deal) {
+        return `${
+          deal.type === 'split' ? ` (quebra de bilhete via ${escapeHtml(deal.program)})` : ` via ${escapeHtml(deal.program)}`
+        }${
+          deal.destinationLabel && showDestinationColumn ? ` — destino: <b>${escapeHtml(deal.destinationLabel)}</b>` : ''
+        }${
+          deal.departDate && showDateColumn
+            ? ` — data: <b>${formatDateBR(deal.departDate)}${deal.returnDate ? ` → ${formatDateBR(deal.returnDate)}` : ''}</b>`
+            : ''
+        }`;
+      }
+      const liveDealHtml = result.bestLiveCashDeal
+        ? `<div class="best-deal">🏆 <b>Menor preço atual confirmado: ${formatBRL(result.bestLiveCashDeal.priceBRL)}${
+            result.bestLiveCashDeal.priceBRLTotal != null
+              ? ` (${formatBRL(result.bestLiveCashDeal.priceBRLTotal)} total pra ${result.passengers} passageiros)`
+              : ''
+          }</b>${
+            result.bestLiveCashDeal.isNewLow ? ' <span style="color: var(--success-text); font-weight: bold;">🎉 Novo mínimo histórico nessa rota!</span>' : ''
+          }${dealMetaHtml(result.bestLiveCashDeal)}</div>`
+        : result.bestCachedCashDeal
+          ? `<div class="status-line">Nenhum preço ao vivo confirmado nesta busca — veja o preço de referência em cache abaixo.</div>`
           : '';
+      const cachedDealHtml = result.bestCachedCashDeal
+        ? `<div class="best-deal">📋 <b>Menor preço observado em cache: ${formatBRL(result.bestCachedCashDeal.priceBRL)}${
+            result.bestCachedCashDeal.priceBRLTotal != null
+              ? ` (${formatBRL(result.bestCachedCashDeal.priceBRLTotal)} total pra ${result.passengers} passageiros)`
+              : ''
+          }</b>${dealMetaHtml(result.bestCachedCashDeal)}<div class="status-line" style="margin-top:4px;">⚠️ Preço de referência em cache. Pode não estar mais disponível. Confirme no link antes de comprar.</div></div>`
+        : '';
+      const bestDealHtml = `${liveDealHtml}${cachedDealHtml}`;
       // Separado do "menor preço em dinheiro" de propósito — o voo mais
       // barato em dinheiro não é sempre o mais barato em milhas (comum na
       // Azul), e antes só existia UM "melhor achado" que sempre priorizava

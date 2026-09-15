@@ -186,6 +186,7 @@ test('toda oferta vem marcada como cached_reference, com observedAt/actual extra
         const result = await provider.search({ origin: 'GRU', destination: 'CUN', departDate: '2026-12-06', returnDate: '2026-12-13' });
         const offer = result.offers[0];
         assert.equal(offer.isCachedPrice, true);
+        assert.equal(offer.isLive, false);
         assert.equal(offer.priceType, 'cached_reference');
         assert.equal(offer.priceDisclaimer, 'Preço observado recentemente no cache do Travelpayouts; confirme o valor atual antes de comprar.');
         assert.equal(offer.observedAt, '2026-08-01T10:00:00');
@@ -243,5 +244,6 @@ test('loga resumo seguro (rota/datas/quantidade/menor preço) sem token nem resp
   const summaryLine = logLines.find((l) => l.includes('[CASH_TRAVELPAYOUTS]') && l.includes('GRU->CUN'));
   assert.ok(summaryLine, `esperava log de resumo da busca, veio: ${JSON.stringify(logLines)}`);
   assert.ok(summaryLine.includes('ofertas=1') && summaryLine.includes('menor_preco=2004'));
+  assert.ok(summaryLine.includes('isLive=false') && summaryLine.includes('isCachedPrice=true'));
   assert.ok(!logLines.some((l) => l.includes('test-token-secreto-nao-pode-vazar')), 'token não pode aparecer em log nenhum');
 });

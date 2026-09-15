@@ -32,6 +32,47 @@ test('expõe airline e flightNumber como campos próprios (não só dentro do te
   }
 });
 
+// Item 9 do pedido de auditoria (Travelpayouts vs Google Flights Live):
+// essa fonte busca ao vivo (diferente do Travelpayouts, que é cache) —
+// toda oferta que sobrevive ao parsing vem marcada isLive/priceType:'live',
+// nunca isCachedPrice.
+test('marca toda oferta como isLive=true/priceType="live"/isCachedPrice=false (fonte ao vivo, não cache)', async () => {
+  process.env.RAPIDAPI_KEY = 'test-key';
+  try {
+    await withMockedPost(
+      { data: [{ price_as_number: 500, stops: 0, airline: 'LATAM' }] },
+      async () => {
+        const result = await provider.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
+        const offer = result.offers[0];
+        assert.equal(offer.isLive, true);
+        assert.equal(offer.priceType, 'live');
+        assert.equal(offer.isCachedPrice, false);
+      }
+    );
+  } finally {
+    delete process.env.RAPIDAPI_KEY;
+  }
+});
+
+test('loga isLive na linha de resumo (diagnóstico seguro, sem token)', async () => {
+  process.env.RAPIDAPI_KEY = 'chave-secreta-nao-pode-vazar';
+  const originalLog = console.log;
+  const logLines = [];
+  console.log = (...args) => logLines.push(args.join(' '));
+  try {
+    await withMockedPost({ data: [{ price_as_number: 500, stops: 0 }] }, async () => {
+      await provider.search({ origin: 'GRU', destination: 'MIA', departDate: '2026-11-10', returnDate: null });
+    });
+  } finally {
+    console.log = originalLog;
+    delete process.env.RAPIDAPI_KEY;
+  }
+  const summaryLine = logLines.find((l) => l.includes('CASH_RAPIDAPI_GFLIGHTS') && l.includes('GRU->MIA'));
+  assert.ok(summaryLine, `logs: ${JSON.stringify(logLines)}`);
+  assert.ok(summaryLine.includes('isLive=true') && summaryLine.includes('isCachedPrice=false'));
+  assert.ok(!logLines.some((l) => l.includes('chave-secreta-nao-pode-vazar')));
+});
+
 test('inclui ofertas com conexão mesmo sem "Aceitar stopover" marcado — regressão real reportada pelo usuário', async () => {
   process.env.RAPIDAPI_KEY = 'test-key';
   try {
