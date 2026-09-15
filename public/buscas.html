@@ -42,6 +42,13 @@
 </header>
 
 <main class="container">
+  <div class="callout" style="border-color:#fde047; background:#fef9c3; color:#713f12;">
+    <b>⚠️ No plano grátis do Render, essas buscas e o histórico de preços podem ser perdidos a cada novo deploy</b>
+    (o disco não é persistente nesse plano — o mesmo vale pras chaves de API salvas em <a href="/settings.html">Configurações</a>).
+    Se uma busca salva "sumir" depois de uma atualização do site, é essa a causa mais provável, não um bug na busca em
+    si. Recriar a busca resolve, mas ela pode sumir de novo no próximo deploy — pra persistir de verdade, é preciso um
+    plano do Render com disco persistente.
+  </div>
   <section class="card">
     <div id="searchList" class="grid-cards">Carregando...</div>
   </section>
